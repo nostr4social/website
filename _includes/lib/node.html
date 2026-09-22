@@ -1,0 +1,18 @@
+{%- comment -%}
+One box in the architecture: icon, name, what it does, and the steps of the
+request flow it takes part in.
+{%- endcomment -%}
+{%- assign n = include.node -%}
+{%- capture tone %}icon--{{ n.tone | default: "rust" }}{% endcapture -%}
+<div class="node">
+  {% include lib/icon.html name=n.icon class=tone %}
+  <div class="node__text">
+    <div class="node__title">{{ n.title }}</div>
+    {%- if n.note %}<div class="node__note">{{ n.note }}</div>{% endif -%}
+  </div>
+  {%- if n.steps -%}
+  <div class="node__steps">
+    {%- for step in n.steps %}<span class="step">{{ step }}</span>{% endfor -%}
+  </div>
+  {%- endif -%}
+</div>

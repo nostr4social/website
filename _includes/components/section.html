@@ -4,7 +4,8 @@ here; `type` picks the include that renders its body.
 
   type   component name  → _includes/components/<type>.html   (required)
   id     anchor
-  band   ground | sunk | raised | glow      (default: ground)
+  band   ground | sunk | raised            (default: ground)
+  glow   left | right — the purple wash, on the side away from the copy
   tight  true → the 56px rhythm instead of 72px
   flush  true → no band padding at all; the content sets its own
   ruled  true → hairlines above and below
@@ -25,7 +26,7 @@ inside their grid rather than above it; they are named in `owns_layout`.
   {%- assign block = s -%}
 {%- endif -%}
 {%- capture classes -%}
-band{% if s.band and s.band != "ground" %} band--{{ s.band }}{% endif %}{% if s.tight %} band--tight{% endif %}{% if s.flush %} band--flush{% endif %}{% if s.ruled %} band--ruled{% endif %}
+band{% if s.band and s.band != "ground" %} band--{{ s.band }}{% endif %}{% if s.glow %} band--glow-{{ s.glow }}{% endif %}{% if s.tight %} band--tight{% endif %}{% if s.flush %} band--flush{% endif %}{% if s.ruled %} band--ruled{% endif %}
 {%- endcapture -%}
 {%- assign file = s.type | prepend: "components/" | append: ".html" -%}
 <section class="{{ classes }}"{% if s.id %} id="{{ s.id }}"{% endif %}>

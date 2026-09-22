@@ -1,0 +1,40 @@
+// A pair is one card that states a cost and then the relief for it. The rail
+// marks the second paragraph as the answer to the first.
+
+.pair {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--pad-card);
+}
+
+.pair__head {
+  align-items: center;
+  display: flex;
+  gap: var(--s-3);
+}
+
+.pair__title {
+  color: var(--ink-0);
+  font-size: var(--fs-l);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-heading);
+}
+
+.pair__cost {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+}
+
+.pair__relief {
+  border-left: 2px solid var(--purple);
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  padding-left: var(--s-4);
+}

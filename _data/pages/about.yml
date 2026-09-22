@@ -6,7 +6,7 @@ meta:
 
 sections:
   - type: hero
-    band: glow
+    glow: left
     head:
       eyebrow: The company
       title: About Nostr4

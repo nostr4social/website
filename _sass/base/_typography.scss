@@ -115,9 +115,16 @@ i {
   max-width: var(--measure-prose);
 }
 
+// A section lede argues; it runs the width of the band's measure. Only a hero
+// lede is narrowed, and it uses its own class.
 .lede--xl {
   font-size: var(--fs-xl);
-  max-width: var(--measure-lede);
+}
+
+// Opens on the claim, then settles back for the consequence.
+.lede--bright > p:first-child,
+.split__body--bright > p:first-child {
+  color: var(--ink-1);
 }
 
 .sub {

@@ -1,0 +1,66 @@
+@use "../breakpoints" as *;
+
+// One provider, three kinds of customer. The provider sits at the top because
+// everything below it is someone choosing to use it, not someone it owns.
+
+.hub {
+  background-image: var(--glow-figure);
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: var(--s-5);
+  width: 100%;
+}
+
+.hub__node {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  text-align: center;
+}
+
+.hub__node--centre {
+  grid-column: 2;
+}
+
+.hub__title {
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+  font-weight: var(--fw-title);
+  line-height: var(--lh-heading);
+}
+
+.hub__note {
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+}
+
+// Three spokes: two diagonal, one straight down.
+.hub__spokes {
+  grid-column: 1 / -1;
+  height: 64px;
+  position: relative;
+  width: 100%;
+}
+
+.hub__spokes svg {
+  color: var(--purple);
+  height: 100%;
+  width: 100%;
+}
+
+@include below($bp-mid) {
+  .hub {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hub__node--centre {
+    grid-column: 1;
+  }
+
+  .hub__spokes {
+    display: none;
+  }
+}

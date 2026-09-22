@@ -1,8 +1,11 @@
 {%- comment -%}
   head.eyebrow, head.title (the page's only h1), head.lede
   actions
-  cast          key into _data/blocks/, or `cast_items` inline
-  cast_layout   side | below
+  cast          key into _data/blocks/ for the figure beside or under the thesis
+  cast_type     cast | hub   (default cast)
+  cast_layout   side | below (default side)
+
+The cast names the parts before the argument uses them — see the style guide.
 {%- endcomment -%}
 {%- assign s = include.section -%}
 {%- assign h = s.head -%}
@@ -14,12 +17,14 @@
   {% include lib/actions.html actions=s.actions %}
 </div>
 {%- endcapture -%}
-{%- if s.cast or s.cast_items -%}
-  {%- if s.cast %}{% assign cast = site.data.blocks[s.cast] %}{% else %}{% assign cast = s %}{% endif -%}
+{%- if s.cast -%}
+  {%- assign cast = site.data.blocks[s.cast] -%}
+  {%- assign cast_file = s.cast_type | default: "cast" | prepend: "components/" | append: ".html" -%}
+  {%- capture figure %}{% include {{ cast_file }} block=cast %}{% endcapture -%}
   {%- if s.cast_layout == "below" -%}
-    <div class="hero-stack">{{ thesis }}{% include components/cast.html block=cast %}</div>
+    <div class="hero-stack">{{ thesis }}{{ figure }}</div>
   {%- else -%}
-    <div class="hero-split">{{ thesis }}{% include components/cast.html block=cast %}</div>
+    <div class="hero-split">{{ thesis }}{{ figure }}</div>
   {%- endif -%}
 {%- else -%}
   {{ thesis }}

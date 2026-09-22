@@ -37,7 +37,7 @@
   background: var(--bg-2);
 }
 
-.band--glow {
+.band--glow-left {
   background-image: var(--glow-left);
 }
 
@@ -63,6 +63,10 @@
 
 .section-head__lede {
   margin-top: var(--s-2);
+}
+
+.section-head--hero {
+  gap: var(--s-4);
 }
 
 .section-head--center {

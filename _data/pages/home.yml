@@ -6,7 +6,7 @@ meta: {}
 
 sections:
   - type: hero
-    band: glow-right
+    glow: right
     cast: cast
     cast_layout: side
     head:

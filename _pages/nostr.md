@@ -1,0 +1,4 @@
+---
+permalink: /nostr/
+data: nostr
+---

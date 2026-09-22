@@ -1,0 +1,31 @@
+{%- comment -%}
+  items   [{step, text, rules: [..], params: [{name, note}]}]
+  close   the line after the last step
+{%- endcomment -%}
+{%- assign b = include.block -%}
+<div class="flow">
+  {%- for item in b.items -%}
+  <div class="flow__step">
+    <span class="step step--lg">{{ item.step }}</span>
+    <div class="flow__body">
+      {% include lib/text.html text=item.text class="flow__text" %}
+      {%- if item.rules -%}
+      <div class="flow__rules">
+        {%- for rule in item.rules %}<span class="flow__rule">{{ rule }}</span>{% endfor -%}
+      </div>
+      {%- endif -%}
+      {%- if item.params -%}
+      <div class="flow__params">
+        {%- for param in item.params -%}
+        <div class="flow__param">
+          <div class="flow__param-name">{{ param.name }}</div>
+          <div class="flow__param-note">{{ param.note }}</div>
+        </div>
+        {%- endfor -%}
+      </div>
+      {%- endif -%}
+    </div>
+  </div>
+  {%- endfor -%}
+</div>
+{%- if b.close %}{% include lib/text.html text=b.close class="flow__close" %}{% endif -%}

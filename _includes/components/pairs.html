@@ -1,0 +1,16 @@
+{%- comment -%}
+  items   [{icon, title, cost, relief}]
+{%- endcomment -%}
+{%- assign b = include.block -%}
+<div class="grid grid--3">
+  {%- for item in b.items -%}
+  <div class="pair">
+    <div class="pair__head">
+      {% include lib/icon.html name=item.icon class="icon--gold" %}
+      <h3 class="pair__title">{{ item.title }}</h3>
+    </div>
+    {% include lib/text.html text=item.cost class="pair__cost" %}
+    {% include lib/text.html text=item.relief class="pair__relief" %}
+  </div>
+  {%- endfor -%}
+</div>

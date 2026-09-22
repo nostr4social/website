@@ -1,0 +1,92 @@
+// The request flow, one numbered step at a time. The number is the anchor; the
+// sentence names what moves and which component moves it.
+
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.flow__step {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--s-4);
+}
+
+.flow__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-width: 50em;
+}
+
+.flow__text {
+  color: var(--ink-2);
+  font-size: var(--fs-m);
+  line-height: var(--lh-body);
+}
+
+// The rules of interpretation: small, plain, and countable.
+.flow__rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.flow__rule {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  color: var(--ink-1);
+  font-size: var(--fs-xs);
+  padding: var(--s-1) var(--s-3);
+}
+
+// The four parameters the requester sets.
+.flow__params {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: var(--s-1);
+  padding: var(--s-4);
+}
+
+.flow__param {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.flow__param-name {
+  color: var(--gold);
+  font-size: var(--fs-s);
+  font-weight: var(--fw-title);
+}
+
+.flow__param-note {
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+}
+
+.flow__close {
+  color: var(--ink-2);
+  font-size: var(--fs-m);
+  line-height: var(--lh-body);
+  margin-top: var(--s-4);
+  max-width: 50em;
+}
+
+@media (max-width: 899.98px) {
+  .flow__params {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 599.98px) {
+  .flow__params {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

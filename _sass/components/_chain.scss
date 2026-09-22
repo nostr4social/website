@@ -1,0 +1,64 @@
+@use "../breakpoints" as *;
+
+// Three services, linked. The rust top edge marks the parts Nostr4 implements;
+// the purple links are the standard between them, which is what makes any one
+// of them replaceable.
+
+.chain {
+  align-items: stretch;
+  display: flex;
+  gap: var(--s-3);
+}
+
+.chain__node {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--rust);
+  border-radius: var(--r-card);
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--pad-card);
+}
+
+.chain__title {
+  color: var(--ink-0);
+  font-size: var(--fs-l);
+  font-weight: var(--fw-title);
+  line-height: var(--lh-heading);
+}
+
+.chain__body {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-card);
+}
+
+.chain__link {
+  align-self: center;
+  background: var(--purple);
+  border-radius: var(--r-hairline);
+  flex: none;
+  height: 4px;
+  width: 42px;
+}
+
+.chain__note {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  margin-top: var(--s-4);
+  max-width: 44em;
+}
+
+@include below($bp-mid) {
+  .chain {
+    flex-direction: column;
+  }
+
+  .chain__link {
+    height: 42px;
+    width: 4px;
+  }
+}

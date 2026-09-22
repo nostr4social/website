@@ -1,0 +1,30 @@
+{%- comment -%}
+  title, body, punch    the case, on the left
+  aside.title           the second half of the sentence, on the right
+  aside.tone            recessed | lifted
+  aside.items           [{eyebrow, title, body}]
+  wide                  true → the wider gutter between halves
+{%- endcomment -%}
+{%- assign b = include.block -%}
+<div class="split{% if b.wide %} split--wide{% endif %}">
+  <div class="split__side">
+    {% include lib/heading.html text=b.title class="split__title" %}
+    {%- if b.body -%}
+      {%- capture body_class %}split__body{% if b.bright %} split__body--bright{% endif %}{% endcapture -%}
+      {% include lib/text.html text=b.body class=body_class %}
+    {%- endif -%}
+    {%- if b.punch %}{% include lib/text.html text=b.punch class="split__punch" %}{% endif -%}
+  </div>
+  <div class="split__side">
+    {% include lib/heading.html text=b.aside.title class="split__title" %}
+    <div class="grid grid--2">
+      {%- for item in b.aside.items -%}
+      <div class="outcome outcome--{{ b.aside.tone }}">
+        <span class="eyebrow{% if b.aside.tone == 'lifted' %} eyebrow--gold{% endif %}">{{ item.eyebrow }}</span>
+        <h3 class="outcome__title">{{ item.title }}</h3>
+        <p class="outcome__body">{{ item.body }}</p>
+      </div>
+      {%- endfor -%}
+    </div>
+  </div>
+</div>

@@ -5,10 +5,11 @@
   light      the h2 at body weight — a sentence, not a label
   sub        a quiet line under the title
   lede       markdown paragraph; `lede_size: xl` sets the 22px setting
+  lede_bright  true → the first paragraph opens on the brighter ink
 {%- endcomment -%}
 {%- assign h = include.head -%}
 {%- if h -%}
-<div class="section-head{% if include.align == 'center' %} section-head--center{% endif %}">
+<div class="section-head{% if h.level == "h1" %} section-head--hero{% endif %}{% if include.align == 'center' %} section-head--center{% endif %}">
   {%- if h.watermark %}<div class="watermark">{{ h.watermark }}</div>{% endif -%}
   {%- if h.eyebrow %}<span class="eyebrow{% if h.eyebrow_tone %} eyebrow--{{ h.eyebrow_tone }}{% endif %}">{{ h.eyebrow }}</span>{% endif -%}
   {%- if h.title %}{% include lib/heading.html text=h.title level=h.level %}{% endif -%}
@@ -21,7 +22,7 @@
   {%- endif -%}
   {%- if h.sub %}<p class="sub">{{ h.sub }}</p>{% endif -%}
   {%- if h.lede -%}
-    {%- capture lede_class %}section-head__lede lede{% if h.lede_size %} lede--{{ h.lede_size }}{% endif %}{% endcapture -%}
+    {%- capture lede_class %}section-head__lede lede{% if h.lede_size %} lede--{{ h.lede_size }}{% endif %}{% if h.lede_bright %} lede--bright{% endif %}{% endcapture -%}
     {% include lib/text.html text=h.lede class=lede_class tag="div" %}
   {%- endif -%}
 </div>

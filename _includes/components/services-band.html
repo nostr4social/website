@@ -1,12 +1,5 @@
 {%- comment -%}
-  items   [{title, body}]
+The recurring "here is how to hire us" stop. Same shape as `list`, named
+separately because it appears on every page and its copy lives in one block.
 {%- endcomment -%}
-{%- assign b = include.block -%}
-<div class="grid grid--3">
-  {%- for item in b.items -%}
-  <div class="service">
-    <h3 class="service__title">{{ item.title }}</h3>
-    {% include lib/text.html text=item.body class="service__body" %}
-  </div>
-  {%- endfor -%}
-</div>
+{% include components/list.html block=include.block columns=3 %}

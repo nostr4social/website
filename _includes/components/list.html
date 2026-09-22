@@ -1,0 +1,14 @@
+{%- comment -%}
+  items     [{title, body, href}] — an href makes the title a link
+  columns   2 | 3   (default 3)
+{%- endcomment -%}
+{%- assign b = include.block -%}
+{%- assign columns = include.columns | default: b.columns | default: 3 -%}
+<div class="grid grid--{{ columns }}">
+  {%- for item in b.items -%}
+  <div class="ruled-item">
+    <h3 class="ruled-item__title">{% if item.href %}<a href="{{ item.href | relative_url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</h3>
+    {% include lib/text.html text=item.body class="ruled-item__body" %}
+  </div>
+  {%- endfor -%}
+</div>

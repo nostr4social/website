@@ -1,0 +1,336 @@
+# The product page. Problem, then solution, then the parts, then the flow —
+# each section makes one move, and the rust marks the parts we implement.
+
+meta:
+  title: TrustR
+  description: >-
+    TrustR is a recommendation and discovery provider for non-custodial social
+    apps, built on the open TSM standard.
+
+sections:
+  - type: hero
+    glow: left
+    cast: trustr_cast
+    cast_type: hub
+    head:
+      eyebrow: Product · live since April 2026
+      title: TrustR
+      lede: >-
+        TrustR is our flagship recommendation and discovery provider for
+        non-custodial social apps. It preserves users' control over filters and
+        algorithms across clients and services, by outputting TSM standard
+        ranked lists of pubkeys and event IDs. It offers two services for
+        ranking user interaction (web of trust) and semantic relationships
+        (topical search) on a variety of event kinds. Under the hood, ranking
+        algorithms are highly configurable and portable across providers. On the
+        surface, ranking algorithms stop being a platform secret, and become
+        user product that any app can plug into.
+    actions:
+      - label: Launch the Demo
+        href: https://trustr.ing
+        style: primary
+        external: true
+      - label: Join our Research Group
+        href: /contact/?subject=Research+group
+
+  - type: split
+    title: Nostr has a problem ...
+    body: >-
+      How does one discover trustworthy content and users on a "trustless"
+      network that nobody owns? The classic "Web of Trust" answer is to
+      calculate trust scores relative to each observer (client user), for every
+      pubkey (network user) interacting with and around that observer.
+
+
+      The double whammy for Nostr is that these calculations are pretty heavy to
+      run locally on a mobile app for every client user, and that client apps
+      have little choice but to do so. Nostr lacks a standard for requesting
+      such custom calculations as each client user might need for a given search
+      or desired user experience.
+    punch: >-
+      Any social app (even a Nostr client) that holds custody over
+      recommendation or discovery algorithms, is still on the hook for
+      moderating and controlling user content.
+    aside:
+      title: ... without a standard for trust.
+      tone: recessed
+      items:
+        - eyebrow: Users get
+          title: Vendor Lock In
+          body: >-
+            Locked to whatever lens the current app chose. There is no way to
+            port a configuration, inspect a result, or compare two.
+        - eyebrow: Apps get
+          title: More Cost Burden
+          body: >-
+            Moderation stays a permanent cost center and a standing liability.
+            It never becomes a feature the network provides.
+        - eyebrow: Services get
+          title: No Layering of Results
+          body: >-
+            Every request is computed from scratch. Consuming another provider's
+            work means a separate integration with each one.
+        - eyebrow: Nostr gets
+          title: More Centralized
+          body: >-
+            Discovery and recommendation centralize anyway. Only the well funded
+            can afford to compute them.
+
+  - type: split
+    glow: left
+    tight: true
+    wide: true
+    title: TrustR has a solution ...
+    bright: true
+    body: >-
+      Rankings are configurable, shareable, and portable to any app that speaks
+      TSM. The algorithm stops being a platform secret and becomes the reader's
+      own tool.
+
+
+      That matters most to the people a platform algorithm serves worst. A
+      reader with narrow interests is served generic popularity. A new account
+      with no history is served nothing at all.
+    aside:
+      title: ... with interoperability.
+      tone: lifted
+      items:
+        - eyebrow: Users get
+          title: Algorithmic Sovereignty
+          body: >-
+            A configuration is a signed event. It works against any compatible
+            provider without modification, and it can be forked, shared, or
+            mixed with others.
+        - eyebrow: Apps get
+          title: Open Marketplace
+          body: >-
+            Providers compete on quality, freshness, privacy and price. An app
+            picks one instead of building one.
+        - eyebrow: Services get
+          title: Distributed Compute
+          body: >-
+            Outputs are addressable events, so one provider's work becomes
+            another's starting input. The cost of answering the same question
+            falls.
+        - eyebrow: Nostr gets
+          title: Decentralized Curation
+          body: >-
+            Many algorithms, every one of them anchored to the reader. Capturing
+            a single provider does not poison the others.
+
+  - type: chain
+    band: sunk
+    head:
+      title: The MVP Demo
+      lede: >-
+        Three services, potentially three providers, fully interoperable. Rust
+        marks the parts we implement.
+    items:
+      - title: Web of trust
+        body: A baseline graph built from your follows and your zaps.
+      - title: Topic search
+        body: Search inside that graph rather than across the whole network.
+      - title: Re-ranking
+        body: Order authors by relevance and by what they have been paid.
+    note: >-
+      Each link in that chain is a TSM service with a published interface. Swap
+      any one of them for another provider, and the rest keeps working.
+
+  - type: cards
+    id: standards
+    band: sunk
+    head:
+      title: Open Standards and Open Source
+      lede: >-
+        We needed a trust layer, so we specified one anyone can implement. We
+        needed an archive, so we specified one anyone can mirror. Both were
+        published before either was finished.
+    items:
+      - icon: insights
+        title: GrapeRank
+        body: >-
+          The web-of-trust engine, co-developed with David Strayhorn. It reads
+          follows, mutes, reports and zaps, and it returns ranked pubkeys.
+        link:
+          label: GrapeRank on GitHub
+          href: https://github.com/graperank/tsm-graperank-library
+      - icon: verified
+        title: TSM
+        body: >-
+          Trust Service Machines. The interface that makes the pair above
+          composable. The family includes a NIP-85 bridge, so it interoperates
+          with the assertion work already on Nostr.
+        link:
+          label: Read the TSM base spec
+          href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/tsm
+      - icon: hub
+        title: NAS
+        body: >-
+          Nostr Archive Standards. A relay is not an archive, and a web of trust
+          is built from history in bulk. Every file is named by the hash of its
+          own bytes, so anyone can mirror ours or check our work.
+        link:
+          label: Read the NAS spec
+          href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/nas
+
+  - type: list
+    head:
+      title: Audience
+    columns: 2
+    items:
+      - title: Onboarding clients
+        body: Give a brand-new account a feed worth reading on day one.
+      - title: Relay providers
+        body: Filter by trust rather than by keyword, and cut spam without guessing.
+      - title: Curators
+        body: Publish a ranking as a service, and let others subscribe to your judgment.
+      - title: Power users
+        body: People who already curate, and want the ranking to follow them between apps.
+
+  - type: zones
+    head:
+      title: Architecture
+      lede_bright: true
+      lede: >-
+        Six services across three zones of access. Everything public reaches
+        TrustR as a Nostr event over a published standard. Everything private is
+        reached by the Service Orchestrator alone.
+
+
+        That asymmetry is the whole design. A competing provider would keep the
+        purple seam, and replace every rust box behind it.
+    zones:
+      - label: Public interface
+        wide: true
+        nodes:
+          - icon: phone
+            title: TrustR Dashboard
+            note: Configure a request. Watch it resolve.
+            steps: [1, 10]
+          - icon: storage
+            title: TrustR Relay
+            note: >-
+              For published TSM events: announcements, requests, feedback,
+              outputs.
+            steps: [0, 2, 9]
+      - label: Listener interface
+        nodes:
+          - icon: hub
+            title: Service Orchestrator
+            note: >-
+              The only component that touches both sides. Holds the service
+              keys, and signs every output.
+            steps: [3, 8]
+      - label: Gated compute
+        wide: true
+        nodes:
+          - icon: scatter
+            title: GrapeRank
+            note: Influence ranking from interpreted interactions.
+            steps: [4, 6, 7]
+          - icon: scatter
+            title: NDE
+            note: Topical ranking from semantic embeddings.
+          - icon: storage
+            title: Archive Relay
+            note: Events scanned from public relays, stored locally.
+            steps: [5]
+    outside:
+      label: Outside TrustR
+      nodes:
+        - icon: broadcast
+          tone: gold
+          title: Public relays, scanned continuously
+
+  - type: flow
+    head:
+      title: Example Request Flow
+      lede: >-
+        One GrapeRank ranking, start to finish. The same shape holds for any TSM
+        service.
+    items:
+      - step: "0"
+        text: >-
+          **Before anything** **—** the *Service Orchestrator* has published its
+          service announcements. The *Archive Relay* is already scanning public
+          relays for notes, articles, profiles, follow lists, mutes, reports and
+          zaps. Both run continuously.
+      - step: "1"
+        text: >-
+          **The reader configures** **—** in the *TrustR Dashboard*. Which
+          service, whose point of view, and which interactions to interpret.
+      - step: "2"
+        text: >-
+          **The request is published** **—** as a signed event to the *TrustR
+          Relay*. From here it is public Nostr data, not an API call.
+      - step: "3"
+        text: >-
+          **The Orchestrator picks it up** **—** on its announced relays. It
+          checks the subscription, then calls the service over a private
+          interface and holds the connection open.
+      - step: "4"
+        text: >-
+          **The point of view resolves** **—** as *GrapeRank* fetches the events
+          that define whose perspective this is.
+      - step: "5"
+        text: >-
+          **The interactions ingest** **—** from the *Archive Relay*, not from
+          the public network. This is the step that would be unaffordable per
+          request without a local archive.
+      - step: "6"
+        text: >-
+          **Interpretation** **—** turns every interaction into a rating between
+          zero and one.
+        rules:
+          - a follow counts 1.0
+          - a mute counts 0.0
+          - a report, weighted by type
+          - a zap, weighted by amount
+      - step: "7"
+        text: >-
+          **Calculation** **—** runs a weighted average iteratively until it
+          converges. Four parameters shape it, and the requester sets all four.
+        params:
+          - name: attenuation
+            note: how fast influence decays with distance
+          - name: rigor
+            note: how strictly confidence affects the score
+          - name: minimum
+            note: the score threshold for inclusion
+          - name: precision
+            note: how close is close enough to stop
+      - step: "8"
+        text: >-
+          **Unsigned output returns** **—** to the Orchestrator. The service
+          hands back output events without signing them, because it holds no
+          key.
+      - step: "9"
+        text: >-
+          **The Orchestrator signs and publishes** **—** to the *TrustR Relay*,
+          and to any relays the request named. Feedback events go out along the
+          way, so the reader sees progress rather than a spinner.
+      - step: "10"
+        text: >-
+          **The Dashboard redraws** **—** as events land. Outputs are
+          addressable, so a later recalculation replaces the same coordinates
+          rather than arriving as a second answer.
+    close: >-
+      That signed output is now an addressable event on a public relay. NDE can
+      take it as its own point of view, and it never has to integrate with
+      TrustR to do so.
+
+  - type: services-band
+    band: raised
+    use: services_band
+    head:
+      light: We are Nostr Integration Experts.
+      lede: >-
+        We offer concierge services for companies at any stage, from sizing up
+        the protocol to building and shipping on it.
+      lede_size: xl
+    actions_align: center
+    actions:
+      - label: Contact Us
+        href: /contact/
+        style: primary
+        size: lg

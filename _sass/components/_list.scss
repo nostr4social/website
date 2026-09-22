@@ -1,7 +1,7 @@
-// Three services, ruled rather than boxed: they are one offer seen from three
-// angles, not three products.
+// A ruled list: a hairline over each item, no box. Used where the items are one
+// offer seen from several angles rather than several products.
 
-.service {
+.ruled-item {
   border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -9,15 +9,24 @@
   padding-top: var(--s-4);
 }
 
-.service__title {
+.ruled-item__title {
   color: var(--ink-0);
   font-size: var(--fs-m);
   font-weight: var(--fw-title);
   line-height: var(--lh-heading);
 }
 
-.service__body {
+.ruled-item__body {
   color: var(--ink-2);
   font-size: var(--fs-s);
   line-height: var(--lh-body);
+}
+
+.ruled-item__title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ruled-item__title a:hover {
+  color: var(--gold);
 }

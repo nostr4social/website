@@ -1,0 +1,14 @@
+{%- comment -%}
+  items   [{icon, title, body, link: {label, href}}]
+{%- endcomment -%}
+{%- assign b = include.block -%}
+<div class="grid grid--3">
+  {%- for item in b.items -%}
+  <div class="card">
+    {% include lib/icon.html name=item.icon class="icon--rust" %}
+    <h3 class="card__title">{{ item.title }}</h3>
+    <p class="card__body">{{ item.body }}</p>
+    {%- if item.link %}<a class="chip" href="{{ item.link.href }}" target="_blank" rel="noopener">{{ item.link.label }}</a>{% endif -%}
+  </div>
+  {%- endfor -%}
+</div>

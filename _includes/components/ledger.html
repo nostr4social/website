@@ -1,0 +1,38 @@
+{%- comment -%}
+The same six line items, twice: once as the custodial app's problem, once as
+the user's property. The asymmetry is the argument — the custodial stack sits
+*inside* the company's box; the Nostr app's stack sits outside it, on the
+network.
+
+  columns   exactly two: the cost side, then the relief side
+    label   the company this column describes
+    app     {icon, name}
+    group   the heading over the six line items
+    tone    cost → the muted treatment
+    inside  true → the line items are drawn inside the company's box
+    items   [{icon, label}]
+{%- endcomment -%}
+{%- assign b = include.block -%}
+<div class="ledger">
+  {%- for col in b.columns -%}
+  {%- if forloop.index == 2 %}<div class="ledger__seam"></div>{% endif -%}
+  {%- capture group -%}
+  <div class="ledger__group">
+    <div class="ledger__label">{{ col.group }}</div>
+    <div class="ledger__items">
+      {%- for item in col.items -%}
+      <div class="ledger__item">{% include lib/icon.html name=item.icon %}<span>{{ item.label }}</span></div>
+      {%- endfor -%}
+    </div>
+  </div>
+  {%- endcapture -%}
+  <div class="ledger__col{% if col.tone == 'cost' %} ledger__col--cost{% endif %}">
+    <div class="ledger__card">
+      <div class="ledger__label">{{ col.label }}</div>
+      <div class="ledger__app">{% include lib/icon.html name=col.app.icon class="icon--gold" %}{{ col.app.name }}</div>
+      {%- if col.inside %}{{ group }}{% endif -%}
+    </div>
+    {%- unless col.inside %}{{ group }}{% endunless -%}
+  </div>
+  {%- endfor -%}
+</div>

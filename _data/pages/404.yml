@@ -1,0 +1,51 @@
+# Says plainly what happened, then hands over every door in the building.
+
+meta:
+  title: Page not found
+  description: That page does not exist. Every page on this site is listed here.
+
+sections:
+  - type: hero
+    glow: left
+    head:
+      eyebrow: Page not found
+      title: That page does not exist.
+      lede: >-
+        The link may be broken, or the address may have changed. Every page on
+        this site is listed below.
+
+  - type: list
+    head:
+      title: Where to go instead
+    columns: 3
+    items:
+      - title: Home
+        href: /
+        body: What Nostr4 builds, and who it is for.
+      - title: Nostr 4 Social Apps
+        href: /nostr/
+        body: The business case for the protocol, and what custody costs.
+      - title: TrustR
+        href: /trustr/
+        body: Our recommendation and discovery provider, live since April 2026.
+      - title: Services
+        href: /services/
+        body: Concierge work, from sizing up the protocol to shipping on it.
+      - title: About
+        href: /about/
+        body: The company, and the charter it is bound to.
+      - title: Contact
+        href: /contact/
+        body: Reach us over Nostr, or by email.
+
+  - type: callout
+    band: raised
+    head:
+      title: Still looking for something?
+      lede: >-
+        Tell us what you expected to find here. If it exists we will point you
+        at it, and if it does not we will write it.
+    actions:
+      - label: Contact us
+        href: /contact/
+        style: primary

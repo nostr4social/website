@@ -1,0 +1,187 @@
+# The business case, in the order a reader can receive it: what a social app is,
+# what custody costs, what the protocol hands back, and who to call.
+
+meta:
+  title: Nostr 4 Social Apps
+  description: >-
+    The business case for Nostr: what custody costs a social app, and what the
+    protocol hands back.
+
+sections:
+  - type: tiles
+    glow: left
+    intro: thesis
+    use: protocol_cards
+    head:
+      eyebrow: The business case
+      eyebrow_tone: gold
+      title: Nostr 4 Social Apps
+      level: h1
+    actions_align: center
+    actions:
+      - label: Book a Free Consult
+        href: /contact/
+        style: primary
+        size: lg
+
+  - type: ledger
+    tight: true
+    head:
+      title: The Cost of Custody
+      lede: >-
+        Custodial social apps have to manage their own users in order to serve
+        them. App companies must hold the accounts and the personal data
+        themselves, or rent access from big social. They build their own social
+        graph, pay for their own compute and storage, carry all of the
+        compliance risk, moderate all of the content, and are forced to split
+        profits with payment gateways. Custody is not a value-led decision. It
+        has always been **—** the only option.
+      lede_size: xl
+    columns:
+      - label: Custodial Tech Company
+        tone: cost
+        inside: true
+        app:
+          icon: phone
+          name: Custodial App
+        group: In House Full Stack
+        items:
+          - icon: lock-closed
+            label: Accounts & personal data
+          - icon: hub
+            label: Social graph & feeds
+          - icon: storage
+            label: Compute & storage
+          - icon: doc
+            label: Compliance & liability
+          - icon: gavel
+            label: Moderation
+          - icon: card
+            label: Payment gateway
+      - label: Nostr Tech Company
+        app:
+          icon: phone
+          name: Nostr App
+        group: User Controlled
+        items:
+          - icon: lock-closed
+            label: Accounts & personal data
+          - icon: hub
+            label: Social graph & feeds
+          - icon: storage
+            label: Compute & storage
+          - icon: doc
+            label: Compliance & liability
+          - icon: gavel
+            label: Moderation
+          - icon: card
+            label: Payments
+
+  - type: pairs
+    band: sunk
+    glow: left
+    tight: true
+    head:
+      title: The Value of Nostr
+      lede: >-
+        Nostr is the social layer that nobody owns. An app that integrates can
+        release control of its users without ever losing access. Existing users
+        migrate to self-custody, and new ones arrive already carrying their
+        identity, their content, and their reputation across apps. Storage and
+        discovery services are external to apps, and can be chosen by users.
+        Encryption is handled by user controlled keys. Moderation moves to
+        user-controlled algorithms. Payments are peer-to-peer, without gateways.
+        Compliance shrinks to only the user data an app chooses to retain
+        privately. Otherwise, the build out for any Nostr app can be as simple
+        as **—** the best user experience in the business. The network handles
+        the rest.
+      lede_size: xl
+    items:
+      - icon: lock
+        title: Release Custody
+        cost: >-
+          Apps that hold accounts and personal data are the primary target of
+          privacy and identity-verification laws. A small tech company carries
+          the same obligations as a big tech platform, without the legal budget.
+          Until Nostr, not holding user data hasn't even been an option.
+        relief: >-
+          Apps integrating with Nostr can release custody of user accounts and
+          content without losing access to either. Regulatory exposure falls,
+          and so does the cost of securing what you no longer store.
+      - icon: people
+        title: Reach Any User
+        cost: >-
+          An app with a private social layer has to build out its own social
+          tech stack. Then it has to find every user, one at a time, starting
+          from zero. Big social sells a shortcut through API access. Those APIs
+          have closed before, and thousands of apps can break in a day.
+        relief: >-
+          Nostr is the shared social layer that cannot be shut down. Every user
+          on the network is reachable by any app, on day one. Nobody owns the
+          protocol, and nobody can turn it off or remove access to it.
+      - icon: storage
+        title: Reduce Bloat
+        cost: >-
+          Maintaining one's own private social layer takes servers, databases,
+          load balancers, and on call tech support. Every one of these costs
+          exists to hold user data safely and serve it quickly. None of these
+          costs add value on their own or differentiate one app from any other.
+        relief: >-
+          Relays are the backend for Nostr. Each one is independently operated
+          and independently paid for. Your app writes events to the network
+          instead of warehousing them.
+      - icon: hub
+        title: Distribute Risk
+        cost: >-
+          Custodial apps that manage their own user data and interactions on
+          "in-house" storage present a single high value surface for bugs to
+          creep in and for hackers to exploit. In 2021, a breach of Facebook
+          exposed the personal information of 533 million users. Apps are
+          legally responsible for protecting user data that they "own" and
+          control.
+        relief: >-
+          The Nostr relay network allows apps to offload storage onto any number
+          of independently operated services that each user may choose. Content
+          that is signed, and possibly encrypted, with user controlled keys, can
+          be stored anywhere without the need for apps to gate-keep or to
+          protect.
+      - icon: gavel
+        title: Offload Moderation
+        cost: >-
+          Moderating user content is expensive, thankless, and impossible to get
+          right at scale. Custodial tech companies are shouldered with the
+          entire cost and expectation of delivering quality content as well as
+          the legal burden of providing a "harmless" experience for their users.
+        relief: >-
+          Non-custodial content curation is only possible when users have choice
+          over recommendation and discovery services. Nostr apps that adopt a
+          Web-of-Trust standard can provide their own default algos and compute
+          or allow users to BYO. Burden lifted.
+      - icon: card
+        title: Monetize Freely
+        cost: >-
+          Moving money inside an app means a payment processor. Processors take
+          15 to 30 percent. The app stores require their own billing or charge
+          more for going outside it. Building payments yourself can make you a
+          money transmitter.
+        relief: >-
+          Nostr supports peer-to-peer digital payments as a native part of the
+          protocol. Users pay you and each other directly, choosing their own
+          on-ramp to digital currency while keeping payment processors and
+          platform restrictions out of "in-app-payments".
+
+  - type: services-band
+    band: raised
+    use: services_band
+    head:
+      light: We are Nostr Integration Experts.
+      lede: >-
+        We offer concierge services for companies at any stage, from sizing up
+        the protocol to building and shipping on it.
+      lede_size: xl
+    actions_align: center
+    actions:
+      - label: Contact Us
+        href: /contact/
+        style: primary
+        size: lg

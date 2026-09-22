@@ -1,0 +1,15 @@
+{%- comment -%}
+  items   [{title, body}] — rendered in order, joined by the standard
+  note    the line under the chain
+{%- endcomment -%}
+{%- assign b = include.block -%}
+<div class="chain">
+  {%- for item in b.items -%}
+  {%- if forloop.index > 1 %}<div class="chain__link"></div>{% endif -%}
+  <div class="chain__node">
+    <h3 class="chain__title">{{ item.title }}</h3>
+    <p class="chain__body">{{ item.body }}</p>
+  </div>
+  {%- endfor -%}
+</div>
+{%- if b.note %}{% include lib/text.html text=b.note class="chain__note" %}{% endif -%}

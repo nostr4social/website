@@ -1,0 +1,4 @@
+---
+permalink: /trustr/
+data: trustr
+---

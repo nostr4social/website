@@ -1,0 +1,119 @@
+@use "../breakpoints" as *;
+
+// The ledger sets the same six line items side by side: what a custodial app
+// carries, and what the same app hands back to the user. A purple seam runs
+// between them, because the protocol is what makes the second column possible.
+
+.ledger {
+  align-items: stretch;
+  display: flex;
+  gap: var(--s-7);
+  justify-content: center;
+}
+
+.ledger__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  width: 100%;
+}
+
+.ledger__seam {
+  background: var(--purple);
+  flex: none;
+  width: 2px;
+}
+
+.ledger__card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: var(--s-4);
+}
+
+.ledger__label {
+  color: var(--ink-2);
+  font-size: var(--fs-2xl);
+  margin-bottom: var(--s-3);
+}
+
+.ledger__app {
+  align-items: center;
+  color: var(--gold);
+  display: flex;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-title);
+  gap: var(--s-2);
+  justify-content: center;
+  min-height: 48px;
+}
+
+.ledger__group {
+  padding: var(--s-4);
+}
+
+// Inside the company's box it is already padded, and it needs the gap above.
+.ledger__card .ledger__group {
+  margin-top: var(--s-3);
+  padding: 0;
+}
+
+.ledger__items {
+  display: grid;
+  gap: var(--s-3) var(--s-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ledger__item {
+  align-items: center;
+  color: var(--ink-1);
+  display: flex;
+  font-size: var(--fs-m);
+  gap: var(--s-3);
+  line-height: var(--lh-card);
+  min-height: 50px;
+}
+
+.ledger__app .icon {
+  height: 20px;
+  width: 20px;
+}
+
+.ledger__item .icon {
+  color: var(--gold);
+  height: 18px;
+  width: 18px;
+}
+
+// The custodial column is the cost side: everything on it is the app's problem.
+.ledger__col--cost .ledger__item,
+.ledger__col--cost .ledger__label {
+  color: var(--ink-3);
+}
+
+.ledger__col--cost .ledger__app .icon {
+  height: 20px;
+  width: 20px;
+}
+
+.ledger__item .icon {
+  color: var(--ink-3);
+}
+
+@include below($bp-mid) {
+  .ledger {
+    flex-direction: column;
+    gap: var(--s-6);
+  }
+
+  .ledger__seam {
+    height: 2px;
+    width: 100%;
+  }
+}
+
+@include below($bp-narrow) {
+  .ledger__items {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

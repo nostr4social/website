@@ -6,7 +6,7 @@ meta:
 
 sections:
   - type: hero
-    band: glow
+    glow: left
     head:
       eyebrow: Concierge services
       title: Growth 4 Nostr

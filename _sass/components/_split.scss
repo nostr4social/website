@@ -1,0 +1,99 @@
+@use "../breakpoints" as *;
+
+// A split states the case on the left and shows what it costs, or buys, on the
+// right. The two halves of one sentence, so the headings read as a pair.
+
+.split {
+  display: grid;
+  gap: var(--s-5);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.split--wide {
+  gap: var(--s-9);
+}
+
+.split__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.split__title {
+  color: var(--ink-0);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-display);
+  line-height: var(--lh-display);
+}
+
+.split__body {
+  color: var(--ink-2);
+  font-size: var(--fs-l);
+  line-height: var(--lh-body);
+  max-width: 44em;
+}
+
+.split__punch {
+  color: var(--ink-2);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-body);
+}
+
+// Outcome cards. `recessed` is the world without the standard — sunk into the
+// page, everything one shade quieter. `lifted` is the world with it.
+.outcome {
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--pad-card);
+}
+
+.outcome__title {
+  font-size: var(--fs-l);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-heading);
+}
+
+.outcome__body {
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+}
+
+.outcome--recessed {
+  background: var(--bg-recess);
+  border: 1px solid var(--line-recess);
+  border-left: var(--rail) solid var(--line-strong);
+  justify-content: center;
+}
+
+.outcome--recessed .outcome__title {
+  color: var(--ink-2);
+}
+
+.outcome--recessed .outcome__body {
+  color: var(--ink-3);
+}
+
+.outcome--lifted {
+  background: var(--bg-1);
+  border: 1px solid var(--line-strong);
+  border-left: var(--rail) solid var(--purple);
+}
+
+.outcome--lifted .outcome__title {
+  color: var(--ink-0);
+}
+
+.outcome--lifted .outcome__body {
+  color: var(--ink-1);
+}
+
+@include below($bp-mid) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-7);
+  }
+}

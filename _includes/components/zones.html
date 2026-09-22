@@ -1,0 +1,26 @@
+{%- comment -%}
+  zones     [{label, wide, nodes: [{icon, tone, title, note, steps}]}]
+  outside   {label, nodes} — drawn without a fill, because it is not ours
+{%- endcomment -%}
+{%- assign b = include.block -%}
+<div class="zones">
+  {%- for zone in b.zones -%}
+  {%- if forloop.index > 1 %}<div class="zone__seam"></div>{% endif -%}
+  <div class="zone{% if zone.wide %} zone--wide{% endif %}">
+    <span class="eyebrow">{{ zone.label }}</span>
+    {%- for node in zone.nodes -%}
+    {% include lib/node.html node=node %}
+    {%- endfor -%}
+  </div>
+  {%- endfor -%}
+</div>
+{%- if b.outside -%}
+<div class="zones__outside">
+  <div class="zone">
+    <span class="eyebrow">{{ b.outside.label }}</span>
+    {%- for node in b.outside.nodes -%}
+    {% include lib/node.html node=node %}
+    {%- endfor -%}
+  </div>
+</div>
+{%- endif -%}
