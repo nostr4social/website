@@ -1,0 +1,14 @@
+{%- comment -%}
+Resolves one href. A fragment stays a fragment — `relative_url` would turn
+`#charter` into `/#charter`, which points at the home page. An absolute URL is
+left alone; everything else gets the site root.
+
+Outputs the href, so callers capture it:
+  {%- capture href %}{% include lib/href.html href=item.href %}{% endcapture -%}
+{%- endcomment -%}
+{%- assign first = include.href | slice: 0, 1 -%}
+{%- if first == "#" or include.href contains "://" or first == "?" -%}
+{{- include.href -}}
+{%- else -%}
+{{- include.href | relative_url -}}
+{%- endif -%}

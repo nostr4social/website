@@ -1,0 +1,176 @@
+{%- comment -%}
+The encrypted contact form.
+
+Every word here comes from _data/pages/contact.yml. The script's own strings and
+configuration go out as two inert JSON blocks rather than as literals in the
+JavaScript, for the same reason nothing else on this site has copy in a
+template.
+
+The email card sits outside the panel system and is never hidden: if the script
+fails to load, or a visitor has JavaScript off, there is still a way in.
+{%- endcomment -%}
+{%- assign s = include.section -%}
+{%- assign a = site.data.assets.contact -%}
+<div class="contact" id="contact">
+  {% include lib/section-head.html head=s.head %}
+
+  <p class="identity" id="contact-identity" hidden></p>
+  <p class="contact__status" id="contact-status" hidden role="status"></p>
+  <p class="contact__error" id="contact-error" hidden role="alert"></p>
+
+  <noscript>
+    <p class="notice notice--inline">{{ s.email.noscript }}</p>
+  </noscript>
+
+  {%- comment -%} 1 · choose a method {%- endcomment -%}
+  <section class="contact__panel" id="panel-methods">
+    <h2 class="contact__title">{{ s.methods.title }}</h2>
+    <p class="contact__note">{{ s.methods.note }}</p>
+    <div class="methods">
+      {%- for item in s.methods.items -%}
+      <div class="method">
+        <button type="button" class="method__button" id="method-{{ item.id }}">
+          <span class="method__title">{{ item.title }}</span>
+          <span class="method__note">{{ item.note }}</span>
+        </button>
+        {%- if item.missing -%}
+        <p class="method__missing" id="{{ item.id }}-missing" hidden>{{ item.missing }}</p>
+        {%- endif -%}
+      </div>
+      {%- endfor -%}
+    </div>
+  </section>
+
+  {%- comment -%} 2 · connect a remote signer {%- endcomment -%}
+  <section class="contact__panel" id="panel-nip46" hidden>
+    <h2 class="contact__title">{{ s.nip46.title }}</h2>
+    <p class="contact__note">{{ s.nip46.scan }}</p>
+    <div class="connect">
+      <div class="connect__qr" id="nip46-qr"></div>
+      <div class="connect__side">
+        <div class="actions" id="nip46-signers"></div>
+        <label class="field">
+          <span class="field__label">{{ s.nip46.uri_label }}</span>
+          <input class="field__input code" id="nip46-uri" type="text" readonly>
+        </label>
+        <div class="actions">
+          <button type="button" class="btn btn--secondary btn--compact" id="nip46-copy">{{ s.nip46.copy }}</button>
+          <button type="button" class="btn btn--secondary btn--compact" id="nip46-cancel">{{ s.nip46.cancel }}</button>
+        </div>
+        <div id="nip46-auth" hidden></div>
+      </div>
+    </div>
+    <form class="connect__paste" id="form-bunker">
+      <h3 class="contact__subtitle">{{ s.nip46.paste_title }}</h3>
+      <label class="field">
+        <span class="field__label">{{ s.nip46.paste_label }}</span>
+        <input class="field__input code" id="field-bunker" type="text" inputmode="url"
+               autocomplete="off" spellcheck="false" placeholder="bunker://">
+      </label>
+      <p class="field__note">{{ s.nip46.paste_note }}</p>
+      <button type="submit" class="btn btn--primary btn--compact">{{ s.nip46.paste_send }}</button>
+    </form>
+  </section>
+
+  {%- comment -%} 3 · write the message {%- endcomment -%}
+  <section class="contact__panel" id="panel-compose" hidden>
+    <h2 class="contact__title">{{ s.compose.title }}</h2>
+    <form id="contact-form" novalidate>
+      <label class="field">
+        <span class="field__label">{{ s.compose.subject_label }}</span>
+        <input class="field__input" id="field-subject" name="subject" type="text"
+               maxlength="{{ s.config.limits.subject.max }}" autocomplete="off"
+               placeholder="{{ s.compose.subject_placeholder }}">
+      </label>
+      <label class="field">
+        <span class="field__label">{{ s.compose.message_label }}</span>
+        <textarea class="field__input field__input--area" id="field-message" name="message" rows="8"
+                  maxlength="{{ s.config.limits.message.max }}" required
+                  placeholder="{{ s.compose.message_placeholder }}"></textarea>
+      </label>
+      <label class="field">
+        <span class="field__label">{{ s.compose.reply_label }}</span>
+        <input class="field__input" id="field-replyto" name="replyto" type="text" autocomplete="off"
+               placeholder="{{ s.compose.reply_placeholder }}">
+        <span class="field__note">{{ s.compose.reply_note }}</span>
+      </label>
+
+      {%- comment -%}
+        Off-screen, not `hidden`: a bot fills it, a person never sees it.
+      {%- endcomment -%}
+      <label class="field field--trap" aria-hidden="true">
+        <span class="field__label">{{ s.compose.honeypot_label }}</span>
+        <input id="field-website" name="website" type="text" tabindex="-1" autocomplete="off">
+      </label>
+
+      <p class="contact__error" id="compose-error" hidden role="alert"></p>
+      <div class="actions">
+        <button type="submit" class="btn btn--primary">{{ s.compose.submit }}</button>
+        <span class="actions__note">{{ s.compose.submit_note }}</span>
+        <button type="button" class="btn btn--secondary btn--compact" id="sign-out">{{ s.compose.sign_out }}</button>
+      </div>
+    </form>
+  </section>
+
+  {%- comment -%} 4 · sending {%- endcomment -%}
+  <section class="contact__panel" id="panel-sending" hidden>
+    <h2 class="contact__title">{{ s.sending.title }}</h2>
+    <p class="contact__note">{{ s.sending.note }}</p>
+    <p class="contact__progress code" id="sending-progress" role="status"></p>
+  </section>
+
+  {%- comment -%} 5 · what happened {%- endcomment -%}
+  <section class="contact__panel" id="panel-result" hidden>
+    <div id="result-head"></div>
+    <ul class="result" id="result-list"></ul>
+    <div class="actions">
+      <button type="button" class="btn btn--secondary" id="result-retry">{{ s.result.retry }}</button>
+      <button type="button" class="btn btn--secondary" id="result-again">{{ s.result.again }}</button>
+    </div>
+  </section>
+
+  {%- comment -%} the form could not start at all {%- endcomment -%}
+  <section class="contact__panel" id="panel-unavailable" hidden>
+    <h2 class="contact__title">{{ s.unavailable.title }}</h2>
+    <p class="contact__note">{{ s.unavailable.note }}</p>
+  </section>
+
+  {%- comment -%} always visible {%- endcomment -%}
+  <div class="notice notice--email">
+    <h2 class="contact__title">{{ s.email.title }}</h2>
+    <p class="contact__note">{{ s.email.note }}</p>
+    <a class="btn btn--secondary" data-user="{{ s.email.user }}" data-domain="{{ s.email.domain }}"
+       data-subject="{{ s.email.subject }}" href="#send">{{ s.email.link_label }}</a>
+  </div>
+
+  <details class="how">
+    <summary class="how__summary">{{ s.how_it_works.title }}</summary>
+    <div class="how__body">
+      {%- for item in s.how_it_works.items -%}
+      <div class="how__item">
+        <h3 class="how__item-title">{{ item.title }}</h3>
+        {% include lib/text.html text=item.body class="how__item-body" %}
+      </div>
+      {%- endfor -%}
+      <div class="how__links">
+        <span class="eyebrow">{{ s.how_it_works.links_label }}</span>
+        <div class="chip-row">
+          {%- for link in s.how_it_works.links -%}
+          <a class="chip" href="{{ link.href }}" target="_blank" rel="noopener">{{ link.label }}</a>
+          {%- endfor -%}
+        </div>
+        <a class="chip" href="{{ s.how_it_works.source_href }}">{{ s.how_it_works.source_label }}</a>
+      </div>
+    </div>
+  </details>
+
+  {%- comment -%}
+    Inert data, not executable: the browser does not run application/json.
+    A '<' cannot appear here — scripts/check.sh fails the build if one is in _data.
+  {%- endcomment -%}
+  <script type="application/json" id="contact-strings">{{ s.strings | jsonify }}</script>
+  <script type="application/json" id="contact-config">{{ s.config | jsonify }}</script>
+</div>
+<link rel="modulepreload" href="{{ a.nostr_tools.path }}" integrity="{{ a.nostr_tools.integrity }}" crossorigin>
+<link rel="modulepreload" href="{{ a.uqr.path }}" integrity="{{ a.uqr.integrity }}" crossorigin>
+<script type="module" src="{{ a.app.path }}" integrity="{{ a.app.integrity }}" crossorigin></script>

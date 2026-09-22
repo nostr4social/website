@@ -1,0 +1,384 @@
+@use "../breakpoints" as *;
+
+// /contact/ — the only page on this site that ships JavaScript.
+
+.contact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  max-width: 60em;
+}
+
+.contact__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.contact__title {
+  color: var(--ink-0);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-heading);
+}
+
+.contact__title:focus {
+  outline: none;
+}
+
+.contact__subtitle {
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+  font-weight: var(--fw-title);
+}
+
+.contact__note {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  max-width: 44em;
+}
+
+.contact__progress {
+  color: var(--gold);
+  font-size: var(--fs-s);
+}
+
+.contact__status {
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+}
+
+.contact__error {
+  border-left: var(--rail) solid var(--rust);
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  padding-left: var(--s-4);
+}
+
+// Who you are signing as. Shown only once a signer is connected.
+.identity {
+  align-items: center;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  align-self: flex-start;
+  display: flex;
+  font-size: var(--fs-s);
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+}
+
+.identity__label {
+  color: var(--ink-3);
+}
+
+.identity__key {
+  color: var(--gold);
+}
+
+// ── choosing a method ────────────────────────────────────────────────────────
+
+.methods {
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.method {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.method__button {
+  align-items: flex-start;
+  background: var(--bg-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--pad-card);
+  text-align: left;
+  transition: border-color 120ms ease-out;
+}
+
+.method__button:hover:enabled {
+  border-color: var(--purple-lift);
+}
+
+.method__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.method__title {
+  color: var(--ink-0);
+  font-size: var(--fs-l);
+  font-weight: var(--fw-title);
+  line-height: var(--lh-heading);
+}
+
+.method__note {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+}
+
+.method__missing {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+}
+
+// ── fields ───────────────────────────────────────────────────────────────────
+
+#contact-form,
+.connect__paste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.field__label {
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  font-weight: var(--fw-ui);
+}
+
+.field__input {
+  background: var(--bg-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-ui);
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+  line-height: var(--lh-body);
+  padding: var(--s-3) var(--s-4);
+  width: 100%;
+}
+
+.field__input::placeholder {
+  color: var(--ink-3);
+}
+
+.field__input:focus-visible {
+  border-color: var(--purple-lift);
+}
+
+.field__input--area {
+  min-height: 12em;
+  resize: vertical;
+}
+
+.field__note {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+}
+
+// The honeypot. Off screen rather than display:none, which a bot would skip.
+.field--trap {
+  height: 1px;
+  left: -9999px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+// ── connecting a remote signer ───────────────────────────────────────────────
+
+.connect {
+  display: grid;
+  gap: var(--s-5);
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.connect__qr {
+  background: #ffffff;
+  border-radius: var(--r-card);
+  padding: var(--s-3);
+}
+
+.qr {
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.connect__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.connect__paste {
+  border-top: 1px solid var(--line);
+  padding-top: var(--s-5);
+}
+
+.connect__paste .btn {
+  align-self: flex-start;
+}
+
+// ── what happened ────────────────────────────────────────────────────────────
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.result__item {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--pad-card);
+}
+
+.result__who {
+  align-items: center;
+  display: flex;
+  gap: var(--s-3);
+}
+
+.result__name {
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+  font-weight: var(--fw-title);
+}
+
+.result__warning {
+  border-left: var(--rail) solid var(--gold);
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  padding-left: var(--s-4);
+}
+
+.result__relays {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.result__relay {
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--fs-xs);
+  gap: var(--s-2);
+}
+
+.result__relay-url {
+  color: var(--ink-2);
+}
+
+.result__relay.is-ok .result__relay-state {
+  color: var(--ok);
+}
+
+.result__relay.is-failed .result__relay-state {
+  color: var(--ink-3);
+}
+
+.result__id {
+  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--fs-xs);
+  gap: var(--s-2);
+}
+
+.result__id .code {
+  overflow-wrap: anywhere;
+}
+
+// ── the notices and the explainer ────────────────────────────────────────────
+
+.notice--inline,
+.notice--email {
+  gap: var(--s-3);
+  max-width: none;
+}
+
+.notice--email {
+  border-left-color: var(--purple);
+}
+
+.notice--email .btn {
+  align-self: flex-start;
+}
+
+.how {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: var(--pad-card);
+}
+
+.how__summary {
+  color: var(--ink-0);
+  cursor: pointer;
+  font-size: var(--fs-m);
+  font-weight: var(--fw-ui);
+}
+
+.how__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding-top: var(--s-4);
+}
+
+.how__item-title {
+  color: var(--ink-0);
+  font-size: var(--fs-s);
+  font-weight: var(--fw-title);
+  line-height: var(--lh-heading);
+}
+
+.how__item-body {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  max-width: 50em;
+}
+
+.how__links {
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding-top: var(--s-4);
+}
+
+.how__links .chip {
+  align-self: flex-start;
+}
+
+@include below($bp-mid) {
+  .methods {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .connect {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .connect__qr {
+    max-width: 240px;
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "nostr4-website-contact",
+  "private": true,
+  "type": "module",
+  "description": "Build tooling for the /contact/ bundle. Not part of the published site.",
+  "scripts": {
+    "build:contact": "node tools/contact-bundle/build.mjs",
+    "check:contact": "node tools/contact-bundle/check.mjs",
+    "e2e:contact": "node tools/contact-bundle/e2e.mjs",
+    "e2e:ui": "node tools/contact-bundle/e2e-ui.mjs",
+    "audit:a11y": "node tools/audit/a11y.mjs",
+    "audit:responsive": "node tools/audit/responsive.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "nostr-tools": "2.25.2",
+    "uqr": "0.1.3"
+  }
+}

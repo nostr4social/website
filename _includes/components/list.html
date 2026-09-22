@@ -7,7 +7,8 @@
 <div class="grid grid--{{ columns }}">
   {%- for item in b.items -%}
   <div class="ruled-item">
-    <h3 class="ruled-item__title">{% if item.href %}<a href="{{ item.href | relative_url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</h3>
+    {%- if item.href %}{% capture href %}{% include lib/href.html href=item.href %}{% endcapture %}{% endif -%}
+    <h3 class="ruled-item__title">{% if item.href %}<a href="{{ href }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</h3>
     {% include lib/text.html text=item.body class="ruled-item__body" %}
   </div>
   {%- endfor -%}

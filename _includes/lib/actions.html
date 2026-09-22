@@ -15,7 +15,8 @@ A row of buttons.
       <span class="btn btn--disabled" aria-disabled="true">{{ a.label }}</span>
     {%- else -%}
       {%- assign style = a.style | default: "secondary" -%}
-      <a class="btn btn--{{ style }}{% if a.size %} btn--{{ a.size }}{% endif %}" href="{{ a.href | relative_url }}"{% if a.external %} target="_blank" rel="noopener"{% elsif a.href contains "://" %} rel="noopener"{% endif %}>{{ a.label }}{% if a.icon %}{% include lib/icon.html name=a.icon class="btn__icon" %}{% endif %}</a>
+      {%- capture href %}{% include lib/href.html href=a.href %}{% endcapture -%}
+      <a class="btn btn--{{ style }}{% if a.size %} btn--{{ a.size }}{% endif %}" href="{{ href }}"{% if a.external %} target="_blank" rel="noopener"{% elsif a.href contains "://" %} rel="noopener"{% endif %}>{{ a.label }}{% if a.icon %}{% include lib/icon.html name=a.icon class="btn__icon" %}{% endif %}</a>
     {%- endif -%}
     {%- if a.note %}<span class="actions__note">{{ a.note }}</span>{% endif -%}
   {%- endfor -%}

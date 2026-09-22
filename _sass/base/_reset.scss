@@ -31,6 +31,12 @@ ol {
   list-style: none;
 }
 
+// The UA sheet sets this too, but any `display` a component sets would win.
+// Panels on /contact/ are toggled with `hidden`, so this has to hold.
+[hidden] {
+  display: none !important;
+}
+
 img,
 svg,
 video {

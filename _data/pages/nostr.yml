@@ -12,6 +12,8 @@ sections:
     glow: left
     intro: thesis
     use: protocol_cards
+    # The section head is this page's h1, so the tiles sit one level below it.
+    item_level: h2
     head:
       eyebrow: The business case
       eyebrow_tone: gold
