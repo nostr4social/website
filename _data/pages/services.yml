@@ -1,0 +1,41 @@
+meta:
+  title: Concierge services
+  description: >-
+    Concierge services for companies at any stage of Nostr curiosity, from
+    sizing up the protocol to shipping on it.
+
+sections:
+  - type: hero
+    band: glow
+    head:
+      eyebrow: Concierge services
+      title: Growth 4 Nostr
+      lede: >-
+        Concierge services for companies at any stage of Nostr curiosity, from
+        sizing up the protocol to shipping on it.
+    actions:
+      - label: Book a free consultation
+        href: /contact/
+        style: primary
+
+  - type: notice
+    head:
+      eyebrow: Details coming soon
+      eyebrow_tone: gold
+      title: This page is still being written.
+      lede: >-
+        We are shipping the site before the service catalogue is final. Until it
+        lands, a conversation is the fastest way to find out what we can do for
+        your product.
+
+  - type: callout
+    band: raised
+    head:
+      title: The first conversation costs nothing.
+      lede: >-
+        A scoping call is an hour, and it ends with a straight answer about
+        whether the protocol earns its place in your product.
+    actions:
+      - label: Book a free consultation
+        href: /contact/
+        style: primary

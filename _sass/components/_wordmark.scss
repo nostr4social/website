@@ -1,0 +1,53 @@
+// The lockup: mark, wordmark, tagline. Two sizes — masthead and footer.
+
+.lockup {
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  text-decoration: none;
+}
+
+.lockup__row {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  gap: var(--s-3);
+}
+
+.lockup__mark {
+  height: 50px;
+  width: auto;
+}
+
+.lockup__word {
+  color: var(--purple);
+  font-size: var(--fs-wordmark);
+  font-weight: var(--fw-brand);
+  letter-spacing: var(--ls-heading);
+  line-height: 1;
+}
+
+.lockup__tagline {
+  color: var(--gold);
+  font-size: var(--fs-m);
+  font-weight: var(--fw-ui);
+  letter-spacing: var(--ls-tagline);
+  line-height: var(--lh-heading);
+}
+
+.lockup--footer {
+  gap: 0;
+}
+
+.lockup--footer .lockup__mark {
+  height: 35px;
+}
+
+.lockup--footer .lockup__word {
+  font-size: var(--fs-wordmark-s);
+}
+
+.lockup--footer .lockup__tagline {
+  font-size: var(--fs-s);
+}

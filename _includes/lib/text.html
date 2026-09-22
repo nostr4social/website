@@ -1,0 +1,17 @@
+{%- comment -%}
+Renders body copy from _data/ through markdown.
+
+The conventions, all of which are plain text in the YAML:
+  **bold**   emphasis inside a sentence
+  **—**      the turn in the sentence; rendered as the rust punch
+  *Name*     a named component — a product, a standard, a role; rendered gold
+
+  text   markdown copy (required)
+  class  extra classes on the wrapper
+  tag    wrapper element (default: div)
+{%- endcomment -%}
+{%- assign tag = include.tag | default: "div" -%}
+{%- assign body = include.text | markdownify -%}
+{%- assign body = body | replace: "<strong>—</strong>", '<b class="punch">—</b>' -%}
+{%- assign body = body | replace: "<strong>&mdash;</strong>", '<b class="punch">—</b>' -%}
+<{{ tag }} class="rich{% if include.class %} {{ include.class }}{% endif %}">{{ body }}</{{ tag }}>

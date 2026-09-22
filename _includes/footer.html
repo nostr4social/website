@@ -1,0 +1,21 @@
+{%- assign s = site.data.site -%}
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer__top">
+      {% include lib/lockup.html variant="footer" %}
+      <nav class="footer__cols" aria-label="{{ s.a11y.footer_nav | escape }}">
+        {%- for col in site.data.footer.columns -%}
+        <div class="footer__col">
+          <span class="eyebrow">{{ col.label }}</span>
+          {%- for link in col.links -%}
+          <a class="footer__link" href="{{ link.href | relative_url }}">{{ link.label }}</a>
+          {%- endfor -%}
+        </div>
+        {%- endfor -%}
+      </nav>
+    </div>
+    <div class="footer__legal">
+      <span>{{ s.copyright }}</span>
+    </div>
+  </div>
+</footer>

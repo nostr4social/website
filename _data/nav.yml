@@ -1,0 +1,13 @@
+# Masthead navigation, left to right. `cta: true` renders the filled button.
+items:
+  - label: Nostr
+    href: /nostr/
+  - label: Products
+    href: /trustr/
+  - label: Services
+    href: /services/
+  - label: About
+    href: /about/
+  - label: Contact
+    href: /contact/
+    cta: true

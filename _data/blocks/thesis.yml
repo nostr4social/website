@@ -1,0 +1,9 @@
+# The argument the protocol cards then support. Used on / and /nostr/.
+text: >-
+  Any app that allows users to interact is a social app. Traditionally, social
+  apps are all but required to carry the cost of managing "their own" users'
+  accounts and data. While some may recoup these losses by selling access to
+  user data, it is the custody of user data itself that drives the cost of
+  developing social apps. Nostr breaks this model with a protocol for user
+  controlled keys and signed content, preserving app independence and access to
+  users without controlling their accounts or data.

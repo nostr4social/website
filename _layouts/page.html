@@ -1,0 +1,11 @@
+---
+layout: default
+---
+{%- comment -%}
+A page is its data. `page.data` names a file in _data/pages/; every section in
+it is dispatched on `type` to an include in _includes/components/.
+{%- endcomment -%}
+{%- assign data = site.data.pages[page.data] -%}
+{%- for section in data.sections -%}
+{% include components/section.html section=section %}
+{%- endfor -%}

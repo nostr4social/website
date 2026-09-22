@@ -1,0 +1,16 @@
+{%- comment -%}
+The closing band: one idea on the left, one door out on the right.
+
+  head.title, head.lede
+  quote     chartered or quoted language, on a purple rail
+  actions
+{%- endcomment -%}
+{%- assign s = include.section -%}
+{%- assign b = include.block -%}
+<div class="callout">
+  <div class="callout__body">
+    {% include lib/section-head.html head=s.head %}
+    {%- if b.quote %}{% include lib/text.html text=b.quote class="callout__quote" %}{% endif -%}
+  </div>
+  {% include lib/actions.html actions=s.actions %}
+</div>

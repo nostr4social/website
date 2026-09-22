@@ -1,0 +1,23 @@
+// A chip is a link to a standard or a spec: small, outlined, pill.
+.chip {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  color: var(--purple-chip);
+  display: inline-block;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-ui);
+  line-height: var(--lh-heading);
+  padding: var(--s-1) var(--s-3);
+  text-decoration: none;
+}
+
+a.chip:hover {
+  border-color: var(--purple-lift);
+  color: var(--purple-lift-hover);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}

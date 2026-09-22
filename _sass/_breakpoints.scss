@@ -1,0 +1,18 @@
+// Breakpoints. Three, matching the responsive table in the plan: the desk
+// layout holds to 1200, loses a column at 900, and stacks at 600.
+
+$bp-wide: 1200px;
+$bp-mid: 900px;
+$bp-narrow: 600px;
+
+@mixin below($bp) {
+  @media (max-width: #{$bp - 0.02px}) {
+    @content;
+  }
+}
+
+@mixin from($bp) {
+  @media (min-width: $bp) {
+    @content;
+  }
+}

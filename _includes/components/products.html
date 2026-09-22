@@ -1,0 +1,25 @@
+{%- comment -%}
+  items   [{badge: {label, tone: live|soon}, name, body,
+            standards: {label, chips: [{label, href}]}, actions}]
+{%- endcomment -%}
+{%- assign b = include.block -%}
+<div class="grid grid--2">
+  {%- for item in b.items -%}
+  <div class="product">
+    {%- if item.badge %}<span class="badge badge--{{ item.badge.tone }}">{{ item.badge.label }}</span>{% endif -%}
+    <h3 class="product__name">{{ item.name }}</h3>
+    {% include lib/text.html text=item.body class="product__body" %}
+    {%- if item.standards -%}
+    <div class="product__standards">
+      <span class="eyebrow">{{ item.standards.label }}</span>
+      <div class="chip-row">
+        {%- for chip in item.standards.chips -%}
+        <a class="chip" href="{{ chip.href }}" target="_blank" rel="noopener">{{ chip.label }}</a>
+        {%- endfor -%}
+      </div>
+    </div>
+    {%- endif -%}
+    {% include lib/actions.html actions=item.actions %}
+  </div>
+  {%- endfor -%}
+</div>

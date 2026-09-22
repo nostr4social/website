@@ -1,0 +1,37 @@
+{%- comment -%}
+The band envelope. Every entry under `sections:` in a page's data file arrives
+here; `type` picks the include that renders its body.
+
+  type   component name  → _includes/components/<type>.html   (required)
+  id     anchor
+  band   ground | sunk | raised | glow      (default: ground)
+  tight  true → the 56px rhythm instead of 72px
+  flush  true → no band padding at all; the content sets its own
+  ruled  true → hairlines above and below
+  use    key into _data/blocks/ for the body; the envelope still comes from here
+  head   eyebrow, watermark, title, light, sub, lede, lede_size
+  actions, align, actions_align
+
+A few components lay out their own head and actions because the head sits
+inside their grid rather than above it; they are named in `owns_layout`.
+{%- endcomment -%}
+{%- assign s = include.section -%}
+{%- assign owns_layout = "hero,proof-bar,contact-form,notice,callout" | split: "," -%}
+{%- assign self = false -%}
+{%- if owns_layout contains s.type %}{%- assign self = true -%}{%- endif -%}
+{%- if s.use -%}
+  {%- assign block = site.data.blocks[s.use] -%}
+{%- else -%}
+  {%- assign block = s -%}
+{%- endif -%}
+{%- capture classes -%}
+band{% if s.band and s.band != "ground" %} band--{{ s.band }}{% endif %}{% if s.tight %} band--tight{% endif %}{% if s.flush %} band--flush{% endif %}{% if s.ruled %} band--ruled{% endif %}
+{%- endcapture -%}
+{%- assign file = s.type | prepend: "components/" | append: ".html" -%}
+<section class="{{ classes }}"{% if s.id %} id="{{ s.id }}"{% endif %}>
+  <div class="wrap">
+    {%- unless self -%}{% include lib/section-head.html head=s.head align=s.align %}{%- endunless -%}
+    {% include {{ file }} section=s block=block %}
+    {%- unless self -%}{% if s.actions %}{% include lib/actions.html actions=s.actions align=s.actions_align %}{% endif %}{%- endunless -%}
+  </div>
+</section>

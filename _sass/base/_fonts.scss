@@ -1,0 +1,19 @@
+// Self-hosted, latin subset only. See assets/fonts/README.md for provenance.
+
+@font-face {
+  font-family: "Archivo";
+  src: url("/assets/fonts/archivo-latin-wght.woff2") format("woff2");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+// Loaded on every page but only asked for by `.code`, so it costs nothing
+// until a page actually sets protocol literals.
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/assets/fonts/ibm-plex-mono-latin-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

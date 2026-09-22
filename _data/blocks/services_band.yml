@@ -1,0 +1,10 @@
+# The three services, in the order a company meets them.
+items:
+  - title: Consultation
+    body: We advise on Nostr integration for existing products.
+  - title: Research
+    body: >-
+      We offer free research groups for existing Nostr apps and services,
+      supporting them to be even more non-custodial.
+  - title: Development
+    body: We offer hands on help integrating Nostr with existing products.

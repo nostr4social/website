@@ -1,0 +1,57 @@
+@use "../breakpoints" as *;
+
+.footer {
+  border-top: 1px solid var(--line);
+  padding-block: var(--band-y-tight);
+}
+
+.footer__top {
+  display: flex;
+  gap: var(--s-7);
+  justify-content: space-between;
+  padding-bottom: var(--s-6);
+}
+
+.footer__cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-10);
+}
+
+.footer__col {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--fs-s);
+  gap: var(--s-3);
+}
+
+.footer__link {
+  color: var(--ink-1);
+  text-decoration: none;
+}
+
+.footer__link:hover {
+  color: var(--ink-0);
+}
+
+.footer__legal {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  display: flex;
+  font-size: var(--fs-xs);
+  gap: var(--s-5);
+  justify-content: space-between;
+  padding-top: var(--s-5);
+}
+
+@include below($bp-mid) {
+  .footer__top {
+    flex-direction: column;
+    gap: var(--s-6);
+  }
+
+  .footer__cols {
+    gap: var(--s-7);
+  }
+}

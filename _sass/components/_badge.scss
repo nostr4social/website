@@ -1,0 +1,21 @@
+// A badge states a product's status. Two, so far: shipped and not yet.
+.badge {
+  border-radius: var(--r-pill);
+  display: inline-block;
+  font-size: var(--fs-eyebrow);
+  font-weight: var(--fw-ui);
+  letter-spacing: var(--ls-eyebrow);
+  line-height: var(--lh-heading);
+  padding: var(--s-1) var(--s-3);
+  text-transform: uppercase;
+}
+
+.badge--live {
+  background: var(--tint-ok);
+  color: var(--ok);
+}
+
+.badge--soon {
+  background: var(--tint-gold);
+  color: var(--gold);
+}

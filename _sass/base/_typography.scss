@@ -1,0 +1,163 @@
+body {
+  background: var(--bg-0);
+  color: var(--ink-2);
+  font-family: var(--font-sans);
+  font-size: var(--fs-m);
+  font-weight: var(--fw-body);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--ink-0);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-heading);
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: var(--fs-h1);
+  letter-spacing: var(--ls-display);
+  line-height: var(--lh-display);
+}
+
+h2 {
+  font-size: var(--fs-h2);
+}
+
+h3 {
+  font-size: var(--fs-l);
+}
+
+a {
+  color: var(--purple-lift);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--purple-lift-hover);
+}
+
+// Prose links stay underlined; buttons, chips and nav opt out.
+.prose a,
+.rich a {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
+// Monospace is for code and protocol literals only.
+.code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+strong,
+b {
+  color: var(--ink-0);
+  font-weight: var(--fw-title);
+}
+
+// `*Name*` in the copy marks a named component — a product, a standard, a role.
+// Gold, upright, never italic.
+em,
+i {
+  color: var(--gold);
+  font-weight: var(--fw-ui);
+  font-style: normal;
+}
+
+// `**—**` in the copy is the turn in a sentence. Rust, at body size and up,
+// where rust clears contrast as a shape rather than as small text.
+.punch {
+  color: var(--rust);
+  font-weight: inherit;
+}
+
+// The "4" in Nostr4 and in a heading like "Freedom 4 Social Apps".
+.four {
+  color: var(--rust);
+  font-style: normal;
+}
+
+.eyebrow {
+  color: var(--ink-3);
+  font-size: var(--fs-eyebrow);
+  font-weight: var(--fw-ui);
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+
+.eyebrow--gold {
+  color: var(--gold);
+}
+
+.eyebrow--rust {
+  color: var(--rust);
+}
+
+// The oversized section label behind a band's own heading.
+.watermark {
+  color: var(--ink-faint);
+  font-size: var(--fs-display);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-display);
+}
+
+.lede {
+  color: var(--ink-2);
+  font-size: var(--fs-l);
+  line-height: var(--lh-body);
+  max-width: var(--measure-prose);
+}
+
+.lede--xl {
+  font-size: var(--fs-xl);
+  max-width: var(--measure-lede);
+}
+
+.sub {
+  color: var(--ink-2);
+  font-size: var(--fs-l);
+  font-weight: var(--fw-body);
+  letter-spacing: var(--ls-display);
+  line-height: var(--lh-display);
+}
+
+// Body copy rendered from markdown: the only place where <p> stacks.
+.rich > * + * {
+  margin-top: var(--s-4);
+}
+
+.rich ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.rich li {
+  padding-left: var(--s-4);
+  position: relative;
+}
+
+.rich li::before {
+  color: var(--rust);
+  content: "—";
+  left: 0;
+  position: absolute;
+}
+
+// A heading that is a sentence rather than a label: same size, body weight.
+.h2--light {
+  font-weight: var(--fw-body);
+}
+
+// The quiet line under a bold section title.
+.sub-title {
+  color: var(--ink-1);
+  font-size: var(--fs-l);
+}

@@ -1,0 +1,130 @@
+@use "../breakpoints" as *;
+
+.masthead {
+  border-bottom: 1px solid var(--line);
+}
+
+.masthead__inner {
+  align-items: center;
+  display: flex;
+  gap: var(--s-5);
+  justify-content: space-between;
+  padding-block: var(--masthead-y);
+  position: relative;
+}
+
+.nav {
+  align-items: center;
+  display: flex;
+  gap: var(--s-5);
+  font-size: var(--fs-m);
+  font-weight: var(--fw-ui);
+}
+
+.nav__link {
+  color: var(--ink-1);
+  text-decoration: none;
+}
+
+.nav__link:hover {
+  color: var(--ink-0);
+}
+
+// The page you are on is named, not linked.
+.nav__link[aria-current="page"] {
+  color: var(--gold);
+}
+
+.nav__cta {
+  background: var(--purple);
+  border-radius: var(--r-ui);
+  color: var(--ink-on-accent);
+  padding: var(--s-2) var(--s-4);
+}
+
+.nav__cta:hover {
+  background: #7a0ddb;
+  color: var(--ink-on-accent);
+}
+
+// ── mobile menu ──────────────────────────────────────────────────────────────
+// A checkbox, not a script: the site ships no JavaScript outside /contact/.
+// The input stays a real checkbox, so it is focusable and Space toggles it.
+
+.nav-toggle {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-ui);
+  cursor: pointer;
+  display: none;
+  flex: none;
+  height: 44px;
+  position: relative;
+  width: 44px;
+}
+
+.nav-toggle::before,
+.nav-toggle::after {
+  background: var(--ink-0);
+  content: "";
+  height: 2px;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transition: transform 140ms ease-out;
+  width: 20px;
+}
+
+.nav-toggle::before {
+  transform: translate(-50%, -6px);
+}
+
+.nav-toggle::after {
+  transform: translate(-50%, 4px);
+}
+
+// Open: the two bars cross.
+.nav-toggle:checked::before {
+  transform: translate(-50%, -1px) rotate(45deg);
+}
+
+.nav-toggle:checked::after {
+  transform: translate(-50%, -1px) rotate(-45deg);
+}
+
+@include below($bp-mid) {
+  .nav-toggle {
+    display: block;
+  }
+
+  .nav {
+    align-items: stretch;
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    left: var(--gutter);
+    padding: var(--s-2);
+    position: absolute;
+    right: var(--gutter);
+    top: calc(100% + var(--s-2));
+    z-index: 5;
+  }
+
+  .nav-toggle:checked ~ .nav {
+    display: flex;
+  }
+
+  .nav__link {
+    border-radius: var(--r-ui);
+    padding: var(--s-3) var(--s-4);
+  }
+
+  .nav__cta {
+    margin-top: var(--s-2);
+    text-align: center;
+  }
+}

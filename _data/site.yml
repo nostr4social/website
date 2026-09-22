@@ -1,0 +1,44 @@
+# Site-wide copy. Nothing here is machine configuration — that lives in _config.yml.
+
+org: Nostr4 Inc.
+name: Nostr4
+
+# The wordmark is set in two parts so the "4" can carry the rust accent.
+wordmark:
+  stem: Nostr
+  four: "4"
+
+tagline: growth and infrastructure 4 social apps
+copyright: "© 2026 Nostr4 Inc. · a Delaware Public Benefit Corporation"
+
+meta:
+  title: "Nostr4 · growth and infrastructure 4 social apps"
+  # Appended to every other page's own title.
+  title_suffix: "· Nostr4"
+  description: >-
+    Nostr4 develops Nostr standards and infrastructure products, and offers
+    concierge services for social apps to leverage non-custody as a profit model.
+  og_image: /assets/images/og/default.png
+  og_image_alt: The Nostr4 mark — a gold bolt through a purple ring.
+
+a11y:
+  skip_link: Skip to content
+  logo_alt: Nostr4
+  home_link: Nostr4 home
+  menu_open: Menu
+  menu_close: Close menu
+  primary_nav: Primary
+  footer_nav: Footer
+
+# Content-Security-Policy, emitted as a <meta http-equiv> by _includes/head/csp.html.
+# `page.csp` picks which one; pages that ship no JavaScript get `default`.
+csp:
+  default: >-
+    default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self';
+    manifest-src 'self'; base-uri 'none'; form-action 'none'
+  # /contact/ loads its own module and opens relay sockets the visitor's own
+  # data chooses, so `connect-src` cannot be an allow-list. Said plainly on the page.
+  contact: >-
+    default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self';
+    script-src 'self'; connect-src 'self' wss:; manifest-src 'self';
+    base-uri 'none'; form-action 'none'

@@ -1,0 +1,13 @@
+{%- comment -%}
+  head    optional; usually none — the claims are the whole band
+  items   [{claim, note}]
+{%- endcomment -%}
+{%- assign b = include.block -%}
+<div class="proof-bar">
+  {%- for item in b.items -%}
+  <div class="proof-bar__item">
+    <div class="proof-bar__claim">{{ item.claim }}</div>
+    <div class="proof-bar__note">{{ item.note }}</div>
+  </div>
+  {%- endfor -%}
+</div>

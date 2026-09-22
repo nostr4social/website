@@ -1,0 +1,9 @@
+{%- comment -%}
+Icons are inline SVG so they take their colour from the cascade. Each file in
+_includes/icons/ holds only the shapes; the wrapper is written once, here.
+
+  name   file name without .svg  (required)
+  class  extra classes, e.g. "icon--gold icon--lg"
+{%- endcomment -%}
+{%- assign file = include.name | prepend: "icons/" | append: ".svg" -%}
+<svg class="icon{% if include.class %} {{ include.class }}{% endif %}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">{% include {{ file }} %}</svg>

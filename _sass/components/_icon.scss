@@ -1,0 +1,26 @@
+// Icons are inline SVG so they take their colour from the cascade.
+.icon {
+  display: block;
+  fill: currentColor;
+  flex: none;
+  height: 24px;
+  width: 24px;
+}
+
+.icon--gold {
+  color: var(--gold);
+}
+
+.icon--rust {
+  color: var(--rust);
+}
+
+.icon--lg {
+  height: 50px;
+  width: 50px;
+}
+
+.icon--xl {
+  height: 52px;
+  width: 52px;
+}

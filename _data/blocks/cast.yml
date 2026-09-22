@@ -1,0 +1,18 @@
+# The four kinds of app a person meets on Nostr. Rust marks the two that Nostr4
+# builds; gold marks the rest of the ecosystem.
+centre: face
+items:
+  - icon: phone
+    title: Social Client Apps
+    note: Interface for generating and interacting with user content.
+  - icon: storage
+    title: Data Storage Relays
+    note: Distributed storage and retrieval of signed content.
+  - icon: key
+    tone: rust
+    title: Key Management Apps
+    note: On-demand key generation and content signing.
+  - icon: cloud
+    tone: rust
+    title: Data Processing Services
+    note: On demand processing of raw data from signed user content.

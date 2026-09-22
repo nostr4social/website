@@ -1,0 +1,18 @@
+# Footer link columns, left to right.
+columns:
+  - label: Products
+    links:
+      - label: TrustR
+        href: /trustr/
+  - label: Company
+    links:
+      - label: Services
+        href: /services/
+      - label: About
+        href: /about/
+      - label: Contact
+        href: /contact/
+  - label: Protocol
+    links:
+      - label: Nostr 4 Social Apps
+        href: /nostr/

@@ -1,0 +1,11 @@
+{%- comment -%}
+Content-Security-Policy as a meta tag, because GitHub Pages serves no headers.
+`page.csp` names a policy in _data/site.yml; pages that ship no JavaScript get
+`default`, which forbids script outright.
+{%- endcomment -%}
+{%- assign key = page.csp | default: "default" -%}
+{%- assign policy = site.data.site.csp[key] -%}
+{%- if jekyll.environment != "production" -%}
+  {%- assign policy = policy | replace: "connect-src 'self' wss:", "connect-src 'self' wss: ws://localhost:* ws://127.0.0.1:*" -%}
+{%- endif -%}
+<meta http-equiv="Content-Security-Policy" content="{{ policy | strip_newlines | normalize_whitespace }}">

@@ -1,0 +1,49 @@
+meta:
+  title: About
+  description: >-
+    Nostr4 is a Delaware Public Benefit Corporation, chartered to expand
+    user-governed services on open protocols.
+
+sections:
+  - type: hero
+    band: glow
+    head:
+      eyebrow: The company
+      title: About Nostr4
+      lede: >-
+        Most companies write a mission statement as an afterthought. We filed
+        ours in Delaware.
+    actions:
+      - label: Read the charter
+        href: "#charter"
+        style: primary
+
+  - type: notice
+    head:
+      eyebrow: Details coming soon
+      eyebrow_tone: gold
+      title: This page is still being written.
+      lede: >-
+        The charter, the team and the origin story are being prepared for
+        publication.
+
+  - type: callout
+    id: charter
+    band: raised
+    head:
+      title: A Public Benefit Company
+      lede: >-
+        The stated Public Benefit of Nostr4, as chartered in our articles of
+        incorporation to which all board members and executives are bound, is
+        to:
+    quote: >-
+      strengthen open public discourse, market competition, and community
+      resilience, as a public benefit, by expanding access to user-governed,
+      interoperable services that empower individuals and organizations to
+      control their digital identity, communications, and information flows
+      through a distributed market of independent providers operating on open
+      protocol standards.
+    actions:
+      - label: Contact us
+        href: /contact/
+        style: primary

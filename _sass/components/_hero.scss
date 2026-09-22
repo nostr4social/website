@@ -1,0 +1,54 @@
+@use "../breakpoints" as *;
+
+// The hero states the thesis. Text-only by default; `cast` adds the second
+// column — the people or parts the page is about, named before the case.
+
+.hero {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  max-width: var(--measure-prose);
+}
+
+.hero__lede {
+  color: var(--ink-2);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-body);
+  max-width: var(--measure-card);
+}
+
+.hero .actions {
+  margin-top: var(--s-2);
+}
+
+// Two columns: thesis left, cast right.
+.hero-split {
+  align-items: center;
+  display: grid;
+  gap: var(--s-8);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hero-split .hero {
+  gap: var(--s-5);
+  max-width: none;
+}
+
+.hero-split .hero__lede {
+  max-width: var(--measure-lede);
+}
+
+// The cast below the thesis rather than beside it.
+.hero-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-7);
+}
+
+@include below($bp-mid) {
+  .hero-split {
+    gap: var(--s-7);
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,6 @@
+{%- comment -%}
+Five of the six pages emit nothing here. Only /contact/ names a module.
+{%- endcomment -%}
+{%- for script in page.scripts -%}
+<script type="module" src="{{ script | relative_url }}"></script>
+{%- endfor -%}

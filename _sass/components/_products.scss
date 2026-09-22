@@ -1,0 +1,40 @@
+// One panel per product. Each states what it is for, then the standards that
+// came out of building it, then the ways in.
+
+.product {
+  align-items: flex-start;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--pad-panel);
+}
+
+.product__name {
+  color: var(--ink-0);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-heading);
+}
+
+.product__body {
+  color: var(--ink-2);
+  font-size: var(--fs-m);
+  line-height: var(--lh-body);
+}
+
+.product__standards {
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding-top: var(--s-4);
+  width: 100%;
+}
+
+.product .actions {
+  margin-top: var(--s-1);
+}

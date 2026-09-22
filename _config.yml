@@ -1,0 +1,45 @@
+# Machine configuration only. Every word a visitor reads lives in _data/.
+
+url: "https://nostr4.social"
+baseurl: ""
+lang: en
+timezone: America/Denver
+
+permalink: pretty
+include:
+  - .well-known
+  - _pages
+exclude:
+  - tools
+  - scripts
+  - node_modules
+  - vendor
+  - Gemfile
+  - Gemfile.lock
+  - package.json
+  - package-lock.json
+  - README.md
+  - LICENSE
+
+plugins:
+  - jekyll-sitemap
+
+sass:
+  style: compressed
+  sourcemap: never
+
+kramdown:
+  smart_quotes: [lsquo, rsquo, ldquo, rdquo]
+  entity_output: as_char
+
+strict_front_matter: true
+liquid:
+  error_mode: strict
+  strict_filters: true
+  strict_variables: false
+
+defaults:
+  - scope:
+      path: "_pages"
+    values:
+      layout: page

@@ -1,0 +1,22 @@
+{%- comment -%}
+  intro   key into _data/blocks/ for the paragraph above the tiles
+  use     key into _data/blocks/ for the tiles themselves
+  items   [{icon, title, body}]
+{%- endcomment -%}
+{%- assign s = include.section -%}
+{%- assign b = include.block -%}
+<div class="tiles">
+  {%- if s.intro -%}
+    {%- assign intro = site.data.blocks[s.intro] -%}
+    {% include lib/text.html text=intro.text class="thesis" %}
+  {%- endif -%}
+  <div class="grid grid--4">
+    {%- for item in b.items -%}
+    <div class="tile">
+      {% include lib/icon.html name=item.icon class="icon--lg icon--gold" %}
+      <h3 class="tile__title">{{ item.title }}</h3>
+      <p class="tile__body">{{ item.body }}</p>
+    </div>
+    {%- endfor -%}
+  </div>
+</div>

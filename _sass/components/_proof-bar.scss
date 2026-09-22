@@ -1,0 +1,57 @@
+@use "../breakpoints" as *;
+
+// Three claims, each with the evidence for it. The claim is rust because it is
+// something Nostr4 did; the evidence is quiet because it is checkable.
+
+.proof-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.proof-bar__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-5);
+}
+
+.proof-bar__item:first-child {
+  padding-left: 0;
+}
+
+.proof-bar__item:last-child {
+  padding-right: 0;
+}
+
+.proof-bar__item + .proof-bar__item {
+  border-left: 1px solid var(--line);
+}
+
+// Fixed, not fluid: rust clears AA only as large text, so this size must not
+// shrink with the viewport.
+.proof-bar__claim {
+  color: var(--rust);
+  font-size: var(--fs-xl-static);
+  font-weight: var(--fw-title);
+  line-height: var(--lh-heading);
+}
+
+.proof-bar__note {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+}
+
+@include below($bp-narrow) {
+  .proof-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .proof-bar__item {
+    padding-inline: 0;
+  }
+
+  .proof-bar__item + .proof-bar__item {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}

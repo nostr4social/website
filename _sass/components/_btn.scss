@@ -1,0 +1,86 @@
+.btn {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--r-ui);
+  display: inline-flex;
+  font-size: var(--fs-m);
+  font-weight: var(--fw-ui);
+  gap: var(--s-2);
+  justify-content: center;
+  line-height: var(--lh-heading);
+  padding: var(--s-3) var(--s-5);
+  text-decoration: none;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+}
+
+// Primary: the one thing this section wants you to do.
+.btn--primary {
+  background: var(--purple);
+  color: var(--ink-on-accent);
+}
+
+.btn--primary:hover {
+  background: #7a0ddb;
+  color: var(--ink-on-accent);
+}
+
+// Secondary: the other door out of the same section.
+.btn--secondary {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--ink-0);
+}
+
+.btn--secondary:hover {
+  border-color: var(--purple-lift);
+  color: var(--ink-0);
+}
+
+// On the raised band the line has to lift with the ground.
+.band--raised .btn--secondary {
+  border-color: var(--line-raised);
+}
+
+// Disabled: a real control that is not ready yet, not a dead link.
+.btn--disabled,
+.btn[aria-disabled="true"] {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--ink-faint);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn--compact {
+  font-size: var(--fs-s);
+  padding: var(--s-2) var(--s-4);
+}
+
+.btn--lg {
+  font-size: var(--fs-l);
+}
+
+.btn__icon {
+  flex: none;
+  height: 13px;
+  width: 13px;
+}
+
+// A row of buttons, with the note that sometimes sits beside them.
+.actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+}
+
+.actions--center {
+  justify-content: center;
+  margin-top: var(--s-6);
+}
+
+.actions__note {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+}

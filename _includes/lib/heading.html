@@ -1,0 +1,18 @@
+{%- comment -%}
+Renders a heading from plain-text copy.
+
+The only markup this site ever injects into a heading is the rust "4": the
+standalone 4 in "Freedom 4 Social Apps" and the 4 in "Nostr4". Copy stays plain
+text in _data/, is escaped here, and only then gets our own markup — so a stray
+character in the YAML can never become a tag.
+
+  text   plain-text heading copy (required)
+  level  h1 | h2 | h3   (default: h2)
+  class  extra classes
+  id     anchor
+{%- endcomment -%}
+{%- assign lvl = include.level | default: "h2" -%}
+{%- assign t = include.text | escape -%}
+{%- assign t = t | replace: "Nostr4", 'Nostr<i class="four">4</i>' -%}
+{%- assign t = t | replace: " 4 ", ' <i class="four">4</i> ' -%}
+<{{ lvl }}{% if include.id %} id="{{ include.id }}"{% endif %}{% if include.class %} class="{{ include.class }}"{% endif %}>{{ t }}</{{ lvl }}>

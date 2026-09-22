@@ -1,0 +1,39 @@
+.visually-hidden {
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+// Visible only once focused, then it sits over the masthead.
+.skip-link {
+  background: var(--bg-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-ui);
+  color: var(--ink-0);
+  font-size: var(--fs-s);
+  font-weight: var(--fw-ui);
+  left: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  position: absolute;
+  top: var(--s-4);
+  transform: translateY(calc(-100% - var(--s-5)));
+  transition: transform 120ms ease-out;
+  z-index: 10;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+// Keyboard focus only; a mouse click on a button should not leave a ring.
+:focus:not(:focus-visible) {
+  outline: none;
+}

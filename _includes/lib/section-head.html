@@ -1,0 +1,28 @@
+{%- comment -%}
+  eyebrow    small uppercase label
+  watermark  the oversized faint word behind a band's own heading
+  title      the h2, bold
+  light      the h2 at body weight — a sentence, not a label
+  sub        a quiet line under the title
+  lede       markdown paragraph; `lede_size: xl` sets the 22px setting
+{%- endcomment -%}
+{%- assign h = include.head -%}
+{%- if h -%}
+<div class="section-head{% if include.align == 'center' %} section-head--center{% endif %}">
+  {%- if h.watermark %}<div class="watermark">{{ h.watermark }}</div>{% endif -%}
+  {%- if h.eyebrow %}<span class="eyebrow{% if h.eyebrow_tone %} eyebrow--{{ h.eyebrow_tone }}{% endif %}">{{ h.eyebrow }}</span>{% endif -%}
+  {%- if h.title %}{% include lib/heading.html text=h.title level=h.level %}{% endif -%}
+  {%- if h.light -%}
+    {%- if h.title -%}
+      <p class="sub-title">{{ h.light }}</p>
+    {%- else -%}
+      {% include lib/heading.html text=h.light level=h.level class="h2--light" %}
+    {%- endif -%}
+  {%- endif -%}
+  {%- if h.sub %}<p class="sub">{{ h.sub }}</p>{% endif -%}
+  {%- if h.lede -%}
+    {%- capture lede_class %}section-head__lede lede{% if h.lede_size %} lede--{{ h.lede_size }}{% endif %}{% endcapture -%}
+    {% include lib/text.html text=h.lede class=lede_class tag="div" %}
+  {%- endif -%}
+</div>
+{%- endif -%}

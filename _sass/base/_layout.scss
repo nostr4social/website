@@ -1,0 +1,133 @@
+@use "../breakpoints" as *;
+
+// The page is a stack of full-bleed bands. Each band paints its own ground and
+// holds one centred `.wrap`, so the ground reaches the window edge while the
+// copy stays on the grid.
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.page__main {
+  flex: 1;
+}
+
+.wrap {
+  margin-inline: auto;
+  max-width: var(--page);
+  padding-inline: var(--gutter);
+  width: 100%;
+}
+
+.band {
+  padding-block: var(--band-y);
+}
+
+.band--tight {
+  padding-block: var(--band-y-tight);
+}
+
+.band--sunk {
+  background: var(--bg-sunk);
+}
+
+.band--raised {
+  background: var(--bg-2);
+}
+
+.band--glow {
+  background-image: var(--glow-left);
+}
+
+.band--glow-right {
+  background-image: var(--glow-right);
+}
+
+.band--ruled {
+  border-block: 1px solid var(--line);
+}
+
+.band--flush {
+  padding-block: 0;
+}
+
+// Section head: eyebrow or watermark, title, sub, lede.
+.section-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-bottom: var(--s-6);
+}
+
+.section-head__lede {
+  margin-top: var(--s-2);
+}
+
+.section-head--center {
+  align-items: center;
+  text-align: center;
+}
+
+// Grids. Every one collapses on the same two steps.
+.grid {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-5) var(--s-6);
+}
+
+.grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+@include below($bp-wide) {
+  :root {
+    --gutter: var(--s-7);
+  }
+}
+
+@include below($bp-mid) {
+  :root {
+    --gutter: var(--s-5);
+    --band-y: var(--s-8);
+    --band-y-tight: var(--s-7);
+  }
+
+  .grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid--3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@include below($bp-narrow) {
+  :root {
+    --gutter: var(--s-4);
+    --band-y: var(--s-7);
+    --band-y-tight: var(--s-6);
+    --pad-panel: var(--s-5);
+  }
+
+  .grid--2,
+  .grid--3,
+  .grid--4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,140 @@
+# The home page carries the whole argument once: what the protocol is, what we
+# build on it, what we do for you, and why the company is shaped this way.
+# The Public Benefit claim belongs in the closing band, never in the proof bar.
+
+meta: {}
+
+sections:
+  - type: hero
+    band: glow-right
+    cast: cast
+    cast_layout: side
+    head:
+      title: Freedom 4 Social Apps
+      lede: >-
+        Nostr4 develops Nostr standards and infrastructure products and offers
+        concierge services for social apps to leverage non-custody **—** as a
+        profit model.
+    actions:
+      - label: Learn More About Nostr
+        href: /nostr/
+        style: primary
+      - label: Join our Research Group
+        href: /contact/?subject=Research+group
+
+  - type: proof-bar
+    band: sunk
+    ruled: true
+    flush: true
+    items:
+      - claim: We Build Infrastructure
+        note: TrustR has been live since April 2026.
+      - claim: We Collaborate on Standards
+        note: We authored TSM and NAS.
+      - claim: We Develop Open Source
+        note: We build the GrapeRank engine.
+
+  - type: tiles
+    id: nostr
+    intro: thesis
+    use: protocol_cards
+    head:
+      title: Nostr 4 Social Apps
+      sub: Nostr is the social layer for independent apps.
+    actions_align: center
+    actions:
+      - label: Learn More About Nostr
+        href: /nostr/
+      - label: Book a Free Consult
+        href: /contact/
+        style: primary
+        size: lg
+
+  - type: products
+    id: infrastructure
+    band: sunk
+    head:
+      watermark: Infrastructure
+      light: We build Non-Custodial Nostr Tech
+      lede: >-
+        Our products are specifically designed to preserve user-custody for
+        social apps and services across the network.
+      lede_size: xl
+    items:
+      - badge:
+          label: Live
+          tone: live
+        name: TrustR
+        body: >-
+          On Nostr, the feed belongs to the reader. TrustR computes discovery
+          and recommendation from each user's own web of trust. Rankings are
+          configurable, shareable, and portable to any app that speaks TSM. The
+          algorithm stops being a platform secret and becomes the user's tool.
+        standards:
+          label: Standards we designed along the way
+          chips:
+            - label: "TSM · trust services"
+              href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/tsm
+            - label: "NAS · event archives"
+              href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/nas
+            - label: "GrapeRank · web-of-trust engine"
+              href: https://github.com/graperank/tsm-graperank-library
+        actions:
+          - label: Read the White Paper
+            href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/tsm
+            external: true
+          - label: Launch the Demo
+            href: https://trustr.ing
+            style: primary
+            external: true
+            note: trustr.ing
+      - badge:
+          label: In development
+          tone: soon
+        name: NostrMe
+        body: >-
+          NostrMe generates keys remotely and signs on the user's behalf. Apps
+          never touch a private key, and users never lose one.
+        standards:
+          label: Standards work
+          chips:
+            - label: "NIP-46 · remote signing"
+              href: https://github.com/nostr-protocol/nips/blob/master/46.md
+            - label: "key sharding · spec planned"
+              href: https://github.com/nostr-protocol/nips
+        actions:
+          - label: White Paper Coming Soon
+            style: disabled
+
+  - type: services-band
+    id: growth
+    use: services_band
+    head:
+      watermark: Growth
+      light: We are Nostr Integration Experts.
+      lede: >-
+        We offer concierge services for companies at any stage, from sizing up
+        the protocol to building and shipping on it.
+      lede_size: xl
+    actions_align: center
+    actions:
+      - label: Contact Us
+        href: /contact/
+        style: primary
+        size: lg
+
+  - type: callout
+    id: benefit
+    band: raised
+    head:
+      title: Public Benefit
+      lede: >-
+        Most companies write a mission statement as an afterthought. We filed
+        ours in Delaware. Nostr4 is a Public Benefit Corporation, chartered to
+        expand user-governed services on open protocols. The charter is not
+        attached to the business model. It is the business model **—**
+        notarized.
+    actions:
+      - label: About Nostr4
+        href: /about/
+        icon: caret

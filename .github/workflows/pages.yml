@@ -1,0 +1,71 @@
+# Builds with Jekyll 4 and deploys to GitHub Pages.
+#
+# NOT YET ENABLED. The site is still being built locally; `workflow_dispatch` is
+# the only trigger until cutover, at which point the `push` trigger below is
+# uncommented and Pages is switched to "GitHub Actions" in the repo settings.
+#
+# actions/jekyll-build-pages is deliberately not used — it pins Jekyll 3.
+
+name: Build and deploy
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; let a running one finish rather than cancelling it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build
+        env:
+          JEKYLL_ENV: production
+        run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
+
+      - name: Check
+        run: scripts/check.sh
+
+      - uses: actions/upload-pages-artifact@v3
+
+  # The contact bundle is committed. This proves the committed files are exactly
+  # what the pinned sources build, so a reviewer never has to trust the blob.
+  verify-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run check:contact
+
+  deploy:
+    needs: [build, verify-bundle]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

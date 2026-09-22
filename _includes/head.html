@@ -1,0 +1,17 @@
+{%- assign s = site.data.site -%}
+{%- assign data = site.data.pages[page.data] -%}
+{%- if data.meta.title -%}
+  {%- assign title = data.meta.title | append: " " | append: s.meta.title_suffix -%}
+{%- else -%}
+  {%- assign title = s.meta.title -%}
+{%- endif -%}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{% include head/csp.html %}
+<title>{{ title | escape }}</title>
+{% include head/seo.html title=title meta=data.meta %}
+<meta name="theme-color" content="#14111C">
+<meta name="color-scheme" content="dark">
+{% include head/icons.html %}
+{% include head/fonts.html %}
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">

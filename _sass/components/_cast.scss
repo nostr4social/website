@@ -1,0 +1,102 @@
+@use "../breakpoints" as *;
+
+// The cast: the user at the centre, the four kinds of app around them. Names
+// the parts before the argument uses them.
+
+.cast {
+  align-items: center;
+  aspect-ratio: 600 / 470;
+  background-image: var(--glow-figure);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  justify-items: center;
+  position: relative;
+  width: 100%;
+}
+
+// Four short connectors, drawn only where the connection is the message.
+.cast__links {
+  color: var(--purple);
+  height: 100%;
+  inset: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.cast__centre {
+  color: var(--gold);
+  grid-area: 2 / 2;
+  height: auto;
+  position: relative;
+  width: 60%;
+}
+
+.cast__item {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-width: 176px;
+  position: relative;
+  text-align: center;
+}
+
+.cast__item--1 {
+  grid-area: 1 / 1;
+}
+
+.cast__item--2 {
+  grid-area: 1 / 3;
+}
+
+.cast__item--3 {
+  grid-area: 3 / 3;
+}
+
+.cast__item--4 {
+  grid-area: 3 / 1;
+}
+
+.cast__title {
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+  font-weight: var(--fw-title);
+  line-height: var(--lh-heading);
+}
+
+.cast__note {
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+}
+
+@include below($bp-mid) {
+  // Stacked, the diagram is a list; the connectors would say nothing.
+  .cast {
+    aspect-ratio: auto;
+    gap: var(--s-5);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+
+  .cast__links {
+    display: none;
+  }
+
+  .cast__centre {
+    grid-area: auto;
+    order: -1;
+    width: 90px;
+  }
+
+  .cast__item {
+    grid-area: auto !important;
+  }
+}
+
+@include below($bp-narrow) {
+  .cast {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

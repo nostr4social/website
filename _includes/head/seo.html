@@ -1,0 +1,32 @@
+{%- comment -%}
+Hand-rolled, so nothing here can pull in a plugin's opinions or a third-party
+URL. Copy comes from _data/site.yml and the page's own _data/pages/<key>.yml.
+{%- endcomment -%}
+{%- assign s = site.data.site -%}
+{%- assign meta = include.meta -%}
+{%- assign desc = meta.description | default: s.meta.description | strip_newlines | normalize_whitespace -%}
+{%- assign image = meta.og_image | default: s.meta.og_image | absolute_url -%}
+{%- assign image_alt = meta.og_image_alt | default: s.meta.og_image_alt -%}
+<meta name="description" content="{{ desc | escape }}">
+<link rel="canonical" href="{{ page.url | absolute_url }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ s.name | escape }}">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="{{ include.title | escape }}">
+<meta property="og:description" content="{{ desc | escape }}">
+<meta property="og:url" content="{{ page.url | absolute_url }}">
+<meta property="og:image" content="{{ image }}">
+<meta property="og:image:alt" content="{{ image_alt | escape }}">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": {{ s.org | jsonify }},
+  "alternateName": {{ s.name | jsonify }},
+  "url": {{ "/" | absolute_url | jsonify }},
+  "logo": {{ "/icon-512.png" | absolute_url | jsonify }},
+  "description": {{ s.meta.description | strip_newlines | normalize_whitespace | jsonify }},
+  "slogan": {{ s.tagline | jsonify }}
+}
+</script>

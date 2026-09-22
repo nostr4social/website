@@ -1,0 +1,145 @@
+// Design tokens for nostr4.social.
+//
+// Transcribed from theme-audit.md §5 with the rulings in §7. The three brand
+// colours are sampled from assets/images/nostr4-logo-color.png and are never
+// lightened: gold carries small accents, rust carries fills, rails, icons, the
+// em-dash punch and text at 22px and up, purple carries the protocol.
+//
+// Everything here is a custom property so a component never hard-codes a value.
+
+:root {
+  // ── ground and surfaces ────────────────────────────────────────────────────
+  --bg-0: #14111c; // page
+  --bg-sunk: #181322; // sunk band
+  --bg-1: #1c1826; // card
+  --bg-2: #241b38; // raised band and raised card
+  --bg-recess: rgb(0 0 0 / 0.24); // recessed card on a card
+
+  // ── ink ────────────────────────────────────────────────────────────────────
+  --ink-0: #efebf7; // headings, card titles
+  --ink-1: #cfc7e2; // bright body, nav
+  --ink-2: #a79dbd; // body
+  --ink-3: #8b7fa6; // captions, eyebrows, muted
+  --ink-on-accent: #ffffff;
+  --ink-faint: rgb(239 235 247 / 0.34); // watermark headings, disabled controls
+
+  // ── accent ─────────────────────────────────────────────────────────────────
+  --gold: #ffa600; // the human side: icons, tagline, small accents
+  --gold-dim: #e0c89a;
+  --rust: #be4100; // ours: what Nostr4 builds
+  --purple: #6600bc; // the protocol
+  --purple-lift: #a374ff; // links
+  --purple-lift-hover: #c09eff;
+  --purple-chip: #c9adff; // chip ink on the ground
+  --ok: #59e39a;
+
+  --tint-gold: rgb(255 166 0 / 0.13);
+  --tint-gold-soft: rgb(255 166 0 / 0.07);
+  --tint-ok: rgb(42 224 126 / 0.12);
+  --tint-purple: rgb(102 0 188 / 0.2);
+
+  // Hero and section glows. The stop is transparent-purple, not transparent,
+  // so the gradient does not fade through grey.
+  // The glow sits on the side away from the copy, so it lights the graphic
+  // rather than the text. Left for the text-only heroes, right where a figure
+  // occupies the second column.
+  --glow-left: radial-gradient(
+    760px 320px at 22% 40%,
+    rgb(102 0 188 / 0.2),
+    rgb(102 0 188 / 0) 70%
+  );
+  --glow-right: radial-gradient(
+    900px 420px at 74% 44%,
+    rgb(102 0 188 / 0.22),
+    rgb(102 0 188 / 0) 70%
+  );
+  --glow-figure: radial-gradient(
+    420px 320px at 50% 50%,
+    rgb(102 0 188 / 0.38),
+    rgb(102 0 188 / 0) 72%
+  );
+
+  // ── lines ──────────────────────────────────────────────────────────────────
+  --line: #2c2540;
+  --line-strong: #3a3054; // button and chip borders
+  --line-raised: #4a3e6e; // a border on the raised band
+  --line-recess: #241e33;
+  --line-flag: #4a3a16; // dim gold, for flagged panels
+  --rail: 3px; // the left rail on callouts and notices
+
+  // ── type ───────────────────────────────────────────────────────────────────
+  --font-sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  // The scale, snapped to twelve steps. Display sizes are fluid; the rest are
+  // fixed, because body copy that resizes with the viewport is harder to read.
+  --fs-eyebrow: 10.5px;
+  --fs-xs: 12.5px;
+  --fs-s: 14px;
+  --fs-m: 16px;
+  --fs-l: 17.5px;
+  --fs-xl: clamp(17.5px, 2vw, 22px);
+  // Rust text passes AA only at large sizes, so anything set in rust uses this
+  // fixed 22px rather than the fluid step above.
+  --fs-xl-static: 22px;
+  --fs-2xl: clamp(19px, 2.2vw, 24px);
+  --fs-h2: clamp(24px, 2.6vw, 30px);
+  --fs-h1: clamp(32px, 4vw, 48px);
+  --fs-display: clamp(36px, 5vw, 64px);
+
+  // Brand sizes, not scale steps: the two wordmark lockups.
+  --fs-wordmark: clamp(30px, 3vw, 42px);
+  --fs-wordmark-s: clamp(26px, 2.5vw, 36px);
+
+  --fw-body: 400;
+  --fw-ui: 600;
+  --fw-title: 700;
+  --fw-brand: 800;
+
+  --lh-display: 1.08;
+  --lh-heading: 1.25;
+  --lh-card: 1.45;
+  --lh-body: 1.6;
+
+  --ls-display: -0.02em;
+  --ls-heading: -0.01em;
+  --ls-eyebrow: 0.15em;
+  --ls-tagline: 0.1em;
+
+  // ── space ──────────────────────────────────────────────────────────────────
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 56px;
+  --s-9: 64px;
+  --s-10: 72px;
+  --s-11: 80px;
+
+  --gutter: var(--s-11); // page side padding, narrows with the viewport
+  --band-y: var(--s-10); // band top and bottom padding
+  --band-y-tight: var(--s-8);
+  --masthead-y: var(--s-4);
+
+  --pad-card: var(--s-5);
+  --pad-panel: var(--s-6);
+
+  // ── radius ─────────────────────────────────────────────────────────────────
+  --r-hairline: 2px;
+  --r-ui: 8px; // buttons, inputs
+  --r-card: 12px; // cards and tiles
+  --r-panel: 16px; // the big product panels
+  --r-pill: 999px;
+
+  // ── measure ────────────────────────────────────────────────────────────────
+  --measure-lede: 30em;
+  --measure-prose: 52em;
+  --measure-card: 34em;
+  --page: 1440px;
+
+  --focus-ring: 2px solid var(--gold);
+  --focus-offset: 3px;
+}

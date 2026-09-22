@@ -1,0 +1,23 @@
+# Four properties of the protocol. Each ends on what is *not* required — the
+# same move four times, so the reader can take them in any order.
+items:
+  - icon: lock
+    title: Non-Custodial
+    body: >-
+      Nostr is the only protocol allowing social apps to interact freely with
+      user accounts and data. Ownership not required.
+  - icon: face
+    title: User Controlled
+    body: >-
+      Identity on Nostr resides in user managed keys. Verification and privacy
+      travel with signed content. Black boxes not required.
+  - icon: network
+    title: Decentralized
+    body: >-
+      The Nostr network is comprised entirely of independent and interoperable
+      apps and services. Central authority is not required.
+  - icon: hub
+    title: Open Protocol
+    body: >-
+      Interoperability itself, the Nostr protocol, is defined exclusively by
+      implementing apps and services. Only NIP-01 is required.

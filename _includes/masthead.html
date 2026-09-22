@@ -1,0 +1,18 @@
+{%- assign s = site.data.site -%}
+<header class="masthead">
+  <div class="wrap masthead__inner">
+    {% include lib/lockup.html %}
+    {%- comment -%}
+      A checkbox, not a script. It stays a real checkbox so it is focusable and
+      Space toggles it; below 900px the CSS turns it into the menu button.
+    {%- endcomment -%}
+    <input class="nav-toggle" type="checkbox" id="nav-toggle" aria-label="{{ s.a11y.menu_open | escape }}">
+    <nav class="nav" aria-label="{{ s.a11y.primary_nav | escape }}">
+      {%- for item in site.data.nav.items -%}
+        {%- assign current = false -%}
+        {%- if page.url == item.href -%}{%- assign current = true -%}{%- endif -%}
+        <a class="nav__link{% if item.cta %} nav__cta{% endif %}" href="{{ item.href | relative_url }}"{% if current %} aria-current="page"{% endif %}>{{ item.label }}</a>
+      {%- endfor -%}
+    </nav>
+  </div>
+</header>

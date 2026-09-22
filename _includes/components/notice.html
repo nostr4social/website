@@ -1,0 +1,9 @@
+{%- comment -%}
+Says plainly that a page is not finished, and what to do meanwhile.
+Takes the standard `head` (eyebrow, title, lede) and renders it inside the panel.
+{%- endcomment -%}
+{%- assign s = include.section -%}
+<div class="notice">
+  {% include lib/section-head.html head=s.head %}
+  {% include lib/actions.html actions=s.actions %}
+</div>
