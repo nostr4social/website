@@ -11,16 +11,12 @@
     <div class="hub__note">{{ b.hub.note }}</div>
   </div>
   <div class="hub__spokes" aria-hidden="true">
-    <svg viewBox="0 0 300 64" fill="none" preserveAspectRatio="none">
-      <g stroke="currentColor" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke">
-        <path d="M150 4 L50 60"/>
-        <path d="M150 4 L150 60"/>
-        <path d="M150 4 L250 60"/>
-      </g>
-    </svg>
+    <div class="hub__spoke hub__spoke--left"></div>
+    <div class="hub__spoke hub__spoke--mid"></div>
+    <div class="hub__spoke hub__spoke--right"></div>
   </div>
   {%- for item in b.items -%}
-  <div class="hub__node">
+  <div class="hub__node hub__node--item">
     {%- capture tone %}icon--xl icon--{{ item.tone | default: "gold" }}{% endcapture -%}
     {% include lib/icon.html name=item.icon class=tone %}
     <div class="hub__title">{{ item.title }}</div>

@@ -2,6 +2,11 @@
 
 // One provider, three kinds of customer. The provider sits at the top because
 // everything below it is someone choosing to use it, not someone it owns.
+//
+// Above 480px it is the board's drawing: three columns, the provider over the
+// middle one, and three purple stubs pointing from it toward the customers —
+// a diagonal, a vertical, a diagonal — built exactly as the board builds them,
+// from rotated rules. On a phone the customers hang off a rail on the left.
 
 .hub {
   background-image: var(--glow-figure);
@@ -37,30 +42,97 @@
   line-height: var(--lh-card);
 }
 
-// Three spokes: two diagonal, one straight down.
+// The three stubs, one per column, in the row between provider and customers.
 .hub__spokes {
+  display: grid;
   grid-column: 1 / -1;
-  height: 64px;
-  position: relative;
-  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  height: 100px;
+  overflow: hidden;
 }
 
-.hub__spokes svg {
-  color: var(--purple);
-  height: 100%;
-  width: 100%;
+.hub__spoke {
+  background: var(--purple);
+  width: 3px;
 }
 
-@include below($bp-mid) {
+// The diagonals sit on the column seams, rotated about their centre, so half
+// of each reaches into the provider's column: they leave from it.
+.hub__spoke--left {
+  height: 100px;
+  justify-self: end;
+  transform: rotate(45deg);
+}
+
+.hub__spoke--mid {
+  height: 75px;
+  justify-self: center;
+  margin-top: 12px;
+}
+
+.hub__spoke--right {
+  height: 100px;
+  justify-self: start;
+  transform: rotate(-45deg);
+}
+
+@include below($bp-phone) {
   .hub {
-    grid-template-columns: minmax(0, 1fr);
+    --rail: 3px;
+    --tick: 24px;
+    --icon-mid: 26px; // half the 52px icon: where the rail leaves the provider
+    --row-pad: 12px;
+
+    background-image: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+  }
+
+  .hub__node {
+    align-items: flex-start;
+    text-align: left;
   }
 
   .hub__node--centre {
-    grid-column: 1;
+    padding-bottom: var(--row-pad);
   }
 
   .hub__spokes {
     display: none;
+  }
+
+  // Each customer is a row indented past the rail. The rail is drawn per row,
+  // so it runs exactly from the provider to the last tick and no further.
+  .hub__node--item {
+    padding-block: var(--row-pad);
+    padding-left: calc(var(--icon-mid) + var(--tick) + var(--s-3));
+    position: relative;
+  }
+
+  .hub__node--item::before {
+    background: var(--purple);
+    bottom: 0;
+    content: "";
+    left: calc(var(--icon-mid) - var(--rail) / 2);
+    position: absolute;
+    top: 0;
+    width: var(--rail);
+  }
+
+  .hub__node--item:last-child::before {
+    bottom: auto;
+    height: calc(var(--row-pad) + var(--icon-mid) + var(--rail) / 2);
+  }
+
+  .hub__node--item::after {
+    background: var(--purple);
+    content: "";
+    height: var(--rail);
+    left: calc(var(--icon-mid) - var(--rail) / 2);
+    position: absolute;
+    top: calc(var(--row-pad) + var(--icon-mid) - var(--rail) / 2);
+    width: calc(var(--tick) + var(--rail));
   }
 }

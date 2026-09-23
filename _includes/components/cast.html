@@ -17,6 +17,9 @@ Rust marks the parts Nostr4 builds; gold marks the rest of the ecosystem.
     </g>
   </svg>
   {% include lib/icon.html name=b.centre class="cast__centre" %}
+  {%- comment -%} The phone layout's spine; hidden above 480px. {%- endcomment -%}
+  <div class="cast__spine cast__spine--top"></div>
+  <div class="cast__spine cast__spine--bottom"></div>
   {%- for item in b.items -%}
   <div class="cast__item cast__item--{{ forloop.index }}">
     {%- capture tone %}icon--xl icon--{{ item.tone | default: "gold" }}{% endcapture -%}

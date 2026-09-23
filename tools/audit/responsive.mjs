@@ -7,7 +7,7 @@
 import { withBrowser } from '../contact-bundle/cdp.mjs'
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:4000'
 const PAGES = ['/', '/nostr/', '/trustr/', '/services/', '/about/', '/contact/', '/404.html']
-const WIDTHS = [1440, 1200, 900, 600, 390]
+const WIDTHS = [1440, 1200, 900, 600, 479, 390, 360]
 let failures = 0
 await withBrowser(async (api) => {
   for (const page of PAGES) {

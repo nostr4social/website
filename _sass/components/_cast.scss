@@ -2,6 +2,11 @@
 
 // The cast: the user at the centre, the four kinds of app around them. Names
 // the parts before the argument uses them.
+//
+// Above 480px it is the board's drawing — a 3×3 grid with the figure in the
+// middle cell and four short connectors. On a phone the same relationship is
+// laid along a spine: two apps, the user, two apps, with the user still in the
+// middle and the connectors still purple.
 
 .cast {
   align-items: center;
@@ -71,13 +76,25 @@
   line-height: var(--lh-card);
 }
 
-@include below($bp-mid) {
-  // Stacked, the diagram is a list; the connectors would say nothing.
+// The spine segments exist only on the phone layout.
+.cast__spine {
+  display: none;
+}
+
+@include below($bp-phone) {
+  // Columns: left apps · spine · right apps. Rows: apps · the user · apps.
+  // The gap is the tick length, so a tick from an item always meets the spine.
   .cast {
+    --tick: 14px;
+    --spine: 3px;
+    --icon-mid: 26px; // half the 52px icon: where a tick leaves an item
+
     aspect-ratio: auto;
-    gap: var(--s-5);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: auto;
+    background-image: none;
+    column-gap: var(--tick);
+    grid-template-columns: minmax(0, 1fr) var(--spine) minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    row-gap: 0;
   }
 
   .cast__links {
@@ -85,18 +102,70 @@
   }
 
   .cast__centre {
-    grid-area: auto;
-    order: -1;
-    width: 90px;
+    grid-area: 2 / 1 / 3 / 4;
+    padding-block: var(--s-3);
+    width: 72px;
   }
 
   .cast__item {
-    grid-area: auto !important;
+    max-width: none;
+    padding-block: var(--s-3);
   }
-}
 
-@include below($bp-narrow) {
-  .cast {
-    grid-template-columns: minmax(0, 1fr);
+  .cast__item--1 {
+    grid-area: 1 / 1;
+  }
+
+  .cast__item--2 {
+    grid-area: 1 / 3;
+  }
+
+  .cast__item--3 {
+    grid-area: 3 / 3;
+  }
+
+  .cast__item--4 {
+    grid-area: 3 / 1;
+  }
+
+  // The tick: from the spine to just short of the item's icon, at icon height.
+  // The icon is centred in the column, so the tick covers the gap plus half the
+  // column minus half an icon minus a breath.
+  .cast__item::before {
+    background: var(--purple);
+    content: "";
+    height: var(--spine);
+    position: absolute;
+    top: calc(var(--s-3) + var(--icon-mid) - var(--spine) / 2);
+    width: calc(var(--tick) + 50% - var(--icon-mid) - 6px);
+  }
+
+  .cast__item--1::before,
+  .cast__item--4::before {
+    right: calc(-1 * var(--tick));
+  }
+
+  .cast__item--2::before,
+  .cast__item--3::before {
+    left: calc(-1 * var(--tick));
+  }
+
+  // Two segments, so the spine passes behind the user rather than through them.
+  .cast__spine {
+    background: var(--purple);
+    display: block;
+    width: var(--spine);
+  }
+
+  .cast__spine--top {
+    align-self: stretch;
+    grid-area: 1 / 2;
+    margin-top: calc(var(--s-3) + var(--icon-mid));
+  }
+
+  .cast__spine--bottom {
+    align-self: start;
+    grid-area: 3 / 2;
+    height: calc(var(--s-3) + var(--icon-mid) + var(--spine));
   }
 }

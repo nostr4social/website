@@ -366,6 +366,12 @@ close: That signed output is now an addressable event ...
 
 ### Diagrams (used by `hero`)
 
+Both keep the board's drawing down to 480 px — the hero stacks at 900 px, so on
+a tablet the diagram simply gets the full width. Below 480 px each changes shape
+once, in CSS alone: the cast lays its four parts along a purple spine with the
+user still in the middle; the hub hangs its three customers off a rail on the
+left. Icons stay on their own line above the text in every layout.
+
 **`cast`** — a figure at the centre and four parts around it, clockwise from
 top-left. `tone: rust` marks the parts Nostr4 builds; the rest are gold.
 
@@ -493,7 +499,7 @@ theme; each new type is a permanent addition to it.
 
    ```scss
    @use "../breakpoints" as *;
-   @include below($bp-mid) { ... }    // 1200 · 900 · 600 are $bp-wide, $bp-mid, $bp-narrow
+   @include below($bp-mid) { ... }    // $bp-wide 1200 · $bp-mid 900 · $bp-narrow 600 · $bp-phone 480
    ```
 
    The shared grids (`.grid--2`, `.grid--3`, `.grid--4`) already collapse at
@@ -576,7 +582,7 @@ With the site served on port 4000, the browser audits (they drive headless
 Chrome and need no extra dependencies):
 
 ```sh
-npm run audit:responsive    # every page × 1440/1200/900/600/390: no horizontal scroll
+npm run audit:responsive    # every page × 1440/1200/900/600/479/390/360: no horizontal scroll
 npm run audit:a11y          # alt text, one h1, no skipped levels, labelled fields, named controls
 npm run e2e:ui              # the contact form end to end, against an unreachable relay
 npm run e2e:contact         # the NIP-17 pipeline offline; add a wss:// URL to publish for real

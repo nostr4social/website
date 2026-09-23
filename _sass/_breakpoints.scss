@@ -4,6 +4,7 @@
 $bp-wide: 1200px;
 $bp-mid: 900px;
 $bp-narrow: 600px;
+$bp-phone: 480px; // the two hero diagrams change shape here, and only here
 
 @mixin below($bp) {
   @media (max-width: #{$bp - 0.02px}) {
