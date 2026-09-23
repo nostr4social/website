@@ -53,8 +53,14 @@
     rgb(102 0 188 / 0.22),
     rgb(102 0 188 / 0) 70%
   );
+  // The figure glow is sized as a proportion of its box, not in pixels. The two
+  // hero diagrams shrink with their column, and fixed radii wider than the box
+  // are cut off by its edges — a purple rectangle instead of a glow. These
+  // radii are the board's 420px/320px read against the 600x470 it was drawn at,
+  // trimmed so the gradient reaches full transparency just inside the box
+  // rather than just outside it.
   --glow-figure: radial-gradient(
-    420px 320px at 50% 50%,
+    68% 66% at 50% 50%,
     rgb(102 0 188 / 0.38),
     rgb(102 0 188 / 0) 72%
   );
