@@ -206,6 +206,7 @@ listed are their own.
   cast: cast              # optional: a block with the diagram
   cast_type: cast         # cast (centre + 4 corners) · hub (top + 3 below)
   cast_layout: side       # side · below
+  list: { columns, item_level, items }   # optional: doors under the title, as on /contact/
   head: { eyebrow, title, lede }
   actions: [ ... ]
 ```
@@ -251,11 +252,16 @@ items:
 ```
 
 **`list`** — ruled items, no boxes. `columns: 2` or `3` (default). An `href`
-on an item makes its title a link.
+on an item makes its title a link; `code` adds a monospace line under the body
+(a NIP-05 identity); `email: {user, domain, subject}` adds a monospace mailto
+that the contact script assembles so the address is not in the page source.
+`item_level: h2` when the list follows the page's h1 directly, as the three
+doors on `/contact/` do.
 
 ```yaml
 items:
   - { title: Curators, body: Publish a ranking as a service., href: /trustr/ }
+  - { title: Nostr, body: Reachable by DM., code: hello@nostr4.social }
 ```
 
 **`services-band`** — the same as `list` with three columns; named so the
@@ -529,22 +535,43 @@ icons by role — gold for the ecosystem, rust for what Nostr4 builds — via
 ## The contact form
 
 `/contact/` is the one page that runs JavaScript. Its copy is in
-`_data/pages/contact.yml` like any other page, in the `contact-form` section,
-but that section has three parts:
+`_data/pages/contact.yml` like any other page. The page is two sections: a
+`hero` carrying the three doors (phone, email, Nostr) as its `list`, and the
+`contact-form`. The form section has three parts:
 
-- **Rendered markup** — `methods`, `nip46`, `compose`, `sending`, `result`,
-  `unavailable`, `email`, `how_it_works`. Edit these like any copy.
-- **`strings`** — what the script says at runtime: status lines, result
-  verdicts, every error message. Edit these like any copy; the keys are what
-  the script looks up, so do not rename them.
+- **Rendered markup** — `fields`, `send`, `travel`, `bunker`, `result`,
+  `unavailable`, `email`, `how_it_works`. Edit these like any copy. `travel`
+  is the chain beside the composer; each node carries a `rest`, `active`,
+  `done` and (for the relays) `failed` line, and the script swaps them as a
+  send moves.
+- **`strings`** — what the script says at runtime: the identity chip, the
+  progress label, the receipt, every error message. Edit these like any copy;
+  the keys are what the script looks up, so do not rename them. `{name}`-style
+  placeholders are filled in by the script. `recipients.labels` maps a name in
+  `nostr.json` to what the dropdown shows (`hello` → `Nostr4`).
 - **`config`** — relay lists, timeouts, message limits, the curated list of
   remote signers. Machine configuration; change with care.
 
-Who the form sends to is not in this file at all: it is every name in
-`.well-known/nostr.json`. Add or remove a person there.
+Who the form can send to is not in this file at all: it is every name in
+`.well-known/nostr.json`, in the order the file lists them, and the first one
+is the default. Add or remove a person there. A link of the form
+`/contact/?to=<name>` preselects that person, which is what the profile cards
+on About will use.
+
+How a message is signed: nobody has to sign in. A one-time key is made when
+the visitor presses send, used once and zero-filled. "Sign with Browser
+Extension" hands off to the extension's own prompt (`window.nostr`); "Sign
+with Remote Bunker" opens the page's one modal, with a nostrconnect QR, the
+nsec.app link and a bunker:// paste. A signed-in sender also gets a copy of
+the message in their own DMs, and the reply-to field is hidden for them.
+
+Proof of work: a message from a one-time key carries a NIP-13 nonce on its
+gift wrap, mined in a Web Worker (`pow-worker.js`) to `config.pow.anonymous`
+leading zero bits. Signed-in senders mine `config.pow.signed`, which is zero.
+Set either to `0` to turn it off. On localhost, `?nopow` skips it.
 
 The script itself is in `assets/js/contact/src/` and is built into
-`assets/js/contact/contact.js` plus two vendored libraries. Change a source
+`assets/js/contact/contact.js`, the worker, and two vendored libraries. Change a source
 file or a dependency pin, then:
 
 ```sh
@@ -586,7 +613,11 @@ npm run audit:responsive    # every page × 1440/1200/900/600/479/390/360: no ho
 npm run audit:a11y          # alt text, one h1, no skipped levels, labelled fields, named controls
 npm run e2e:ui              # the contact form end to end, against an unreachable relay
 npm run e2e:contact         # the NIP-17 pipeline offline; add a wss:// URL to publish for real
+npm run check:inboxes       # read-only: does each name in nostr.json publish a kind 10050 inbox list?
 ```
+
+A recipient without a kind 10050 gets the fallback relays and the sender sees
+a warning, so run `check:inboxes` whenever a name is added to `nostr.json`.
 
 Deployment is by `.github/workflows/pages.yml`. It is currently reachable only
 by manual dispatch; the `push` trigger is commented out until cutover.
