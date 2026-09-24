@@ -112,7 +112,8 @@ check('seal has no tags', Array.isArray(seal.tags) && seal.tags.length === 0)
 check('seal is signed by the sender', seal.pubkey === senderPubkey && verifyEvent(seal))
 check('seal is backdated', seal.created_at <= Math.floor(Date.now() / 1000))
 
-const { wrap, ephemeralKey } = wrapFor(seal, recipientPubkey, 'wss://relay.example')
+// Mined to 12 bits here so the test also proves the nonce and id agree; the page uses more.
+const { wrap, ephemeralKey } = await wrapFor(seal, recipientPubkey, 'wss://relay.example', { pow: 12 })
 check('wrap is kind 1059', wrap.kind === KIND_WRAP)
 check('wrap is not signed by the sender', wrap.pubkey !== senderPubkey)
 check('wrap is signed by the ephemeral key', wrap.pubkey === getPublicKey(ephemeralKey) && verifyEvent(wrap))

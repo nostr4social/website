@@ -12,6 +12,14 @@ function readJson(id) {
 export const strings = readJson('contact-strings')
 export const config = readJson('contact-config')
 
+/** The page's query string. `?to=<name>` and `?subject=` work everywhere. */
+export const query = new URLSearchParams(location.search)
+
+/** `{name}` placeholders in a string, filled from an object. */
+export function fmt(template, vars = {}) {
+  return String(template).replace(/\{(\w+)\}/g, (m, key) => (vars[key] == null ? m : String(vars[key])))
+}
+
 /** `strings` lookup by dotted path, so the UI can name copy without destructuring. */
 export function t(path, fallback = '') {
   return path.split('.').reduce((node, key) => (node == null ? undefined : node[key]), strings) ?? fallback
@@ -30,5 +38,6 @@ export const dev = (() => {
     noNip07: params.has('nonip07'),
     noNip44: params.has('nonip44'),
     no10050: params.has('no10050'),
+    noPow: params.has('nopow'),
   }
 })()

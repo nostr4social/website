@@ -1,168 +1,210 @@
 {%- comment -%}
-The encrypted contact form.
+The encrypted contact form: one composer, one recipient, the travel chain
+beside it. Every word here comes from _data/pages/contact.yml. The script's own
+strings and configuration go out as two inert JSON blocks rather than as
+literals in the JavaScript, for the same reason nothing else on this site has
+copy in a template.
 
-Every word here comes from _data/pages/contact.yml. The script's own strings and
-configuration go out as two inert JSON blocks rather than as literals in the
-JavaScript, for the same reason nothing else on this site has copy in a
-template.
-
-The email card sits outside the panel system and is never hidden: if the script
-fails to load, or a visitor has JavaScript off, there is still a way in.
+The grid (see _sass/pages/_contact.scss):
+  desk    fields | travel        phone   fields
+          send   | travel                travel (a strip)
+                 | how                   send
+                                         how
+The receipt takes the fields-and-send cell when a message has gone out.
 {%- endcomment -%}
 {%- assign s = include.section -%}
 {%- assign a = site.data.assets.contact -%}
 <div class="contact" id="contact">
   {% include lib/section-head.html head=s.head %}
 
-  <p class="identity" id="contact-identity" hidden></p>
-  <p class="contact__status" id="contact-status" hidden role="status"></p>
   <p class="contact__error" id="contact-error" hidden role="alert"></p>
-
   <noscript>
     <p class="notice notice--inline">{{ s.email.noscript }}</p>
   </noscript>
 
-  {%- comment -%} 1 · choose a method {%- endcomment -%}
-  <section class="contact__panel" id="panel-methods">
-    <h2 class="contact__title">{{ s.methods.title }}</h2>
-    <p class="contact__note">{{ s.methods.note }}</p>
-    <div class="methods">
-      {%- for item in s.methods.items -%}
-      <div class="method">
-        <button type="button" class="method__button" id="method-{{ item.id }}">
-          <span class="method__title">{{ item.title }}</span>
-          <span class="method__note">{{ item.note }}</span>
-        </button>
-        {%- if item.missing -%}
-        <p class="method__missing" id="{{ item.id }}-missing" hidden>{{ item.missing }}</p>
-        {%- endif -%}
-      </div>
-      {%- endfor -%}
-    </div>
-  </section>
-
-  {%- comment -%} 2 · connect a remote signer {%- endcomment -%}
-  <section class="contact__panel" id="panel-nip46" hidden>
-    <h2 class="contact__title">{{ s.nip46.title }}</h2>
-    <p class="contact__note">{{ s.nip46.scan }}</p>
-    <div class="connect">
-      <div class="connect__qr" id="nip46-qr"></div>
-      <div class="connect__side">
-        <div class="actions" id="nip46-signers"></div>
-        <label class="field">
-          <span class="field__label">{{ s.nip46.uri_label }}</span>
-          <input class="field__input code" id="nip46-uri" type="text" readonly>
-        </label>
-        <div class="actions">
-          <button type="button" class="btn btn--secondary btn--compact" id="nip46-copy">{{ s.nip46.copy }}</button>
-          <button type="button" class="btn btn--secondary btn--compact" id="nip46-cancel">{{ s.nip46.cancel }}</button>
-        </div>
-        <div id="nip46-auth" hidden></div>
-      </div>
-    </div>
-    <form class="connect__paste" id="form-bunker">
-      <h3 class="contact__subtitle">{{ s.nip46.paste_title }}</h3>
+  <form class="composer" id="contact-form" novalidate>
+    {%- comment -%} the fields {%- endcomment -%}
+    <div class="composer__fields" id="composer-fields">
       <label class="field">
-        <span class="field__label">{{ s.nip46.paste_label }}</span>
-        <input class="field__input code" id="field-bunker" type="text" inputmode="url"
-               autocomplete="off" spellcheck="false" placeholder="bunker://">
+        <span class="field__label">{{ s.fields.to.label }}</span>
+        <span class="select">
+          <select class="field__input select__input" id="field-to" name="to" required></select>
+          {% include lib/icon.html name="caret" class="select__caret" %}
+        </span>
+        <span class="field__note">{{ s.fields.to.note }}</span>
       </label>
-      <p class="field__note">{{ s.nip46.paste_note }}</p>
-      <button type="submit" class="btn btn--primary btn--compact">{{ s.nip46.paste_send }}</button>
-    </form>
-  </section>
-
-  {%- comment -%} 3 · write the message {%- endcomment -%}
-  <section class="contact__panel" id="panel-compose" hidden>
-    <h2 class="contact__title">{{ s.compose.title }}</h2>
-    <form id="contact-form" novalidate>
       <label class="field">
-        <span class="field__label">{{ s.compose.subject_label }}</span>
+        <span class="field__label">{{ s.fields.subject.label }}</span>
         <input class="field__input" id="field-subject" name="subject" type="text"
                maxlength="{{ s.config.limits.subject.max }}" autocomplete="off"
-               placeholder="{{ s.compose.subject_placeholder }}">
+               placeholder="{{ s.fields.subject.placeholder }}">
       </label>
       <label class="field">
-        <span class="field__label">{{ s.compose.message_label }}</span>
-        <textarea class="field__input field__input--area" id="field-message" name="message" rows="8"
+        <span class="field__label">{{ s.fields.message.label }}</span>
+        <textarea class="field__input field__input--area" id="field-message" name="message" rows="7"
                   maxlength="{{ s.config.limits.message.max }}" required
-                  placeholder="{{ s.compose.message_placeholder }}"></textarea>
+                  placeholder="{{ s.fields.message.placeholder }}"></textarea>
       </label>
-      <label class="field">
-        <span class="field__label">{{ s.compose.reply_label }}</span>
+      <label class="field" id="field-reply">
+        <span class="field__label">{{ s.fields.reply.label }}</span>
         <input class="field__input" id="field-replyto" name="replyto" type="text" autocomplete="off"
-               placeholder="{{ s.compose.reply_placeholder }}">
-        <span class="field__note">{{ s.compose.reply_note }}</span>
+               placeholder="{{ s.fields.reply.placeholder }}">
+        <span class="field__note">{{ s.fields.reply.note }}</span>
       </label>
 
-      {%- comment -%}
-        Off-screen, not `hidden`: a bot fills it, a person never sees it.
-      {%- endcomment -%}
+      {%- comment -%} Off-screen, not `hidden`: a bot fills it, a person never sees it. {%- endcomment -%}
       <label class="field field--trap" aria-hidden="true">
-        <span class="field__label">{{ s.compose.honeypot_label }}</span>
+        <span class="field__label">{{ s.fields.honeypot_label }}</span>
         <input id="field-website" name="website" type="text" tabindex="-1" autocomplete="off">
       </label>
 
       <p class="contact__error" id="compose-error" hidden role="alert"></p>
-      <div class="actions">
-        <button type="submit" class="btn btn--primary">{{ s.compose.submit }}</button>
-        <span class="actions__note">{{ s.compose.submit_note }}</span>
-        <button type="button" class="btn btn--secondary btn--compact" id="sign-out">{{ s.compose.sign_out }}</button>
-      </div>
-    </form>
-  </section>
-
-  {%- comment -%} 4 · sending {%- endcomment -%}
-  <section class="contact__panel" id="panel-sending" hidden>
-    <h2 class="contact__title">{{ s.sending.title }}</h2>
-    <p class="contact__note">{{ s.sending.note }}</p>
-    <p class="contact__progress code" id="sending-progress" role="status"></p>
-  </section>
-
-  {%- comment -%} 5 · what happened {%- endcomment -%}
-  <section class="contact__panel" id="panel-result" hidden>
-    <div id="result-head"></div>
-    <ul class="result" id="result-list"></ul>
-    <div class="actions">
-      <button type="button" class="btn btn--secondary" id="result-retry">{{ s.result.retry }}</button>
-      <button type="button" class="btn btn--secondary" id="result-again">{{ s.result.again }}</button>
     </div>
-  </section>
+
+    {%- comment -%} the chain: gold is the visitor, purple the protocol, rust the part we run {%- endcomment -%}
+    <div class="travel" id="travel" aria-live="polite">
+      <span class="eyebrow">{{ s.travel.eyebrow }}</span>
+      <ol class="travel__nodes">
+        {%- for node in s.travel.items -%}
+        <li class="travel__node travel__node--{{ node.tone }}" data-state="rest">
+          <span class="travel__dot"></span>
+          <div class="travel__body">
+            {% include lib/icon.html name=node.icon class="travel__icon" %}
+            <span class="travel__title">{{ node.title }}</span>
+            <p class="travel__note" data-rest="{{ node.rest }}" data-active="{{ node.active }}" data-done="{{ node.done }}"{% if node.mining %} data-mining="{{ node.mining }}"{% endif %}{% if node.failed %} data-failed="{{ node.failed }}"{% endif %}>{{ node.rest }}</p>
+          </div>
+        </li>
+        {%- endfor -%}
+      </ol>
+    </div>
+
+    {%- comment -%} the send row, in its three states {%- endcomment -%}
+    <div class="composer__send" id="composer-send">
+      <div class="sendrow" id="send-guest">
+        <div class="sendrow__main">
+          <button type="submit" class="btn btn--primary btn--wide">{{ s.send.anonymous }}{% include lib/icon.html name="lock-closed" class="btn__icon" %}</button>
+          <p class="keyline">{% include lib/icon.html name="key" class="keyline__icon" %}<span>{{ s.send.guest_note }}</span></p>
+        </div>
+        <span class="sendrow__or" aria-hidden="true">{{ s.send.or }}</span>
+        <div class="sendrow__alt">
+          <button type="button" class="signlink" id="sign-bunker">{% include lib/icon.html name="key" class="keyline__icon" %}<span>{{ s.send.bunker }}</span></button>
+          <button type="button" class="signlink" id="sign-extension">{% include lib/icon.html name="key" class="keyline__icon" %}<span>{{ s.send.extension }}</span></button>
+          <p class="sendrow__status" id="sign-status" hidden role="status"></p>
+          <p class="contact__error contact__error--small" id="sign-error" hidden role="alert"></p>
+        </div>
+      </div>
+
+      <div class="sendrow sendrow--signed" id="send-signed" hidden>
+        <button type="submit" class="btn btn--primary">{{ s.send.signed }}{% include lib/icon.html name="lock-closed" class="btn__icon" %}</button>
+        <div class="identity" id="contact-identity">
+          <span class="identity__avatar">{% include lib/icon.html name="face" class="identity__glyph" %}</span>
+          <div class="identity__text">
+            <span class="identity__who"><b class="identity__name" id="identity-name"></b> <span class="identity__key code" id="identity-key"></span></span>
+            <span class="identity__note"><span id="identity-note"></span> <button type="button" class="linkbutton" id="sign-out">{{ s.send.switch }}</button></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sendrow sendrow--busy" id="send-busy" hidden>
+        <div class="progress" role="status">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="progress__label" id="progress-label"></span>
+          <span class="progress__detail" id="progress-detail"></span>
+        </div>
+        <p class="sendrow__note" id="progress-note"></p>
+      </div>
+    </div>
+
+    {%- comment -%} what happened — takes the composer's cell once a message is out {%- endcomment -%}
+    <section class="receipt" id="panel-result" hidden aria-live="polite">
+      <div class="receipt__head">
+        {% include lib/icon.html name="check" class="receipt__mark receipt__mark--ok" %}
+        {% include lib/icon.html name="alert" class="receipt__mark receipt__mark--bad" %}
+        <div class="receipt__text">
+          <h2 class="receipt__title" id="result-title" tabindex="-1"></h2>
+          <p class="receipt__body" id="result-body"></p>
+        </div>
+      </div>
+      <ul class="receipt__who" id="result-who"></ul>
+      <p class="receipt__warning" id="result-warning" hidden></p>
+      <details class="receipt__details">
+        <summary class="receipt__summary">{{ s.result.details }}</summary>
+        <ul class="receipt__relays" id="result-relays"></ul>
+        <p class="receipt__id" id="result-id"></p>
+      </details>
+      <div class="actions receipt__actions">
+        <button type="button" class="btn btn--secondary" id="result-again">{{ s.result.again }}</button>
+        <button type="button" class="btn btn--ghost" id="result-copy">{{ s.result.copy }}</button>
+        <button type="button" class="btn btn--secondary" id="result-retry" hidden>{{ s.result.retry }}</button>
+        <span class="receipt__reply" id="result-reply"></span>
+      </div>
+    </section>
+
+    {%- comment -%} the explainer {%- endcomment -%}
+    <details class="how">
+      <summary class="how__summary">
+        <span class="how__title">{% include lib/icon.html name="lock-closed" class="how__icon" %}{{ s.how_it_works.title }}</span>
+        <span class="how__hint">{{ s.how_it_works.summary }}</span>
+      </summary>
+      <div class="how__body">
+        {%- for item in s.how_it_works.items -%}
+        <div class="how__item">
+          <h3 class="how__item-title">{{ item.title }}</h3>
+          {% include lib/text.html text=item.body class="how__item-body" %}
+        </div>
+        {%- endfor -%}
+        <div class="how__links">
+          <span class="eyebrow">{{ s.how_it_works.links_label }}</span>
+          <div class="chip-row">
+            {%- for link in s.how_it_works.links -%}
+            <a class="chip" href="{{ link.href }}" target="_blank" rel="noopener">{{ link.label }}</a>
+            {%- endfor -%}
+          </div>
+          <a class="chip" href="{{ s.how_it_works.source_href }}">{{ s.how_it_works.source_label }}</a>
+        </div>
+      </div>
+    </details>
+  </form>
 
   {%- comment -%} the form could not start at all {%- endcomment -%}
-  <section class="contact__panel" id="panel-unavailable" hidden>
+  <div class="notice" id="panel-unavailable" hidden>
     <h2 class="contact__title">{{ s.unavailable.title }}</h2>
     <p class="contact__note">{{ s.unavailable.note }}</p>
-  </section>
-
-  {%- comment -%} always visible {%- endcomment -%}
-  <div class="notice notice--email">
-    <h2 class="contact__title">{{ s.email.title }}</h2>
-    <p class="contact__note">{{ s.email.note }}</p>
-    <a class="btn btn--secondary" data-user="{{ s.email.user }}" data-domain="{{ s.email.domain }}"
-       data-subject="{{ s.email.subject }}" href="#send">{{ s.email.link_label }}</a>
   </div>
 
-  <details class="how">
-    <summary class="how__summary">{{ s.how_it_works.title }}</summary>
-    <div class="how__body">
-      {%- for item in s.how_it_works.items -%}
-      <div class="how__item">
-        <h3 class="how__item-title">{{ item.title }}</h3>
-        {% include lib/text.html text=item.body class="how__item-body" %}
-      </div>
-      {%- endfor -%}
-      <div class="how__links">
-        <span class="eyebrow">{{ s.how_it_works.links_label }}</span>
-        <div class="chip-row">
-          {%- for link in s.how_it_works.links -%}
-          <a class="chip" href="{{ link.href }}" target="_blank" rel="noopener">{{ link.label }}</a>
-          {%- endfor -%}
+  {%- comment -%}
+    The remote-signer modal. Outside the composer form because it carries a
+    form of its own, and a form may not nest.
+  {%- endcomment -%}
+  <dialog class="modal" id="bunker-modal" aria-labelledby="bunker-title">
+    <div class="modal__head">
+      <h2 class="modal__title" id="bunker-title">{{ s.bunker.title }}</h2>
+      <button type="button" class="linkbutton" id="bunker-cancel">{{ s.bunker.cancel }}</button>
+    </div>
+    <div class="connect">
+      <div class="connect__qr" id="bunker-qr"></div>
+      <div class="connect__side">
+        <p class="contact__note">{{ s.bunker.scan }}</p>
+        <div class="actions actions--flush" id="bunker-signers"></div>
+        <input class="field__input code field__input--small" id="bunker-uri" type="text" readonly aria-label="{{ s.bunker.title }}">
+        <div class="actions actions--flush">
+          <button type="button" class="btn btn--secondary btn--compact" id="bunker-copy">{{ s.bunker.copy }}</button>
         </div>
-        <a class="chip" href="{{ s.how_it_works.source_href }}">{{ s.how_it_works.source_label }}</a>
+        <form class="connect__paste" id="form-bunker">
+          <h3 class="contact__subtitle">{{ s.bunker.paste_title }}</h3>
+          <div class="connect__paste-row">
+            <input class="field__input code field__input--small" id="field-bunker" type="text" inputmode="url"
+                   autocomplete="off" spellcheck="false" placeholder="bunker://" aria-label="{{ s.bunker.paste_label }}">
+            <button type="submit" class="btn btn--secondary btn--compact">{{ s.bunker.connect }}</button>
+          </div>
+          <p class="field__note">{{ s.bunker.paste_note }}</p>
+        </form>
+        <p class="sendrow__status" id="bunker-status" role="status"><span class="spinner spinner--small" aria-hidden="true"></span><span id="bunker-status-text">{{ s.bunker.waiting }}</span></p>
+        <div id="bunker-auth" hidden></div>
+        <p class="contact__error contact__error--small" id="bunker-error" hidden role="alert"></p>
       </div>
     </div>
-  </details>
+  </dialog>
 
   {%- comment -%}
     Inert data, not executable: the browser does not run application/json.

@@ -11,4 +11,7 @@ contact:
     integrity: "sha384-qQ3dTCin/VMbdg2YWgZ8OePJ7nbojdnfZ3lpsntY3sA6Fm7IKk0HI8QTTmv7Nss+"
   app:
     path: /assets/js/contact/contact.js
-    integrity: "sha384-N2djJLELTnl+B20U7Quk1F1TOjaNE473/Qa+hOHE9CajlP8j/p7S2rA0Iq6los/1"
+    integrity: "sha384-HvDW3z4I7ARk5XsGKo6YpAHiNMRDy6lFo8kRmrfB3FeCJdi6ONjthxcGFhn2FNaR"
+  pow_worker:
+    path: /assets/js/contact/pow-worker.js
+    integrity: "sha384-oHLPxjKoDMDwpQr+HWJTgadCKEXI/HRErYdOSpuDV38RBuZuzL0XR/XuG+a0BOuF"

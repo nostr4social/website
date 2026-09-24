@@ -1,18 +1,18 @@
 @use "../breakpoints" as *;
 
 // /contact/ — the only page on this site that ships JavaScript.
+//
+// The composer is one grid. On the desk the card (fields and the send row)
+// sits left and the travel chain right; the "how this works" disclosure hangs
+// under the chain. On a phone everything is one column and the chain becomes a
+// three-step strip between the fields and the button — inside the card, which
+// is why the card chrome is a pseudo-element spanning grid rows rather than a
+// wrapper element.
 
 .contact {
   display: flex;
   flex-direction: column;
-  gap: var(--s-5);
-  max-width: 60em;
-}
-
-.contact__panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-4);
+  gap: var(--s-6);
 }
 
 .contact__title {
@@ -23,14 +23,10 @@
   line-height: var(--lh-heading);
 }
 
-.contact__title:focus {
-  outline: none;
-}
-
 .contact__subtitle {
-  color: var(--ink-0);
-  font-size: var(--fs-m);
-  font-weight: var(--fw-title);
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  font-weight: var(--fw-ui);
 }
 
 .contact__note {
@@ -38,16 +34,6 @@
   font-size: var(--fs-s);
   line-height: var(--lh-body);
   max-width: 44em;
-}
-
-.contact__progress {
-  color: var(--gold);
-  font-size: var(--fs-s);
-}
-
-.contact__status {
-  color: var(--ink-1);
-  font-size: var(--fs-s);
 }
 
 .contact__error {
@@ -58,97 +44,127 @@
   padding-left: var(--s-4);
 }
 
-// Who you are signing as. Shown only once a signer is connected.
-.identity {
-  align-items: center;
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  align-self: flex-start;
-  display: flex;
-  font-size: var(--fs-s);
-  gap: var(--s-2);
-  padding: var(--s-2) var(--s-4);
-}
-
-.identity__label {
-  color: var(--ink-3);
-}
-
-.identity__key {
-  color: var(--gold);
-}
-
-// ── choosing a method ────────────────────────────────────────────────────────
-
-.methods {
-  display: grid;
-  gap: var(--s-4);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.method {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-2);
-}
-
-.method__button {
-  align-items: flex-start;
-  background: var(--bg-1);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-card);
-  cursor: pointer;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--s-2);
-  padding: var(--pad-card);
-  text-align: left;
-  transition: border-color 120ms ease-out;
-}
-
-.method__button:hover:enabled {
-  border-color: var(--purple-lift);
-}
-
-.method__button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.method__title {
-  color: var(--ink-0);
-  font-size: var(--fs-l);
-  font-weight: var(--fw-title);
-  line-height: var(--lh-heading);
-}
-
-.method__note {
-  color: var(--ink-2);
-  font-size: var(--fs-s);
-  line-height: var(--lh-body);
-}
-
-.method__missing {
-  color: var(--ink-3);
+.contact__error--small {
   font-size: var(--fs-xs);
   line-height: var(--lh-card);
 }
 
-// ── fields ───────────────────────────────────────────────────────────────────
+// ── the grid ─────────────────────────────────────────────────────────────────
 
-#contact-form,
-.connect__paste {
+.composer {
+  align-items: start;
+  column-gap: var(--s-9);
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  padding: var(--pad-panel) 0 var(--pad-panel) var(--pad-panel);
+  row-gap: var(--s-5);
+}
+
+// The card, drawn behind the fields and the send row. A grid item like the
+// rest, stretched over their rows and pushed out by the composer's padding so
+// the padding reads as the card's own.
+.composer::before {
+  align-self: stretch;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  content: "";
+  grid-column: 1;
+  grid-row: 1 / 3;
+  margin: calc(-1 * var(--pad-panel));
+}
+
+.composer__fields,
+.composer__send,
+.receipt {
+  grid-column: 1;
+  position: relative;
+}
+
+.composer__fields {
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
+  grid-row: 1;
 }
+
+.composer__send {
+  grid-row: 2;
+}
+
+.composer .travel {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  padding-top: var(--s-2);
+}
+
+.composer .how {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+// The receipt takes the card's place once a message has gone out.
+.receipt {
+  grid-row: 1 / 3;
+  margin: calc(-1 * var(--pad-panel)) calc(-1 * var(--pad-panel)) 0;
+}
+
+.composer--result::before,
+.composer--result .composer__fields,
+.composer--result .composer__send {
+  display: none;
+}
+
+@include below($bp-mid) {
+  // One column, so the card has no gap to borrow on the right: pad both sides
+  // and let the disclosure under it reach back out to the full width.
+  .composer {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--pad-card);
+    row-gap: var(--s-4);
+  }
+
+  .composer::before {
+    grid-row: 1 / 4;
+    margin: calc(-1 * var(--pad-card));
+  }
+
+  .composer .travel,
+  .composer .how {
+    grid-column: 1;
+  }
+
+  .composer .travel {
+    grid-row: 2;
+    padding-top: 0;
+  }
+
+  .composer__send {
+    grid-row: 3;
+  }
+
+  .composer .how {
+    grid-row: 4;
+    margin: var(--s-4) calc(-1 * var(--pad-card)) 0;
+  }
+
+  .receipt {
+    grid-row: 1;
+    margin: calc(-1 * var(--pad-card)) calc(-1 * var(--pad-card)) 0;
+  }
+
+  .composer--result .how {
+    grid-row: 3;
+  }
+}
+
+// ── fields ───────────────────────────────────────────────────────────────────
 
 .field {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+  position: relative;
 }
 
 .field__label {
@@ -158,7 +174,7 @@
 }
 
 .field__input {
-  background: var(--bg-1);
+  background: var(--bg-0);
   border: 1px solid var(--line-strong);
   border-radius: var(--r-ui);
   color: var(--ink-0);
@@ -174,17 +190,59 @@
 
 .field__input:focus-visible {
   border-color: var(--purple-lift);
+  outline: none;
 }
 
 .field__input--area {
-  min-height: 12em;
+  min-height: 11em;
   resize: vertical;
+}
+
+.field__input--small {
+  font-size: var(--fs-xs);
+  padding: var(--s-2) var(--s-3);
 }
 
 .field__note {
   color: var(--ink-3);
   font-size: var(--fs-xs);
   line-height: var(--lh-card);
+}
+
+// A native select, dressed. The caret is the site's own glyph, turned.
+.select {
+  display: block;
+  position: relative;
+}
+
+.select__input {
+  appearance: none;
+  cursor: pointer;
+  padding-right: var(--s-9);
+}
+
+.select__input option {
+  background: var(--bg-1);
+  color: var(--ink-0);
+}
+
+.select__caret {
+  color: var(--ink-3);
+  height: 14px;
+  pointer-events: none;
+  position: absolute;
+  right: var(--s-4);
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  width: 14px;
+}
+
+// A phone has no room for "name · name@domain" at full size.
+@include below($bp-phone) {
+  .select__input {
+    font-size: var(--fs-s);
+    padding-right: var(--s-7);
+  }
 }
 
 // The honeypot. Off screen rather than display:none, which a bot would skip.
@@ -196,72 +254,565 @@
   width: 1px;
 }
 
-// ── connecting a remote signer ───────────────────────────────────────────────
+// ── the send row ─────────────────────────────────────────────────────────────
 
-.connect {
-  display: grid;
+.sendrow {
+  align-items: center;
+  display: flex;
   gap: var(--s-5);
-  grid-template-columns: 220px minmax(0, 1fr);
 }
 
-.connect__qr {
-  background: #ffffff;
-  border-radius: var(--r-card);
-  padding: var(--s-3);
+.sendrow__main,
+.sendrow__alt {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
 }
 
-.qr {
-  display: block;
-  height: auto;
+.sendrow__or {
+  color: var(--ink-2);
+  flex: none;
+  font-size: var(--fs-m);
+  font-weight: var(--fw-ui);
+  padding: 0 var(--s-3);
+}
+
+.sendrow__note,
+.sendrow__status {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+  line-height: var(--lh-card);
+}
+
+.sendrow__status {
+  align-items: center;
+  display: flex;
+  gap: var(--s-2);
+}
+
+.btn--wide {
   width: 100%;
 }
 
-.connect__side {
+.btn--ghost {
+  background: transparent;
+  color: var(--ink-2);
+}
+
+.btn--ghost:hover {
+  color: var(--ink-0);
+}
+
+// The one-time-key line under the button.
+.keyline {
+  align-items: flex-start;
+  color: var(--ink-2);
   display: flex;
-  flex-direction: column;
+  font-size: var(--fs-s);
   gap: var(--s-3);
+  line-height: var(--lh-card);
 }
 
-.connect__paste {
-  border-top: 1px solid var(--line);
-  padding-top: var(--s-5);
+.keyline__icon {
+  color: var(--gold);
+  flex: none;
+  height: 20px;
+  margin-top: 1px;
+  width: 20px;
 }
 
-.connect__paste .btn {
-  align-self: flex-start;
-}
-
-// ── what happened ────────────────────────────────────────────────────────────
-
-.result {
+// "Sign with …" — a link that is a button, because it acts rather than navigates.
+.signlink {
+  align-items: flex-start;
+  background: none;
+  border: 0;
+  color: var(--purple-lift);
+  cursor: pointer;
   display: flex;
+  font-size: var(--fs-s);
+  font-weight: var(--fw-ui);
+  gap: var(--s-3);
+  line-height: var(--lh-card);
+  padding: 0;
+  text-align: left;
+}
+
+.signlink:hover {
+  color: var(--purple-lift-hover);
+}
+
+.signlink:focus-visible {
+  border-radius: var(--r-hairline);
+  outline: 2px solid var(--purple-lift);
+  outline-offset: 4px;
+}
+
+// An extension nobody installed: still a door, just a quieter one.
+.signlink.is-missing {
+  opacity: 0.6;
+}
+
+.linkbutton {
+  background: none;
+  border: 0;
+  color: var(--purple-lift);
+  cursor: pointer;
+  font-size: inherit;
+  font-weight: var(--fw-ui);
+  padding: 0;
+}
+
+.linkbutton:hover {
+  color: var(--purple-lift-hover);
+}
+
+// Signed in: the button and who you are.
+.sendrow--signed {
+  align-items: flex-start;
   flex-direction: column;
   gap: var(--s-4);
 }
 
-.result__item {
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-3);
-  padding: var(--pad-card);
-}
-
-.result__who {
+.identity {
   align-items: center;
   display: flex;
   gap: var(--s-3);
 }
 
-.result__name {
+.identity__avatar {
+  align-items: center;
+  background: var(--bg-2);
+  border: 2px solid var(--gold);
+  border-radius: var(--r-pill);
+  display: flex;
+  flex: none;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.identity__glyph {
+  color: var(--gold);
+  height: 18px;
+  width: 18px;
+}
+
+.identity__text {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--fs-s);
+  gap: 2px;
+  line-height: var(--lh-heading);
+}
+
+.identity__name {
+  color: var(--ink-0);
+  font-weight: var(--fw-title);
+}
+
+.identity__key {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  margin-left: var(--s-1);
+}
+
+.identity__note {
+  color: var(--ink-2);
+}
+
+// Sending: the button becomes the progress.
+.sendrow--busy {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.progress {
+  align-items: center;
+  background: var(--bg-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-ui);
+  color: var(--ink-0);
+  display: inline-flex;
+  font-size: var(--fs-m);
+  font-weight: var(--fw-ui);
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-5);
+}
+
+.progress__detail {
+  color: var(--ink-3);
+  font-weight: var(--fw-body);
+}
+
+.spinner {
+  animation: spin 900ms linear infinite;
+  border: 3px solid var(--purple-lift);
+  border-radius: var(--r-pill);
+  border-right-color: transparent;
+  display: inline-block;
+  flex: none;
+  height: 18px;
+  width: 18px;
+}
+
+.spinner--small {
+  border-width: 2px;
+  height: 12px;
+  width: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@include below($bp-phone) {
+  .sendrow {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--s-4);
+  }
+
+  .sendrow__or {
+    align-items: center;
+    display: flex;
+    gap: var(--s-3);
+    padding: 0;
+  }
+
+  .sendrow__or::before,
+  .sendrow__or::after {
+    background: var(--line);
+    content: "";
+    flex: 1;
+    height: 1px;
+  }
+}
+
+// ── the travel chain ─────────────────────────────────────────────────────────
+
+.travel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+.travel__nodes {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+// The spine.
+.travel__nodes::before {
+  background: var(--line-strong);
+  bottom: 12px;
+  content: "";
+  left: 7px;
+  position: absolute;
+  top: 12px;
+  width: 2px;
+}
+
+.travel__node {
+  align-items: start;
+  display: grid;
+  gap: 0 var(--s-5);
+  grid-template-columns: 16px minmax(0, 1fr);
+  padding-bottom: var(--s-7);
+  position: relative;
+}
+
+.travel__node:last-child {
+  padding-bottom: 0;
+}
+
+.travel__dot {
+  background: var(--bg-0);
+  border: 2px solid var(--node);
+  border-radius: var(--r-pill);
+  box-shadow: 0 0 0 4px var(--bg-0);
+  display: block;
+  height: 16px;
+  margin-top: 8px;
+  transition: background-color 200ms ease-out, box-shadow 200ms ease-out;
+  width: 16px;
+}
+
+.travel__node--gold {
+  --node: var(--gold);
+}
+
+.travel__node--purple {
+  --node: var(--purple);
+}
+
+.travel__node--rust {
+  --node: var(--rust);
+}
+
+.travel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.travel__icon {
+  color: var(--node);
+  height: 28px;
+  width: 28px;
+}
+
+.travel__title {
+  color: var(--ink-0);
+  font-size: var(--fs-l);
+  font-weight: var(--fw-title);
+  line-height: var(--lh-heading);
+}
+
+.travel__note {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  max-width: 26em;
+}
+
+.travel__node[data-state="done"] .travel__dot {
+  background: var(--node);
+}
+
+.travel__node[data-state="active"] .travel__dot {
+  border-width: 3px;
+  box-shadow: 0 0 0 4px var(--bg-0), 0 0 18px 4px rgb(163 116 255 / 0.45);
+}
+
+.travel__node[data-state="failed"] .travel__dot {
+  border-color: var(--rust);
+}
+
+// Nodes the send has not reached yet, while it is under way.
+.travel--busy .travel__node[data-state="rest"] .travel__icon,
+.travel--busy .travel__node[data-state="rest"] .travel__title,
+.travel--busy .travel__node[data-state="rest"] .travel__note {
+  color: var(--ink-3);
+}
+
+// The spine lights behind the dots as they fill.
+.travel--busy .travel__nodes::before,
+.travel--done .travel__nodes::before {
+  background: linear-gradient(var(--purple) 0 var(--lit, 0%), var(--line-strong) var(--lit, 0%));
+}
+
+.travel--done .travel__nodes::before {
+  background: var(--purple);
+}
+
+@include below($bp-mid) {
+  // A strip: three steps across, the spine horizontal beneath the icons.
+  .travel {
+    gap: var(--s-3);
+  }
+
+  .travel__nodes {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .travel__nodes::before {
+    bottom: auto;
+    height: 2px;
+    left: 44px;
+    right: 44px;
+    top: 41px;
+    width: auto;
+  }
+
+  .travel__node {
+    display: flex;
+    flex: 0 0 88px;
+    flex-direction: column;
+    gap: var(--s-2);
+    padding-bottom: 0;
+  }
+
+  .travel__body {
+    align-items: center;
+    display: contents;
+  }
+
+  .travel__icon {
+    height: 22px;
+    margin: 0 auto;
+    order: 1;
+    width: 22px;
+  }
+
+  .travel__dot {
+    height: 12px;
+    margin: 0 auto;
+    order: 2;
+    width: 12px;
+  }
+
+  .travel__title {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-body);
+    order: 3;
+    text-align: center;
+  }
+
+  // The state lines are read aloud but not shown; the strip has no room.
+  .travel__note {
+    display: none;
+  }
+
+  .travel--busy .travel__nodes::before,
+  .travel--done .travel__nodes::before {
+    background: linear-gradient(to right, var(--purple) 0 var(--lit, 0%), var(--line-strong) var(--lit, 0%));
+  }
+
+  .travel--done .travel__nodes::before {
+    background: var(--purple);
+  }
+}
+
+// ── the receipt ──────────────────────────────────────────────────────────────
+
+.receipt {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding: var(--pad-panel);
+}
+
+@include below($bp-mid) {
+  .receipt {
+    padding: var(--pad-card);
+  }
+}
+
+.receipt__head {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--s-4);
+}
+
+.receipt__mark {
+  color: var(--ok);
+  flex: none;
+  height: 40px;
+  width: 40px;
+}
+
+.receipt__mark--bad,
+.receipt--failure .receipt__mark--ok {
+  display: none;
+}
+
+.receipt--failure .receipt__mark--bad {
+  color: var(--rust);
+  display: block;
+}
+
+.receipt--partial .receipt__mark {
+  color: var(--gold);
+}
+
+.receipt__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.receipt__title {
+  color: var(--ink-0);
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-display);
+  line-height: var(--lh-display);
+}
+
+.receipt__title:focus {
+  outline: none;
+}
+
+.receipt__body {
+  color: var(--ink-1);
+  font-size: var(--fs-l);
+  line-height: var(--lh-body);
+  max-width: 32em;
+}
+
+.receipt__body b {
+  color: var(--ink-0);
+}
+
+.receipt__who {
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+
+.who {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  padding: var(--s-3) 0;
+}
+
+.who + .who {
+  border-top: 1px solid var(--line);
+}
+
+.who__avatar {
+  align-items: center;
+  background: var(--bg-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  display: flex;
+  flex: none;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.who__avatar .icon {
+  color: var(--gold);
+  height: 16px;
+  width: 16px;
+}
+
+.who--self .who__avatar .icon {
+  color: var(--ink-3);
+}
+
+.who__name {
   color: var(--ink-0);
   font-size: var(--fs-m);
   font-weight: var(--fw-title);
 }
 
-.result__warning {
+.who__nip05 {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+
+.who__meta {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+  margin-left: auto;
+}
+
+.receipt__warning {
   border-left: var(--rail) solid var(--gold);
   color: var(--ink-1);
   font-size: var(--fs-s);
@@ -269,78 +820,166 @@
   padding-left: var(--s-4);
 }
 
-.result__relays {
+.receipt__details {
+  background: var(--bg-0);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: var(--s-4) var(--s-5);
+}
+
+.receipt__summary {
+  color: var(--ink-0);
+  cursor: pointer;
+  font-size: var(--fs-s);
+  font-weight: var(--fw-ui);
+}
+
+.receipt__relays {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+  padding-top: var(--s-4);
 }
 
-.result__relay {
+.relay {
   display: flex;
-  flex-wrap: wrap;
   font-size: var(--fs-xs);
-  gap: var(--s-2);
+  gap: var(--s-3);
+  justify-content: space-between;
 }
 
-.result__relay-url {
+.relay__url {
   color: var(--ink-2);
-}
-
-.result__relay.is-ok .result__relay-state {
-  color: var(--ok);
-}
-
-.result__relay.is-failed .result__relay-state {
-  color: var(--ink-3);
-}
-
-.result__id {
-  color: var(--ink-3);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: var(--fs-xs);
-  gap: var(--s-2);
-}
-
-.result__id .code {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
-// ── the notices and the explainer ────────────────────────────────────────────
+.relay__state {
+  color: var(--ink-3);
+  flex: 0 1 auto;
+  text-align: right;
+}
 
-.notice--inline,
-.notice--email {
+@include below($bp-phone) {
+  .relay {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .relay__state {
+    text-align: left;
+  }
+}
+
+.relay.is-ok .relay__state {
+  color: var(--ok);
+}
+
+.receipt__id {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--fs-xs);
   gap: var(--s-3);
-  max-width: none;
+  margin-top: var(--s-4);
+  padding-top: var(--s-3);
 }
 
-.notice--email {
-  border-left-color: var(--purple);
+.receipt__id .code {
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
 }
 
-.notice--email .btn {
-  align-self: flex-start;
+.receipt__id .receipt__meta {
+  margin-left: auto;
 }
+
+.receipt__actions {
+  margin-top: 0;
+}
+
+.receipt__reply {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+  margin-left: auto;
+}
+
+// ── the explainer ────────────────────────────────────────────────────────────
 
 .how {
-  background: var(--bg-1);
   border: 1px solid var(--line);
   border-radius: var(--r-card);
-  padding: var(--pad-card);
+  padding: var(--s-4) var(--s-5);
 }
 
 .how__summary {
-  color: var(--ink-0);
+  align-items: center;
   cursor: pointer;
+  display: flex;
+  gap: var(--s-4);
+  justify-content: space-between;
+  list-style: none;
+}
+
+.how__summary::-webkit-details-marker {
+  display: none;
+}
+
+.how__title {
+  align-items: center;
+  color: var(--ink-0);
+  display: flex;
+  flex: none;
   font-size: var(--fs-m);
   font-weight: var(--fw-ui);
+  gap: var(--s-3);
+  white-space: nowrap;
+}
+
+.how__icon {
+  color: var(--ink-2);
+  height: 18px;
+  width: 18px;
+}
+
+.how__hint {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+  text-align: right;
+}
+
+.how__hint::after {
+  content: " ▸";
+}
+
+@include below($bp-narrow) {
+  .how__hint {
+    flex: none;
+  }
+
+  .how__hint span,
+  .how__hint {
+    font-size: 0;
+  }
+
+  .how__hint::after {
+    color: var(--ink-3);
+    font-size: var(--fs-s);
+  }
+}
+
+.how[open] .how__hint::after {
+  content: " ▾";
 }
 
 .how__body {
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
-  padding-top: var(--s-4);
+  padding-top: var(--s-5);
 }
 
 .how__item-title {
@@ -369,16 +1008,101 @@
   align-self: flex-start;
 }
 
-@include below($bp-mid) {
-  .methods {
-    grid-template-columns: minmax(0, 1fr);
-  }
+// ── the remote-signer modal ──────────────────────────────────────────────────
 
+.modal {
+  background: var(--bg-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-panel);
+  color: var(--ink-1);
+  max-width: 44em;
+  padding: var(--pad-panel);
+  width: calc(100% - var(--s-6));
+}
+
+.modal::backdrop {
+  background: rgb(20 17 28 / 0.78);
+}
+
+.modal__head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--s-4);
+  justify-content: space-between;
+  margin-bottom: var(--s-5);
+}
+
+.modal__title {
+  color: var(--ink-0);
+  font-size: var(--fs-l);
+  font-weight: var(--fw-title);
+}
+
+.connect {
+  align-items: start;
+  display: grid;
+  gap: var(--s-5);
+  grid-template-columns: 168px minmax(0, 1fr);
+}
+
+.connect__qr {
+  background: #ffffff;
+  border-radius: var(--r-card);
+  padding: var(--s-3);
+}
+
+.qr {
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.connect__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.connect__paste {
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-top: var(--s-3);
+}
+
+.connect__paste-row {
+  display: flex;
+  gap: var(--s-2);
+}
+
+.actions--flush {
+  margin-top: 0;
+}
+
+@include below($bp-narrow) {
   .connect {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .connect__qr {
-    max-width: 240px;
+    max-width: 200px;
   }
+}
+
+// ── the doors in the hero ────────────────────────────────────────────────────
+
+.ruled-item__code {
+  color: var(--gold);
+  font-size: 13px;
+  margin-top: var(--s-1);
+  text-decoration: none;
+}
+
+.ruled-item__code:hover {
+  color: var(--gold-dim);
+}
+
+.notice--inline {
+  max-width: none;
 }

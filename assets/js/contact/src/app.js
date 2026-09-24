@@ -4,17 +4,25 @@
 // purpose, because a page that asks you to trust it with a private message
 // should be readable by the person deciding whether to.
 //
-// What leaves your browser: gift-wrapped events (NIP-59) to the relays each
+// What leaves your browser: one gift-wrapped event (NIP-59) to the relays the
 // recipient publishes for private messages (NIP-17), encrypted in this tab with
-// NIP-44. What never leaves it: your key, and the plaintext.
+// NIP-44 — plus a copy to yourself if you signed in. What never leaves it: your
+// key, and the plaintext.
+//
+// Nobody has to sign in. Unless you do, a key is made when you press send,
+// used for that one message, and zero-filled.
 
 import { $ } from './dom.js'
-import { config, dev, t } from './config.js'
+import { config, dev, fmt, query, t } from './config.js'
+import { pickRecipient } from './recipients.js'
+import { fetchProfileName } from './profiles.js'
+import { SimplePool } from './vendor.js'
 import {
   bootRecipients,
   createStore,
   initialState,
   noteSend,
+  powFor,
   rateLimited,
   retry,
   send,
@@ -28,96 +36,109 @@ import {
   startNostrConnect,
 } from './signers.js'
 import {
-  panels,
+  closeBunkerModal,
+  markExtension,
+  openBunkerModal,
+  receiptText,
   renderAuthUrl,
   renderConnect,
   renderIdentity,
   renderProgress,
+  renderRecipients,
   renderResult,
   setError,
+  setSendMode,
   setStatus,
-  showPanel,
+  showReceipt,
+  TRAVEL,
   wireEmailFallback,
 } from './ui.js'
 
 const store = createStore(initialState)
 let openedAt = Date.now()
 let connectAbort = null
+let lastSend = null // what the receipt describes; a retry re-publishes from it
 
 const errorCode = (err) => (err instanceof SignerError ? err.code : err?.code || 'unknown')
+const sendMode = () => (store.get().signer ? 'signed' : 'guest')
 
-function fail(err, { panel } = {}) {
-  const code = errorCode(err)
-  setError($('#contact-error'), code)
-  if (panel) showPanel(panel)
-  return code
-}
+// ── signing as yourself ──────────────────────────────────────────────────────
 
-// ── sign-in ──────────────────────────────────────────────────────────────────
-
-function adopt(signer) {
-  store.set({ signer, phase: 'composing', error: null })
-  renderIdentity(signer)
-  showPanel('compose')
-  openedAt = Date.now()
-  $('#field-message')?.focus()
-}
-
-async function signInNip07() {
-  setStatus(t('status.connecting_nip07'))
+async function adopt(signer) {
+  store.set({ signer, profileName: null, error: null })
+  renderIdentity(signer, null)
+  setSendMode('signed')
+  setError($('#sign-error'), null)
+  // A name is nicer than a key. Best effort, after the chip is already up.
+  const pool = new SimplePool()
   try {
-    adopt(await connectNip07())
-  } catch (err) {
-    fail(err, { panel: 'methods' })
+    const name = await fetchProfileName(pool, signer.pubkey)
+    if (store.get().signer === signer && name) {
+      store.set({ profileName: name })
+      renderIdentity(signer, name)
+    }
   } finally {
-    setStatus('')
+    pool.destroy()
   }
 }
 
-function signInGuest() {
-  adopt(createGuestSigner())
+/** The extension puts up its own prompt; this page only waits. */
+async function signInExtension() {
+  setError($('#sign-error'), null)
+  setStatus($('#sign-status'), t('status.connecting_nip07'))
+  try {
+    await adopt(await connectNip07())
+  } catch (err) {
+    setError($('#sign-error'), errorCode(err))
+  } finally {
+    setStatus($('#sign-status'), '')
+  }
 }
 
-async function signInNostrConnect() {
+/** The modal: a nostrconnect:// URI as a QR and a link, or a pasted bunker://. */
+async function signInBunker() {
   cancelConnect()
-  showPanel('nip46')
-  setError($('#contact-error'), null)
+  setError($('#sign-error'), null)
+  setError($('#bunker-error'), null)
   renderAuthUrl(null)
+  openBunkerModal()
 
   // Held locally as well as globally: cancelling clears the global one, and the
   // rejection that follows must not be reported as a failure the user caused.
   const controller = new AbortController()
   connectAbort = controller
 
-  const { uri, connected } = startNostrConnect({
-    onauth: renderAuthUrl,
-    signal: controller.signal,
-  })
+  const { uri, connected } = startNostrConnect({ onauth: renderAuthUrl, signal: controller.signal })
   renderConnect({ uri })
 
   const timer = setTimeout(() => controller.abort(), config.timeouts.nip46_connect)
   try {
-    adopt(await connected)
+    const signer = await connected
+    closeBunkerModal()
+    await adopt(signer)
   } catch (err) {
-    if (!controller.signal.aborted) fail(err, { panel: 'nip46' })
+    if (!controller.signal.aborted) setError($('#bunker-error'), errorCode(err))
   } finally {
     clearTimeout(timer)
     if (connectAbort === controller) connectAbort = null
   }
 }
 
-async function signInBunker(event) {
+async function connectPastedBunker(event) {
   event.preventDefault()
   const input = $('#field-bunker')
-  setStatus(t('status.connecting_nip46'))
+  setError($('#bunker-error'), null)
+  $('#bunker-status-text').textContent = t('status.connecting_nip46')
   try {
     const signer = await connectBunker(input.value, { onauth: renderAuthUrl })
     input.value = ''
-    adopt(signer)
+    cancelConnect()
+    closeBunkerModal()
+    await adopt(signer)
   } catch (err) {
-    fail(err, { panel: 'nip46' })
+    setError($('#bunker-error'), errorCode(err))
   } finally {
-    setStatus('')
+    $('#bunker-status-text').textContent = t('bunker.waiting', '')
   }
 }
 
@@ -125,15 +146,13 @@ function cancelConnect() {
   connectAbort?.abort()
   connectAbort = null
   renderAuthUrl(null)
-  setError($('#contact-error'), null)
 }
 
 function signOut() {
   cancelConnect()
   store.get().signer?.close()
-  store.set({ signer: null, phase: 'choose_method', results: null, verdict: null })
-  renderIdentity(null)
-  showPanel('methods')
+  store.set({ signer: null, profileName: null })
+  setSendMode('guest')
 }
 
 // ── composing and sending ────────────────────────────────────────────────────
@@ -143,6 +162,7 @@ function validate(form) {
   // An off-screen field no person sees. Anything that fills it is not a person.
   if (form.elements.website.value) return 'honeypot'
   if (Date.now() - openedAt < config.limits.min_seconds * 1000) return 'too_fast'
+  if (!store.get().recipient) return 'recipient_missing'
 
   const message = form.elements.message.value.trim()
   if (message.length < config.limits.message.min) return 'message_short'
@@ -152,15 +172,43 @@ function validate(form) {
   return null
 }
 
-function composeContent(form) {
-  const signer = store.get().signer
-  const lines = [form.elements.message.value.trim()]
-  const replyTo = form.elements.replyto.value.trim()
+/**
+ * The plaintext, top to bottom: a first line naming the source (it is what an
+ * inbox list shows), the subject as a line of its own (most clients ignore the
+ * `subject` tag), the message, then how to reply.
+ */
+function composeContent(form, signer) {
+  const subject = form.elements.subject.value.trim()
+  const replyTo = signer.kind === 'guest' ? form.elements.replyto.value.trim() : ''
+  const lines = [t('compose.header')]
+  if (subject) lines.push(fmt(t('compose.subject_line'), { subject }))
+  lines.push('', form.elements.message.value.trim(), '')
+  if (replyTo) lines.push(fmt(t('compose.footer_reply'), { reply: replyTo }))
+  const footer = signer.kind === 'guest' ? t('compose.footer_guest') : t('compose.footer_signed')
+  if (footer) lines.push(footer)
+  return lines.join('\n').trim()
+}
 
-  lines.push('')
-  if (replyTo) lines.push(`${t('compose.footer_reply')} ${replyTo}`)
-  lines.push(signer.kind === 'guest' ? t('compose.footer_guest') : t('compose.footer_signed'))
-  return lines.join('\n')
+function finish(results, verdict, { signerKind, replyTo }) {
+  const { recipient } = store.get()
+  lastSend = { results, verdict, recipient, replyTo, signerKind }
+  store.set({ results, verdict, phase: 'result' })
+  renderResult(lastSend)
+  if (verdict === 'failure') TRAVEL.failed()
+  else TRAVEL.delivered()
+  showReceipt(true)
+}
+
+/** What a bot gets: a receipt that looks exactly like a delivered message. */
+function pretendSuccess() {
+  const { recipient } = store.get()
+  const fake = crypto.getRandomValues(new Uint8Array(32))
+  const wrapId = Array.from(fake, (b) => b.toString(16).padStart(2, '0')).join('')
+  const relays = config.relays.fallback_dm.map((url) => ({ url, ok: true, reason: '' }))
+  finish([{ name: recipient?.name, pubkey: recipient?.pubkey, self: false, relays, usedFallback: false, wrapId }], 'success', {
+    signerKind: 'guest',
+    replyTo: '',
+  })
 }
 
 async function onSubmit(event) {
@@ -168,77 +216,116 @@ async function onSubmit(event) {
   const form = event.currentTarget
   const problem = validate(form)
 
-  if (problem === 'honeypot') {
-    // Say nothing useful. From here it looks exactly like a delivered message.
-    store.set({ results: [], verdict: 'success' })
-    renderResult({ results: [], verdict: 'success' })
-    return showPanel('result')
-  }
+  if (problem === 'honeypot') return pretendSuccess()
   if (problem) return setError($('#compose-error'), problem)
   setError($('#compose-error'), null)
 
-  showPanel('sending')
+  const { recipient } = store.get()
+  const signer = store.get().signer || createGuestSigner()
+  const replyTo = signer.kind === 'guest' ? form.elements.replyto.value.trim() : ''
+
   store.set({ phase: 'sending' })
+  setSendMode('busy', { signed: signer.kind !== 'guest' })
+  renderProgress({ step: 'encrypting' }, signer.kind)
 
   try {
     const { results, verdict } = await send(store, {
+      signer,
+      recipient,
       subject: form.elements.subject.value.trim(),
-      content: composeContent(form),
-      onProgress: renderProgress,
+      content: composeContent(form, signer),
+      onProgress: (p) => renderProgress(p, signer.kind),
     })
     noteSend(store)
-    store.set({ results, verdict, phase: 'result' })
-    renderResult({ results, verdict })
-    showPanel('result')
-    form.reset()
+    finish(results, verdict, { signerKind: signer.kind, replyTo })
   } catch (err) {
     store.set({ phase: 'composing' })
-    fail(err, { panel: 'compose' })
+    setSendMode(sendMode())
+    TRAVEL.rest()
     setError($('#compose-error'), errorCode(err))
+  } finally {
+    // One message per one-time key. A signed-in signer stays for the next one.
+    if (signer.kind === 'guest') signer.close()
   }
 }
 
 async function onRetry() {
-  const previous = store.get().results
-  if (!previous) return
-  showPanel('sending')
+  if (!lastSend) return
+  showReceipt(false)
+  setSendMode('busy', { signed: lastSend.signerKind !== 'guest' })
+  renderProgress({ step: 'publishing' }, lastSend.signerKind)
   try {
-    const { results, verdict } = await retry(store, previous, { onProgress: renderProgress })
-    store.set({ results, verdict })
-    renderResult({ results, verdict })
+    const { results, verdict } = await retry(store, lastSend.results, {
+      pow: powFor(lastSend.signerKind),
+      onProgress: (p) => renderProgress(p, lastSend.signerKind),
+    })
+    finish(results, verdict, lastSend)
   } catch (err) {
+    setSendMode(sendMode())
     setError($('#contact-error'), errorCode(err))
-  } finally {
-    showPanel('result')
+    showReceipt(true)
+  }
+}
+
+function sendAnother() {
+  const form = $('#contact-form')
+  const to = form.elements.to.value
+  form.reset()
+  form.elements.to.value = to
+  showReceipt(false)
+  TRAVEL.rest()
+  setSendMode(sendMode())
+  openedAt = Date.now()
+  store.set({ phase: 'composing', results: null, verdict: null })
+  $('#field-message')?.focus()
+}
+
+async function copyReceipt() {
+  if (!lastSend) return
+  try {
+    await navigator.clipboard.writeText(receiptText(lastSend))
+    const reply = $('#result-reply')
+    if (reply) reply.textContent = t('result.copied')
+  } catch {
+    /* the clipboard is a courtesy; the details are on screen */
   }
 }
 
 // ── boot ─────────────────────────────────────────────────────────────────────
 
 function prefillSubject() {
-  const asked = new URLSearchParams(location.search).get('subject')
+  const asked = query.get('subject')
   const field = $('#field-subject')
   if (asked && field) field.value = asked.slice(0, config.limits.subject.max)
 }
 
+function chooseRecipient(name) {
+  const { recipients } = store.get()
+  const recipient = recipients.find((r) => r.name === name) || null
+  store.set({ recipient })
+}
+
 function wire() {
-  $('#method-nip07')?.addEventListener('click', signInNip07)
-  $('#method-nip46')?.addEventListener('click', signInNostrConnect)
-  $('#method-guest')?.addEventListener('click', signInGuest)
-  $('#form-bunker')?.addEventListener('submit', signInBunker)
-  $('#nip46-cancel')?.addEventListener('click', () => (cancelConnect(), showPanel('methods')))
-  $('#nip46-copy')?.addEventListener('click', async () => {
+  $('#contact-form')?.addEventListener('submit', onSubmit)
+  $('#field-to')?.addEventListener('change', (e) => chooseRecipient(e.target.value))
+  $('#sign-extension')?.addEventListener('click', signInExtension)
+  $('#sign-bunker')?.addEventListener('click', signInBunker)
+  $('#sign-out')?.addEventListener('click', signOut)
+  $('#form-bunker')?.addEventListener('submit', connectPastedBunker)
+  $('#bunker-cancel')?.addEventListener('click', closeBunkerModal)
+  // Escape, or a click on the backdrop's cancel: either way the attempt ends.
+  $('#bunker-modal')?.addEventListener('close', cancelConnect)
+  $('#bunker-copy')?.addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText($('#nip46-uri').value)
-      setStatus(t('nip46.copied'))
+      await navigator.clipboard.writeText($('#bunker-uri').value)
+      $('#bunker-status-text').textContent = t('bunker.copied')
     } catch {
-      $('#nip46-uri').select()
+      $('#bunker-uri').select()
     }
   })
-  $('#contact-form')?.addEventListener('submit', onSubmit)
   $('#result-retry')?.addEventListener('click', onRetry)
-  $('#result-again')?.addEventListener('click', () => showPanel('compose'))
-  $('#sign-out')?.addEventListener('click', signOut)
+  $('#result-again')?.addEventListener('click', sendAnother)
+  $('#result-copy')?.addEventListener('click', copyReceipt)
 
   // A signer session should not outlive the page.
   window.addEventListener('pagehide', () => {
@@ -248,32 +335,31 @@ function wire() {
 }
 
 async function boot() {
-  const found = panels()
-  if (!found.methods) return
+  if (!$('#contact-form')) return
 
   wireEmailFallback()
   prefillSubject()
   wire()
-
-  document.documentElement.dataset.contact = 'ready'
-  showPanel('methods')
+  setSendMode('guest')
+  TRAVEL.rest()
 
   const hasNip07 = await detectNip07()
   store.set({ hasNip07 })
-  const button = $('#method-nip07')
-  if (button) {
-    button.disabled = !hasNip07
-    button.setAttribute('aria-disabled', String(!hasNip07))
-  }
-  const missing = $('#nip07-missing')
-  if (missing) missing.hidden = hasNip07
+  markExtension(hasNip07)
 
   await bootRecipients(store)
   if (store.get().phase === 'unavailable') {
     setError($('#contact-error'), store.get().error)
-    showPanel('unavailable')
+    $('#contact-form').hidden = true
+    $('#panel-unavailable').hidden = false
+  } else {
+    const { recipients } = store.get()
+    const recipient = pickRecipient(recipients, query.get('to'))
+    store.set({ recipient })
+    renderRecipients(recipients, recipient)
   }
 
+  document.documentElement.dataset.contact = 'ready'
   if (dev.local) console.info('contact: localhost overrides active', dev)
 }
 

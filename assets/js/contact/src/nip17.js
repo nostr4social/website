@@ -18,7 +18,8 @@
 // challenge has to be signed with the same throwaway key — signing it with the
 // sender's key would undo the wrapping.
 
-import { finalizeEvent, generateSecretKey, getConversationKey, getEventHash, nip44Encrypt } from './vendor.js'
+import { finalizeEvent, generateSecretKey, getConversationKey, getEventHash, getPublicKey, nip44Encrypt } from './vendor.js'
+import { minePow } from './pow.js'
 
 export const KIND_CHAT = 14
 export const KIND_SEAL = 13
@@ -67,19 +68,23 @@ export async function sealFor(signer, rumor, targetPubkey) {
  * Wrap a seal under a key that exists for this one event. Returns the wrap and
  * the key that signed it, which the caller needs for relay AUTH and must then
  * zero-fill.
+ *
+ * With `pow` set, the wrap carries a NIP-13 nonce mined to that many leading
+ * zero bits before it is signed. The relay sees the work; nothing else about
+ * the wrap changes.
  */
-export function wrapFor(seal, targetPubkey, relayHint) {
+export async function wrapFor(seal, targetPubkey, relayHint, { pow = 0, onProgress } = {}) {
   const ephemeralKey = generateSecretKey()
   const conversationKey = getConversationKey(ephemeralKey, targetPubkey)
-  const wrap = finalizeEvent(
-    {
-      kind: KIND_WRAP,
-      created_at: jitteredTimestamp(),
-      tags: [relayHint ? ['p', targetPubkey, relayHint] : ['p', targetPubkey]],
-      content: nip44Encrypt(JSON.stringify(seal), conversationKey),
-    },
-    ephemeralKey,
-  )
+  let template = {
+    pubkey: getPublicKey(ephemeralKey),
+    kind: KIND_WRAP,
+    created_at: jitteredTimestamp(),
+    tags: [relayHint ? ['p', targetPubkey, relayHint] : ['p', targetPubkey]],
+    content: nip44Encrypt(JSON.stringify(seal), conversationKey),
+  }
+  if (pow > 0) template = await minePow(template, pow, { onProgress })
+  const wrap = finalizeEvent(template, ephemeralKey)
   return { wrap, ephemeralKey }
 }
 

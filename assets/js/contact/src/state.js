@@ -1,13 +1,16 @@
 // The state the page is in, and the pipeline that moves it.
 //
-//   boot → loading_recipients → choose_method
-//        → connecting_nip07 | connecting_nip46 | guest_intro
-//        → composing → sending → result
+//   boot → loading_recipients → composing
+//        ⇄ connecting_nip07 | connecting_nip46      (optional: sign as yourself)
+//        → sending → result → composing
+//
+// Composing needs no sign-in: a one-time key is made at send time unless the
+// visitor signed in first.
 //
 // Everything the view needs is in one object; the view re-renders on change.
 
 import { SimplePool } from './vendor.js'
-import { config, t } from './config.js'
+import { config, dev, t } from './config.js'
 import { loadRecipients } from './recipients.js'
 import { inboxRelaysFor } from './relays.js'
 import { buildRumor, publishWrap, sealFor, wrapFor } from './nip17.js'
@@ -32,7 +35,9 @@ export const initialState = {
   phase: 'boot',
   hasNip07: false,
   recipients: [],
-  signer: null,
+  recipient: null, // the one this message goes to
+  signer: null, // null until someone signs in; a guest key is made per send
+  profileName: null, // a signed-in sender's kind 0 name, when one was found
   error: null,
   connect: null, // { uri, authUrl }
   progress: null, // { done, total, label }
@@ -45,7 +50,7 @@ export async function bootRecipients(store) {
   store.set({ phase: 'loading_recipients', error: null })
   try {
     const recipients = await loadRecipients()
-    store.set({ recipients, phase: 'choose_method' })
+    store.set({ recipients, phase: 'composing' })
   } catch (err) {
     store.set({ phase: 'unavailable', error: err.code || 'recipients_unavailable' })
   }
@@ -65,25 +70,31 @@ export function noteSend(store) {
 }
 
 /**
- * Compose, encrypt and publish. One sealed, wrapped copy per recipient, plus
- * one addressed back to the sender when they are signed in, so the conversation
- * appears in their own client too.
+ * Compose, encrypt and publish. One sealed, wrapped copy to the chosen
+ * recipient, plus one addressed back to the sender when they are signed in, so
+ * the conversation appears in their own client too.
  *
- * Returns per-recipient results; the caller decides what to say about them.
+ * Returns per-target results; the caller decides what to say about them.
  */
-export async function send(store, { subject, content, onProgress }) {
-  const { signer, recipients } = store.get()
-  const pool = new SimplePool()
+/** How much work a wrap from this signer carries: a one-time key has no history, so it pays. */
+export function powFor(signerKind) {
+  if (dev.noPow) return 0
+  return signerKind === 'guest' ? config.pow?.anonymous || 0 : config.pow?.signed || 0
+}
 
-  const targets = recipients.map((r) => ({ ...r, self: false }))
+export async function send(store, { signer, recipient, subject, content, onProgress }) {
+  const pool = new SimplePool()
+  const pow = powFor(signer.kind)
+
+  const targets = [{ ...recipient, self: false }]
   // A guest's key is discarded after sending, so a self-copy would be unreadable.
-  if (signer.kind !== 'guest' && !recipients.some((r) => r.pubkey === signer.pubkey)) {
-    targets.push({ name: t('result.self_copy', 'you'), pubkey: signer.pubkey, self: true })
+  if (signer.kind !== 'guest' && recipient.pubkey !== signer.pubkey) {
+    targets.push({ name: t('recipients.self_copy', 'you'), pubkey: signer.pubkey, self: true })
   }
 
   const rumor = buildRumor({
     senderPubkey: signer.pubkey,
-    recipients: recipients.map((r) => ({ pubkey: r.pubkey })),
+    recipients: [{ pubkey: recipient.pubkey }],
     subject,
     content,
   })
@@ -96,7 +107,10 @@ export async function send(store, { subject, content, onProgress }) {
 
       onProgress?.({ step: 'encrypting', index, total: targets.length, name: target.name })
       const seal = await sealFor(signer, rumor, target.pubkey)
-      const { wrap, ephemeralKey } = wrapFor(seal, target.pubkey, relays[0])
+      const { wrap, ephemeralKey } = await wrapFor(seal, target.pubkey, relays[0], {
+        pow,
+        onProgress: (p) => onProgress?.({ step: 'mining', index, total: targets.length, name: target.name, ...p }),
+      })
 
       onProgress?.({ step: 'publishing', index, total: targets.length, name: target.name })
       let relayResults
@@ -140,7 +154,7 @@ export function verdictFor(results) {
  * Re-send to the recipients that no relay accepted. The seal is reused, so the
  * signer is not prompted again; only the throwaway wrapping key is new.
  */
-export async function retry(store, previous, { onProgress } = {}) {
+export async function retry(store, previous, { onProgress, pow = 0 } = {}) {
   const pool = new SimplePool()
   const results = previous.map((r) => ({ ...r }))
   try {
@@ -149,7 +163,11 @@ export async function retry(store, previous, { onProgress } = {}) {
       onProgress?.({ step: 'publishing', index, total: results.length, name: result.name })
 
       const { relays, usedFallback } = await inboxRelaysFor(pool, result.pubkey)
-      const { wrap, ephemeralKey } = wrapFor(result.seal, result.pubkey, relays[0])
+      const { wrap, ephemeralKey } = await wrapFor(result.seal, result.pubkey, relays[0], {
+        pow,
+        onProgress: (p) => onProgress?.({ step: 'mining', index, total: results.length, name: result.name, ...p }),
+      })
+      onProgress?.({ step: 'publishing', index, total: results.length, name: result.name })
       try {
         result.relays = await publishWrap(pool, relays, wrap, ephemeralKey, {
           maxWait: config.timeouts.publish,

@@ -1,4 +1,4 @@
-// Builds the three files /contact/ loads, and records their hashes.
+// Builds the four files /contact/ loads, and records their hashes.
 //
 //   npm run build:contact
 //
@@ -41,6 +41,15 @@ export const targets = {
     // Our own modules are bundled; the vendor files stay separate imports so
     // they can be cached, hashed and reviewed on their own.
     external: ['/assets/js/vendor/*'],
+  },
+  // The proof-of-work miner runs in a Web Worker, so it is its own file and
+  // carries its own copy of sha256: a worker cannot share the page's modules.
+  // No SRI attribute exists for workers; same-origin CSP and the byte-compare
+  // in check.mjs are what pin it.
+  pow_worker: {
+    entry: 'assets/js/contact/src/pow-worker.js',
+    out: 'assets/js/contact/pow-worker.js',
+    minify: false,
   },
 }
 

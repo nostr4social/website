@@ -1,10 +1,13 @@
 # The contact page. The form is the argument: a company that tells you it never
 # holds your plaintext should be able to show you, and the code is right there.
+#
+# Three doors in the hero (phone, email, Nostr), then the composer. One message
+# goes to one recipient, chosen from /.well-known/nostr.json.
 
 meta:
   title: Contact
   description: >-
-    Send us an encrypted Nostr message straight from the browser, or email us.
+    Send an encrypted Nostr message straight from the browser, or email us.
     No server ever holds the plaintext.
 
 sections:
@@ -12,106 +15,139 @@ sections:
     glow: left
     head:
       eyebrow: Get in touch
-      title: Contact
-      lede: >-
-        This form runs on Nostr. We never see your message in plaintext, and
-        neither does anyone else.
+      title: Contact Us
+    # The three doors, directly under the title on the hero's own ground.
+    list:
+      columns: 3
+      # They follow the page's h1 directly, so they are its h2s.
+      item_level: h2
+      items:
+        - title: Phone
+          href: /services/
+          body: >-
+            A free scoping call for anything on the services page. If Nostr is
+            wrong for what you are building, that is the fastest way to find out.
+        - title: Email
+          body: >-
+            An ordinary mailbox, read by the same people. Unencrypted, and
+            sometimes that is fine.
+          # Assembled by the script rather than written into the page, so the
+          # address is not sitting in the source for a scraper.
+          email:
+            user: hello
+            domain: nostr4.social
+            subject: "[nostr4.social] Contact"
+        - title: Nostr
+          body: >-
+            Reachable by DM from any Nostr client, and verified against this
+            domain.
+          code: hello@nostr4.social
 
   - type: contact-form
     id: send
     head:
       title: Send an encrypted message
       lede: >-
-        Sign in with a browser extension or a remote signer, and the message
-        goes out as a private DM. No Nostr account, no problem — the form can
-        make a one-time key for you.
+        This private message will be encrypted and sent over Nostr. It is
+        sealed in your browser, carried by public relays, and opened only by
+        the recipient who holds the private key. No account is required, and
+        no server holds a copy with any traceable information.
 
     # ── the markup Jekyll renders ────────────────────────────────────────────
-    methods:
-      title: Choose how to sign
-      note: Whichever you pick, the encryption happens in this tab.
-      items:
-        - id: nip07
-          title: Browser extension
-          note: >-
-            Alby, nos2x, Amber and the rest. The extension signs; this page
-            never sees your key.
-          missing: >-
-            No extension detected. Install one, then reload this page — or use a
-            remote signer or a one-time key below.
-        - id: nip46
-          title: Remote signer
-          note: >-
-            nsec.app, Amber over NIP-46, or any bunker URI. Your key stays where
-            it already lives.
-        - id: guest
-          title: No Nostr account
-          note: >-
-            We make a key in this tab, use it once, and discard it. Add an email
-            address or a handle in the message if you want a reply.
+    fields:
+      to:
+        label: To
+        note: Everyone listed is verified against nostr4.social.
+      subject:
+        label: Subject
+        placeholder: What is your project or topic of inquiry?
+      message:
+        label: Message
+        placeholder: Tell us where Nostr might fit, or where it clearly does not.
+      reply:
+        label: Reply to
+        placeholder: you@example.com, or an npub
+        note: >-
+          If you would like a reply, provide an email address, a phone number,
+          or a handle. This will be encrypted with the message.
+      # The off-screen field. Nobody sees it; nothing legitimate fills it.
+      honeypot_label: Leave this field empty
 
-    nip46:
-      title: Connect a remote signer
-      scan: Scan this with your signer, or open it directly.
-      uri_label: Connection URI
+    send:
+      anonymous: Send Anonymously
+      signed: Send encrypted
+      guest_note: >-
+        Sign with a one-time key, generated in this browser and discarded
+        after use.
+      or: OR
+      bunker: Sign with Remote Bunker
+      extension: Sign with Browser Extension
+      switch: Switch
+
+    # The chain beside the composer. Each node carries a line for each state
+    # the send can be in; the script swaps them as the state machine moves.
+    travel:
+      eyebrow: How it travels
+      items:
+        - icon: phone
+          tone: gold
+          title: Your browser
+          rest: >-
+            Seals the message with NIP-44. A one-time key also stamps the wrapper
+            with proof of work, so a flood costs something and a visitor does not.
+          active: Sealing the message to the recipient's key...
+          mining: Stamping the wrapper with proof of work. A few seconds, once.
+          done: Sealed to one recipient. Nothing readable has left this tab.
+        - icon: storage
+          tone: purple
+          title: Relays
+          rest: Carry a wrapped event they cannot open, addressed to the recipient you chose.
+          active: Publishing to the relays the recipient reads private messages on...
+          done: Accepted the wrapped event. They still cannot read it.
+          failed: No relay accepted the wrapped event. Nothing was delivered.
+        - icon: people
+          tone: rust
+          title: Nostr4
+          rest: The recipient opens it with their own key, and replies the same way.
+          active: Waiting.
+          done: In the recipient's inbox. The reply goes to the address you gave.
+
+    # The modal the "Sign with Remote Bunker" link opens.
+    bunker:
+      title: Sign with Remote Bunker
+      scan: >-
+        Scan this with your signer, or open it directly. The page asks for two
+        permissions only: seal one message and sign it.
       copy: Copy URI
-      cancel: Back
       paste_title: Or paste a bunker URI
       paste_label: bunker:// URI from your signer
       paste_note: >-
         A name@domain identifier is not accepted here, because resolving it
         would mean this page making a request to someone else's server.
-      paste_send: Connect
-
-    compose:
-      title: Your message
-      subject_label: Subject
-      subject_placeholder: What are you building?
-      message_label: Message
-      message_placeholder: >-
-        Tell us where Nostr might fit, or where it clearly does not.
-      reply_label: Reply to (optional)
-      reply_placeholder: An email address, an npub, or a handle
-      reply_note: >-
-        Only useful if you are sending with a one-time key. It is encrypted
-        along with the rest of the message.
-      submit: Sign and send
-      submit_note: NIP-17 over NIP-44
-      sign_out: Use a different method
-      # The off-screen field. Nobody sees it; nothing legitimate fills it.
-      honeypot_label: Leave this field empty
-
-    sending:
-      title: Sending
-      note: >-
-        Encrypting once per recipient, then publishing to the relays each of us
-        reads private messages on.
+      connect: Connect
+      cancel: Cancel
+      waiting: Waiting for your signer...
 
     result:
+      details: Details
       again: Send another
-      retry: Try the ones that failed again
+      copy: Copy receipt
+      retry: Try again
 
     unavailable:
       title: The form cannot start.
       note: >-
-        We could not load the list of recipients, so there is nothing to encrypt
-        to. Email works, and reaches the same people.
+        We could not load the list of recipients, so there is nothing to
+        encrypt to. Email works, and reaches the same people.
 
     email:
-      title: Or just email us
-      note: >-
-        Unencrypted, and it lands in an ordinary mailbox. Use it if any of the
-        above is more trouble than your question is worth.
-      user: hello
-      domain: nostr4.social
-      subject: "[nostr4.social] Contact"
-      link_label: Email us
       noscript: >-
         This form needs JavaScript to encrypt anything. Without it, email us at
         hello@nostr4.social.
 
     how_it_works:
       title: How this works
+      summary: No server · NIP-17 over NIP-44 · what relays see · what we keep
       items:
         - title: There is no server.
           body: >-
@@ -120,24 +156,31 @@ sections:
             copy, because there is nothing to hold it.
         - title: The encryption is NIP-44, and it happens here.
           body: >-
-            Your message becomes an unsigned kind 14 rumor, sealed to each
+            Your message becomes an unsigned kind 14 rumor, sealed to the
             recipient as a kind 13, then wrapped in a kind 1059 under a key that
             exists only for that one event. Only the recipient can unwrap it.
+        - title: Why sending takes a few seconds.
+          body: >-
+            A message signed with a one-time key carries a NIP-13 proof of work:
+            your browser repeats a hash until the wrapper's id begins with enough
+            zero bits. That costs a visitor a few seconds, once. It costs a flood
+            the same for every message, which is what lets an inbox relay refuse
+            the cheap ones. A message signed with your own key skips it.
         - title: Who can read it.
           body: >-
-            Everyone named in our NIP-05 file, and nobody else. If you are
-            signed in, you get a copy too, so the conversation appears in your
-            own client.
+            The recipient you chose, and nobody else. Every name offered is
+            listed in this domain's NIP-05 file. If you are signed in, you get a
+            copy too, so the conversation appears in your own client.
         - title: What the relays see.
           body: >-
             An encrypted blob, the recipient it is addressed to, and your IP
-            address — the same as any other connection you make. They cannot see
+            address, the same as any other connection you make. They cannot see
             who sent it, what it says, or when it was written.
         - title: What we keep.
           body: >-
             Nothing this page can give us. No analytics, no logs, no third-party
             requests. The only network traffic this page makes is to
-            nostr4.social and to the relays listed on screen.
+            nostr4.social and to the relays named on screen.
         - title: What this does not do.
           body: >-
             There is no forward secrecy in NIP-44: a key that leaks later can
@@ -161,56 +204,75 @@ sections:
 
     # ── strings the script needs at runtime ──────────────────────────────────
     strings:
+      recipients:
+        # Display names for entries in nostr.json; anything unlisted shows its name.
+        labels:
+          hello: Nostr4
+        self_copy: A copy to you
+        from_link: from the link you followed
+      identity:
+        nip07: Signed in with your extension. A copy lands in your own DMs.
+        nip46: Signed in with your remote signer. A copy lands in your own DMs.
+        unnamed: Signed in
       status:
-        connecting_nip07: Waiting for your extension...
+        connecting_nip07: Waiting for your extension to approve...
         connecting_nip46: Connecting to your signer...
-      methods:
-        nip07:
-          identity: Signing with your extension as
-        nip46:
-          identity: Signing with your remote signer as
-        guest:
-          identity: Signing with a one-time key as
-      nip46:
+      bunker:
         qr_alt: Connection URI as a QR code
         copied: Copied.
+        waiting: Waiting for your signer...
         auth_note: Your signer needs you to approve this in a browser tab.
         auth_open: Open the approval page
+      # The plaintext of the message, as the recipient's client shows it. The
+      # first line is what an inbox list displays, so it names the source.
       compose:
-        footer_reply: "Reply to:"
+        header: "via Nostr4 website:"
+        subject_line: "Subject: {subject}"
+        footer_reply: "Reply to: {reply}"
         footer_guest: >-
-          Sent via nostr4.social/contact using a one-time key that was discarded
-          after sending.
-        footer_signed: Sent via nostr4.social/contact.
+          Sent with a one-time key that was discarded after sending. A reply
+          over Nostr will not arrive; use the address above.
+        footer_signed: ""
       sending:
         resolving: Finding inbox relays
-        encrypting: Encrypting
+        encrypting: Sealing
+        mining: Proving work
+        mining_detail: "{hashes} hashes · {seconds}s"
         publishing: Publishing
+        note_guest: Sealed with a one-time key. Nothing readable has left this tab.
+        note_signed: Sealed with your own key. Nothing readable has left this tab.
       result:
-        self_copy: your own copy
         delivered: Delivered
         not_delivered: Not delivered
         relay_ok: accepted
-        relay_failed: refused
-        event_id: "Wrapper event id:"
+        relay_failed: "refused · {reason}"
+        relays_count: "{ok} of {total} relays accepted"
+        event_id: Wrapper event
+        sent_at: "Sent {time} · {key}"
+        key_guest: one-time key discarded
+        key_signed: signed with your own key
+        reply_to: "The reply goes to {reply}."
+        reply_none: >-
+          No reply-to was given, so the recipient cannot answer. Send another
+          with one, or email.
+        reply_self: The reply lands in your own DMs.
+        copied: Receipt copied.
         fallback_warning: >-
-          This recipient has not published an inbox relay list, so we used a
-          public fallback set. They may not be reading these relays.
+          This recipient has not published an inbox relay list, so a public
+          fallback set was used. They may not be reading these relays.
         success:
           title: Sent.
           body: >-
-            At least one relay accepted the message for every recipient. It is
-            encrypted, and only they can open it.
-        partial:
-          title: Partly sent.
-          body: >-
-            Some recipients got it and some did not. You can retry the ones that
-            failed, or email us instead.
+            Delivered to {name}. Sealed in this tab and accepted by {ok} of
+            {total} relays. Only the holder of that key can open it.
         failure:
           title: Not sent.
           body: >-
-            No relay accepted the message. Nothing was delivered, and nothing
-            was stored. Retry, or email us.
+            No relay accepted the message for {name}. Nothing was delivered,
+            and nothing was stored. Try again, or email.
+        receipt: >-
+          Sent to {name} ({nip05}) via nostr4.social/contact at {time}.
+          Relays: {relays}. Wrapper event: {id}.
       errors:
         unknown: Something went wrong. Email works, if this keeps failing.
         honeypot: ""
@@ -218,11 +280,14 @@ sections:
         message_short: A little more detail would help. Twenty characters minimum.
         message_long: That is longer than a message can be. Trim it, or email us.
         subject_long: The subject is too long.
+        recipient_missing: Choose who the message goes to.
         rate_limited: That is three messages in ten minutes. Give it a rest.
-        nip07_missing: No browser extension is available on this page.
+        nip07_missing: >-
+          No browser extension was found. Install Alby, nos2x or Amber and
+          reload, or sign with a remote bunker.
         nip07_no_nip44: >-
           Your extension does not support NIP-44 encryption, which this form
-          requires. Update it, or use a remote signer or a one-time key.
+          requires. Update it, or sign with a remote bunker.
         nip07_refused: Your extension declined to share a public key.
         nip07_bad_pubkey: Your extension returned something that is not a public key.
         bunker_empty: Paste a bunker URI first.
@@ -263,8 +328,18 @@ sections:
         nip46:
           - wss://relay.nsec.app
           - wss://relay.damus.io
+      # NIP-13 proof of work on the gift wrap, in leading zero bits. A browser
+      # hashes a wrap-sized preimage about 120k times a second per core, so 18
+      # bits (260k hashes on average) is a second or two on a desktop and a few
+      # on a phone, and a flood pays the same for every message. Each bit
+      # doubles it. Zero turns it off. Signed-in senders have a key with a
+      # history; they skip it.
+      pow:
+        anonymous: 18
+        signed: 0
       timeouts:
         discovery: 4000
+        profile: 3000
         publish: 8000
         nip46_connect: 120000
       limits:
@@ -283,45 +358,3 @@ sections:
         signers:
           - label: Open in nsec.app
             nostrconnect_url: https://nsec.app/connect?uri={uri}
-
-  - type: chain
-    band: sunk
-    head:
-      title: How it travels
-      lede: Rust marks the only part we run.
-    items:
-      - title: Your browser
-        body: Writes and signs the message. The key never leaves.
-      - title: Relays
-        body: Carry the encrypted event. They cannot read it either.
-      - title: Us
-        body: Decrypt with our own key, and reply the same way.
-
-  - type: list
-    head:
-      title: Other ways in
-    columns: 3
-    items:
-      - title: Book a call
-        body: A free scoping call for anything on the services page.
-        href: /services/
-      - title: Find us on Nostr
-        body: >-
-          Both of us are reachable by DM, and verified against this domain.
-      - title: Email us
-        body: >-
-          An ordinary mailbox, read by the same people. Unencrypted, and
-          sometimes that is fine.
-        href: "#send"
-
-  - type: callout
-    band: raised
-    head:
-      title: We read everything that arrives.
-      lede: >-
-        If Nostr is wrong for what you are building, a scoping call is the
-        fastest way to find that out, and we will say so.
-    actions:
-      - label: Book a free consultation
-        href: /services/
-        style: primary
