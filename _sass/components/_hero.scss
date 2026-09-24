@@ -46,6 +46,11 @@
   gap: var(--s-7);
 }
 
+// A list of doors under the title, closer than a figure would sit.
+.hero-stack--list {
+  gap: var(--s-6);
+}
+
 @include below($bp-mid) {
   .hero-split {
     gap: var(--s-7);

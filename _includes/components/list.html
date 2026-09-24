@@ -1,15 +1,29 @@
 {%- comment -%}
-  items     [{title, body, href}] — an href makes the title a link
+  items     [{title, body, href, code, email}]
+              href   makes the title a link
+              code   a monospace line under the body, e.g. a NIP-05 identity
+              email  {user, domain, subject} — a monospace mailto link. The
+                     address is assembled by the contact script so it is not
+                     written into the page for a scraper; the text is entity-
+                     encoded and <noscript> keeps a plain copy.
   columns   2 | 3   (default 3)
+  item_level  heading level for the item titles (default h3); h2 when the
+              list follows the page's h1 directly, as on /contact/
 {%- endcomment -%}
 {%- assign b = include.block -%}
+{%- assign s = include.section -%}
 {%- assign columns = include.columns | default: b.columns | default: 3 -%}
+{%- assign level = s.item_level | default: b.item_level | default: "h3" -%}
 <div class="grid grid--{{ columns }}">
   {%- for item in b.items -%}
   <div class="ruled-item">
     {%- if item.href %}{% capture href %}{% include lib/href.html href=item.href %}{% endcapture %}{% endif -%}
-    <h3 class="ruled-item__title">{% if item.href %}<a href="{{ href }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</h3>
+    <{{ level }} class="ruled-item__title">{% if item.href %}<a href="{{ href }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</{{ level }}>
     {% include lib/text.html text=item.body class="ruled-item__body" %}
+    {%- if item.email -%}
+    <a class="ruled-item__code code" href="#send" data-user="{{ item.email.user }}" data-domain="{{ item.email.domain }}" data-subject="{{ item.email.subject }}">{{ item.email.user }}&#64;{{ item.email.domain }}</a>
+    {%- endif -%}
+    {%- if item.code %}<span class="ruled-item__code code">{{ item.code }}</span>{% endif -%}
   </div>
   {%- endfor -%}
 </div>

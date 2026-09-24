@@ -4,6 +4,8 @@
   cast          key into _data/blocks/ for the figure beside or under the thesis
   cast_type     cast | hub   (default cast)
   cast_layout   side | below (default side)
+  list          a `list` block (items, columns, item_level) drawn under the
+                thesis on the hero's own ground — the doors on /contact/
 
 The cast names the parts before the argument uses them — see the style guide.
 {%- endcomment -%}
@@ -17,7 +19,9 @@ The cast names the parts before the argument uses them — see the style guide.
   {% include lib/actions.html actions=s.actions %}
 </div>
 {%- endcapture -%}
-{%- if s.cast -%}
+{%- if s.list -%}
+  <div class="hero-stack hero-stack--list">{{ thesis }}{% include components/list.html block=s.list section=s.list %}</div>
+{%- elsif s.cast -%}
   {%- assign cast = site.data.blocks[s.cast] -%}
   {%- assign cast_file = s.cast_type | default: "cast" | prepend: "components/" | append: ".html" -%}
   {%- capture figure %}{% include {{ cast_file }} block=cast %}{% endcapture -%}
