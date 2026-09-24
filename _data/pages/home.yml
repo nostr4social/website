@@ -14,7 +14,7 @@ sections:
       lede: >-
         Nostr4 develops Nostr standards and infrastructure products and offers
         concierge services for social apps to leverage non-custody **—** as a
-        profit model.
+        business model.
     actions:
       - label: Learn More About Nostr
         href: /nostr/
@@ -57,7 +57,7 @@ sections:
       watermark: Infrastructure
       light: We build Non-Custodial Nostr Tech
       lede: >-
-        Our products are specifically designed to preserve user-custody for
+        Our products are specifically designed to preserve non-custody for
         social apps and services across the network.
       lede_size: xl
     items:
@@ -66,23 +66,25 @@ sections:
           tone: live
         name: TrustR
         body: >-
-          On Nostr, the feed belongs to the reader. TrustR computes discovery
-          and recommendation from each user's own web of trust. Rankings are
-          configurable, shareable, and portable to any app that speaks TSM. The
-          algorithm stops being a platform secret and becomes the user's tool.
+          TrustR is a recommendation and discovery provider for non-custodial
+          social apps. It accepts standard TSM requests for rankings from any
+          user's point of view, computes them from that user's Web of Trust, and
+          publishes the results as signed Nostr events that any app can consume.
+          Rankings are configurable by the user and portable to any TSM
+          compatible app or provider. Apps offer recommendation and discovery
+          without taking custody of the algorithm.
         standards:
           label: Standards we designed along the way
           chips:
-            - label: "TSM · trust services"
+            - label: "TSM · standard"
               href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/tsm
-            - label: "NAS · event archives"
+            - label: "NAS · standard"
               href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/nas
-            - label: "GrapeRank · web-of-trust engine"
+            - label: "GrapeRank ·  library"
               href: https://github.com/graperank/tsm-graperank-library
         actions:
           - label: Read the White Paper
-            href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/tsm
-            external: true
+            href: /trustr/
           - label: Launch the Demo
             href: https://trustr.ing
             style: primary
@@ -93,15 +95,7 @@ sections:
           tone: soon
         name: NostrMe
         body: >-
-          NostrMe generates keys remotely and signs on the user's behalf. Apps
-          never touch a private key, and users never lose one.
-        standards:
-          label: Standards work
-          chips:
-            - label: "NIP-46 · remote signing"
-              href: https://github.com/nostr-protocol/nips/blob/master/46.md
-            - label: "key sharding · spec planned"
-              href: https://github.com/nostr-protocol/nips
+          NostrMe is a working title for our next business critical infra project. It will introduce Passkey to Nostr (allowing OS native key generation, identity management, and transparent event signing) with cross device support, key recovery, and custom invites for in-app onboarding. Social apps will never have to touch private keys again **—** and users might never know the difference.
         actions:
           - label: White Paper Coming Soon
             style: disabled

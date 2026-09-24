@@ -17,14 +17,10 @@ sections:
       title: TrustR
       lede: >-
         TrustR is our flagship recommendation and discovery provider for
-        non-custodial social apps. It preserves users' control over filters and
-        algorithms across clients and services, by outputting TSM standard
-        ranked lists of pubkeys and event IDs. It offers two services for
-        ranking user interaction (web of trust) and semantic relationships
-        (topical search) on a variety of event kinds. Under the hood, ranking
+        non-custodial social apps. Under the hood, ranking
         algorithms are highly configurable and portable across providers. On the
-        surface, ranking algorithms stop being a platform secret, and become
-        user product that any app can plug into.
+        surface, algos stop being a platform secret and become
+        shared commodity that any app can offer or consume.
     actions:
       - label: Launch the Demo
         href: https://trustr.ing
@@ -58,23 +54,26 @@ sections:
         - eyebrow: Users get
           title: Vendor Lock In
           body: >-
-            Locked to whatever lens the current app chose. There is no way to
-            port a configuration, inspect a result, or compare two.
+            Users are limited to whichever algorithm their current app chose to
+            build. A configuration cannot be carried to another app, a result
+            cannot be inspected, and two providers cannot be compared.
         - eyebrow: Apps get
           title: More Cost Burden
           body: >-
-            Moderation stays a permanent cost center and a standing liability.
-            It never becomes a feature the network provides.
+            Apps that hold custody over recommendation and discovery carry the
+            full cost of computing them and the full liability for moderating
+            what they surface. Neither cost is shared with the network.
         - eyebrow: Services get
           title: No Layering of Results
           body: >-
-            Every request is computed from scratch. Consuming another provider's
-            work means a separate integration with each one.
+            Every service computes every request from scratch. Using another
+            provider's results requires a separate integration with each one,
+            so no provider's work builds on another's.
         - eyebrow: Nostr gets
           title: More Centralized
           body: >-
-            Discovery and recommendation centralize anyway. Only the well funded
-            can afford to compute them.
+            Recommendation and discovery fall to the few providers that can
+            afford the compute. The network's curation centralizes around them.
 
   - type: split
     glow: left
@@ -83,14 +82,13 @@ sections:
     title: TrustR has a solution ...
     bright: true
     body: >-
-      Rankings are configurable, shareable, and portable to any app that speaks
-      TSM. The algorithm stops being a platform secret and becomes the reader's
-      own tool.
+      TrustR calculates Web of Trust in the cloud, freeing apps to simply publish requests and retrieve results. Using the TSM standard, apps can publish their own requests from any user point of view, or retrieve results from their user's already published request. 
 
 
-      That matters most to the people a platform algorithm serves worst. A
-      reader with narrow interests is served generic popularity. A new account
-      with no history is served nothing at all.
+      TSM (Trust Service Machines) is an open source Nostr standard for trust services. Any app can send the same request to any provider,
+      and one provider's output can be sent to another as input. TSM compatibility allows apps and providers to become non-custodial processors recommendation and discovery, rather than controllers.
+    punch: >-
+      Social apps on Nostr can offload the burden of content moderation, simply by allowing users to choose their own algorithms for recommendation and discovery.
     aside:
       title: ... with interoperability.
       tone: lifted
@@ -98,43 +96,48 @@ sections:
         - eyebrow: Users get
           title: Algorithmic Sovereignty
           body: >-
-            A configuration is a signed event. It works against any compatible
-            provider without modification, and it can be forked, shared, or
-            mixed with others.
+            A user's configuration is a signed Nostr event. It can be sent to any
+            TSM compatible provider without modification, and it can be forked,
+            shared, or combined with others.
         - eyebrow: Apps get
           title: Open Marketplace
           body: >-
-            Providers compete on quality, freshness, privacy and price. An app
-            picks one instead of building one.
+            Providers compete on quality, freshness, privacy, and price. An app
+            chooses a provider, or lets the user choose, instead of building and
+            maintaining one.
         - eyebrow: Services get
           title: Distributed Compute
           body: >-
-            Outputs are addressable events, so one provider's work becomes
-            another's starting input. The cost of answering the same question
-            falls.
+            Results are addressable Nostr events, so one provider's output can be
+            another provider's input. The cost of answering the same question is
+            paid once and shared.
         - eyebrow: Nostr gets
           title: Decentralized Curation
           body: >-
-            Many algorithms, every one of them anchored to the reader. Capturing
-            a single provider does not poison the others.
+            Many algorithms run on the network, each computed from a user's own
+            point of view. The capture of any one provider changes nothing for
+            the others.
 
   - type: chain
     band: sunk
     head:
-      title: The MVP Demo
+      title: MVP Demo
       lede: >-
-        Three services, potentially three providers, fully interoperable. Rust
-        marks the parts we implement.
+        Our TrustR demo shows off three separate TSM services. It uses the results from one as the input for the next. Each one accepts standard TSM requests and publishes standard results as signed Nostr events. This MVP models how independent providers can interoperate on the network, preserving non-custody for apps and services.
     items:
-      - title: Web of trust
-        body: A baseline graph built from your follows and your zaps.
-      - title: Topic search
-        body: Search inside that graph rather than across the whole network.
-      - title: Re-ranking
-        body: Order authors by relevance and by what they have been paid.
-    note: >-
-      Each link in that chain is a TSM service with a published interface. Swap
-      any one of them for another provider, and the rest keeps working.
+      - title: Baseline Web of Trust
+        body: Your personal spam filter based on follows, mutes, and reports across the network ranked from your point of view.
+      - title: Topical Search
+        body: Retrieve notes or articles that have been published within your baseline web of trust, and ranked on semantic relevance to a search topic.
+      - title: Topical Influence
+        body: Rerank authors from the topical search based on semantic relevance and by engagement on the ranked posts.
+    note: 
+    actions:
+      - label: Launch the Demo
+        href: https://trustr.ing
+        style: primary
+        external: true
+
 
   - type: cards
     id: standards
@@ -142,33 +145,26 @@ sections:
     head:
       title: Open Standards and Open Source
       lede: >-
-        We needed a trust layer, so we specified one anyone can implement. We
-        needed an archive, so we specified one anyone can mirror. Both were
-        published before either was finished.
+        Interoperability preserves non-custody for apps and services by allowing the user to choose. Below are the open source standards and libraries that we have developed and maintain alongside TrustR. 
     items:
       - icon: insights
-        title: GrapeRank
+        title: GrapeRank TSM
         body: >-
-          The web-of-trust engine, co-developed with David Strayhorn. It reads
-          follows, mutes, reports and zaps, and it returns ranked pubkeys.
+          Nostr's first (and only) Web-of-Trust library for non-custodial apps and services. It allows anyone to run a GrapeRank service, ingesting event interactions from across the network to generate highly configurable user rankings from any point of view. 
         link:
           label: GrapeRank on GitHub
           href: https://github.com/graperank/tsm-graperank-library
       - icon: verified
         title: TSM
         body: >-
-          Trust Service Machines. The interface that makes the pair above
-          composable. The family includes a NIP-85 bridge, so it interoperates
-          with the assertion work already on Nostr.
+          Trust Service Machines (TSM) is a Nostr standard for trust service providers to announce the services that they offer, for users to publish requests (privately or publicly), and for results to be published in a discoverable manner that apps may consume.
         link:
-          label: Read the TSM base spec
+          label: Read the TSM spec
           href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/tsm
       - icon: hub
         title: NAS
         body: >-
-          Nostr Archive Standards. A relay is not an archive, and a web of trust
-          is built from history in bulk. Every file is named by the hash of its
-          own bytes, so anyone can mirror ours or check our work.
+          Nostr Archive Standards (NAS) is a Nostr standard for the production and discovery of event archives. Nostr relays are a poor mechanism for reliable delivery of bulk or older events. NAS provides a standard format upon which network aggregation and analytics can operate while preserving user-custody of published events.
         link:
           label: Read the NAS spec
           href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/nas
@@ -178,29 +174,48 @@ sections:
       title: Audience
     columns: 2
     items:
-      - title: Onboarding clients
-        body: Give a brand-new account a feed worth reading on day one.
-      - title: Relay providers
-        body: Filter by trust rather than by keyword, and cut spam without guessing.
+      - title: Client apps
+        body: >-
+          Social apps that need a feed for users who have no Web of Trust of
+          their own yet, or a custom ranking for a particular view. TrustR
+          computes it from a standard request, and the app never holds the
+          algorithm.
+      - title: Relay services
+        body: >-
+          Personal and paid relays that filter by trust instead of by keyword.
+          TSM processing can be resold, white labeled, as a value add for relay
+          customers.
       - title: Curators
-        body: Publish a ranking as a service, and let others subscribe to your judgment.
+        body: >-
+          Users and organizations that publish rankings as a service. A
+          curator's TSM request is a signed event, so any app or user can
+          subscribe to its results.
       - title: Power users
-        body: People who already curate, and want the ranking to follow them between apps.
+        body: >-
+          Users who already curate and want their rankings to follow them
+          between apps. Any TSM compatible app can consume the results of a
+          request published from the user's own point of view.
 
   - type: zones
     head:
       title: Architecture
       lede_bright: true
       lede: >-
-        Six services across three zones of access. Everything public reaches
-        TrustR as a Nostr event over a published standard. Everything private is
-        reached by the Service Orchestrator alone.
+        TrustR is built on six instances across three interfaces. The Public
+        Interface is standard Nostr: a dashboard where users configure and publish
+        TSM requests, and a relay that carries those requests, the feedback, and the
+        results as signed Nostr events. The Listener Interface is a single Service
+        Orchestrator, the only instance that reads the public relay and calls the
+        Compute Interface behind it. That gated compute (GrapeRank, NDE, and the Archive
+        Relay) is private to TrustR and reachable only through the orchestrator.
 
 
-        That asymmetry is the whole design. A competing provider would keep the
-        purple seam, and replace every rust box behind it.
+        Apps and users depend only on the Public Interface, which is defined by the
+        TSM standard and not by TrustR. Any TSM compatible provider can replace
+        everything behind it (Listener and Compute interfaces) without a change to any app, and requests and results
+        remain signed events on public relays that any app may consume.
     zones:
-      - label: Public interface
+      - label: Public Interface
         wide: true
         nodes:
           - icon: phone
@@ -213,7 +228,7 @@ sections:
               For published TSM events: announcements, requests, feedback,
               outputs.
             steps: [0, 2, 9]
-      - label: Listener interface
+      - label: Listener Interface
         nodes:
           - icon: hub
             title: Service Orchestrator
@@ -221,7 +236,7 @@ sections:
               The only component that touches both sides. Holds the service
               keys, and signs every output.
             steps: [3, 8]
-      - label: Gated compute
+      - label: Compute Interface
         wide: true
         nodes:
           - icon: scatter

@@ -5,19 +5,19 @@ hub:
   tone: rust
   title: TrustR.ing
   note: >-
-    On demand processing of TSM requests for user controlled recommendation and
+    On demand processing of TSM requests for recommendation and
     discovery.
 items:
   - icon: phone
-    title: Onboarding Client Apps
+    title: Client Apps
     note: >-
       Consumers of TSM processing for users without their own. Authors of custom
-      TSM requests to meet UX needs.
+      TSM requests.
   - icon: face
     title: Power Users
     note: >-
       Consumers of bespoke TSM processing for apps and services supporting BYO
       processor.
   - icon: storage
-    title: Personal Relay Services
-    note: Resellers of white labeled TSM processing as a value add for relay customers.
+    title: Relay Services
+    note: Resellers of white labeled TSM processing as a value add for personal relay customers.
