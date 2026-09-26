@@ -9,15 +9,15 @@ wordmark:
   four: "4"
 
 tagline: growth and infrastructure 4 social apps
-copyright: "© 2026 Nostr4 Inc. · a Delaware Public Benefit Corporation"
+copyright: "© 2026 Nostr4 Inc. · a Public Benefit Corporation"
 
 meta:
   title: "Nostr4 · growth and infrastructure 4 social apps"
   # Appended to every other page's own title.
   title_suffix: "· Nostr4"
   description: >-
-    Nostr4 develops Nostr standards and infrastructure products, and offers
-    concierge services for social apps to leverage non-custody as a profit model.
+    We develop Nostr standards and infrastructure products, and offer
+    concierge services for social apps to leverage non-custody as a business model.
   og_image: /assets/images/og/default.png
   og_image_alt: The Nostr4 mark — a gold bolt through a purple ring.
 
