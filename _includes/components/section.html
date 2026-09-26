@@ -17,7 +17,7 @@ A few components lay out their own head and actions because the head sits
 inside their grid rather than above it; they are named in `owns_layout`.
 {%- endcomment -%}
 {%- assign s = include.section -%}
-{%- assign owns_layout = "hero,proof-bar,contact-form,notice,callout" | split: "," -%}
+{%- assign owns_layout = "hero,proof-bar,contact-form,notice,callout,investors" | split: "," -%}
 {%- assign self = false -%}
 {%- if owns_layout contains s.type %}{%- assign self = true -%}{%- endif -%}
 {%- if s.use -%}

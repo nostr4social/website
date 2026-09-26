@@ -1,0 +1,36 @@
+{%- comment -%}
+Who backs the company: the head and its button on the left, one tile per
+round on the right. Lays out its own head, so it is in section.html's
+`owns_layout`.
+
+  head, actions
+  items   [{round, name, href, site, logo}]   a tile that links out
+          [{round, note}]                     a dashed tile for a round to come
+{%- endcomment -%}
+{%- assign s = include.section -%}
+{%- assign b = include.block -%}
+<div class="investors">
+  <div class="investors__body">
+    {% include lib/section-head.html head=s.head %}
+    {% include lib/actions.html actions=s.actions %}
+  </div>
+  <div class="investors__tiles">
+    {%- for t in b.items -%}
+    <div class="investor">
+      <span class="investor__round">{{ t.round }}</span>
+      {%- if t.href -%}
+      <a class="investor__tile" href="{{ t.href }}" target="_blank" rel="noopener">
+        {%- if t.logo -%}
+        <img class="investor__logo" src="{{ t.logo | relative_url }}" alt="{{ t.name }}" loading="lazy"{% if t.logo_width %} width="{{ t.logo_width }}" height="{{ t.logo_height }}"{% endif %}>
+        {%- else -%}
+        <span class="investor__name">{{ t.name }}</span>
+        {%- endif -%}
+        <span class="investor__site">{{ t.site }}{% include lib/icon.html name="external" %}</span>
+      </a>
+      {%- else -%}
+      <div class="investor__tile investor__tile--next"><span>{{ t.note }}</span></div>
+      {%- endif -%}
+    </div>
+    {%- endfor -%}
+  </div>
+</div>

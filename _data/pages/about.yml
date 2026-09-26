@@ -1,48 +1,190 @@
 meta:
-  title: About
+  title: About us
   description: >-
-    Nostr4 is a Delaware Public Benefit Corporation, chartered to expand
-    user-governed services on open protocols.
+    Nostr4 builds the standards, infrastructure and services that make social
+    apps profitably non-custodial. A Delaware Public Benefit Corporation, seed
+    funded, with a team of three.
 
 sections:
-  - type: hero
+  # The page's h1 opens this band, so the glow reaches the story and the
+  # milestones, not just the title. Gold marks the company; rust marks what
+  # Nostr4 built.
+  - type: story
+    id: story
     glow: left
     head:
-      eyebrow: The company
-      title: About Nostr4
-      lede: >-
-        Most companies write a mission statement as an afterthought. We filed
-        ours in Delaware.
-    actions:
-      - label: Read the charter
-        href: "#charter"
-        style: primary
+      title: About us
+      level: h1
+    lede: >-
+      We build the Nostr standards and infrastructure, and offer integration services, that tech companies need to make social apps profitably non-custodial. 
+    blocks:
+      - eyebrow: Our vision
+        body: >-
+          Nostr is the social layer for independent apps. The protocol is young and the network is small. Even so, it is the ideal place for a tech company to profit without holding custody of user accounts and data. What it still lacks is the technology that removes friction and drives adoption. Nostr4 builds that technology as new standards and infrastructure, aimed squarely at the growth of non-custodial apps. Every app that integrates with Nostr adds value for all the others. Our growth is tied to the network’s — by design.
+      - eyebrow: Our story
+        body: >-
+          Work toward Nostr4 began in December 2023 with an app for inviting friends in person to Nostr. Building it showed that discovery depends on the inviter's trusted network. Nostr didn't have a Web-of-Trust library, so Manuel developed GrapeRank with David Strayhorn. That library now runs inside TrustR. Through 2025, Mani's work uncovered a larger fact: non-custody is real a value-add the Nostr can provide for social tech companies but the protocol and the netowrk are not quite ready for business. This became the thesis for a presentation series "Nostr for Social Apps". Mani then joined a Web-of-Trust hackathon to jump-start a team around TrustR, and to pitch investors. In February 2026 BlockHenge agreed to back the work, and Nostr4 was born. This seed round is focused proving our non-custody thesis, with interoperable discovery and recommendation that apps actually benefit from.
+    timeline:
+      eyebrow: Timeline
+      label: Company timeline
+      legend:
+        company: company
+        built: product
+      items:
+        - when: Mar 2024
+          iso: 2024-03
+          title: NostrMeet.me
+          tone: rust
+          note: >-
+            Launched NostrMeet.me, a QR invite app that pushed us to solve
+            non-custodial Webs of Trust over Nostr.
+        - when: Feb 2025
+          iso: 2025-02
+          title: GrapeRank Library
+          tone: rust
+          note: >-
+            Released Nostr's first open source library for Web of Trust
+            providers, paving the way for non-custodial apps.
+        - when: Jul 2025
+          iso: 2025-07
+          title: Business Conceived
+          note: >-
+            After many conversations and presentations, we learned both the
+            difficulties and the opportunities that Nostr integration offers
+            social tech companies.
+        - when: Jan 2026
+          iso: 2026-01
+          title: Trust Service Machines
+          tone: rust
+          note: >-
+            Published the TSM standard for announcing, requesting and providing
+            Web of Trust services to non-custodial apps.
+        - when: Feb 2026
+          iso: 2026-02
+          title: Nostr4 Incorporated
+          note: >-
+            Incorporated as a Delaware Public Benefit Corporation while building
+            the first standards-based trust service provider for Nostr.
+        - when: Apr 2026
+          iso: 2026-04
+          title: TrustR Demo
+          tone: rust
+          note: >-
+            Still polished and tweaked after the hackathon, the demo shows what
+            service interoperability makes possible.
+        - when: Sep 2026
+          iso: 2026-09
+          title: Seed Funded
+          note: After months of preparation, the real work begins.
+        - when: ETA Jan 2027
+          iso: 2027-01
+          title: TrustR Product Launch
+          tone: rust
+          future: true
+          note: >-
+            While the ecosystem of interoperable social apps grows, our flagship
+            product is being built to offer enterprise-ready non-custodial
+            recommendation and discovery over Nostr.
 
-  - type: notice
+  # Each person is a `profile` (a name in .well-known/nostr.json, filled from
+  # _data/profiles.yml by `npm run fetch:profiles`) or full values. Any field
+  # given here wins over the snapshot.
+  - type: people
+    id: team
+    band: sunk
     head:
-      eyebrow: Details coming soon
-      eyebrow_tone: gold
-      title: This page is still being written.
-      lede: >-
-        The charter, the team and the origin story are being prepared for
-        publication.
+      eyebrow: Driven by
+      title: Our Team
+    nip05_domain: nostr4.social
+    links:
+      profile: Nostr profile
+      message: Send a message
+    items:
+      - profile: manime
+        name: Manuel Mejia
+        role: Founder / CEO
+        about: >-
+          Nostr Dev. Creative. Athlete. Optimist. Freedom lover. Building WoT
+          powered Nostr apps.
+      - profile: derekross
+        name: Derek Ross
+        role: Nostr Growth & Outreach
+        about: >-
+          The purple pill helps the orange pill go down. Nostr's Chief Evangelism Officer.
+      - profile: andrew
+        name: Andrew Claros
+        role: TrustR Product
+        about: >-
+          Building Alexandria, MedSchlr and DreamGradAcademy. Here for creative
+          ramblings and spiraling thoughts.
+
+  - type: people
+    variant: advisors
+    head:
+      eyebrow: Guided by
+      title: Our Advisors
+    items:
+      - name: Joseph Peterson
+        role: Business advisor
+        picture: /assets/images/people/peterson.jpg
+        title: Chief Science Officer, SymBiosys
+        link:
+          label: Profile at SymBiosys
+          href: https://simbiosys.com/our-team/
+      - name: Arturo Muñoz Holguin
+        role: Legal advisor
+        picture: /assets/images/people/munoz-holguin.jpg
+        title: Partner, Reed Smith
+        link:
+          label: Profile at Reed Smith
+          href: https://reedsmith.com/our-people/arturo-munoz-holguin
+      - name: Chris Daley
+        role: Technical advisor
+        picture: /assets/images/people/daley.jpg
+        title: Director of Engineering, Feanix
+        link:
+          label: Portfolio Website
+          href: https://chrisdaley.biz
+
+  - type: investors
+    ruled: true
+    head:
+      eyebrow: Backed by
+      title: Our Investors
+      lede: Inquiries welcome.
+    actions:
+      - label: Contact us
+        href: /contact/
+        style: primary
+    items:
+      - round: Seed round
+        name: BlockHenge
+        href: https://blockhenge.com
+        site: blockhenge.com
+        logo: /assets/images/investors/blockhenge.png
+        logo_width: 1002
+        logo_height: 153
+      - round: Round A
+        note: Pitching in spring 2027
 
   - type: callout
     id: charter
     band: raised
     head:
-      title: A Public Benefit Company
+      title: A Public Benefit Corporation
       lede: >-
-        The stated Public Benefit of Nostr4, as chartered in our articles of
-        incorporation to which all board members and executives are bound, is
-        to:
+        Most companies write a mission statement as an afterthought. We filed
+        ours in Delaware. Nostr4 is a Public Benefit Corporation whose mission
+        is aligned with its business model. The public benefit declared in our
+        articles of incorporation binds our leadership to one thing **—**
+        growing Nostr.
     quote: >-
-      strengthen open public discourse, market competition, and community
-      resilience, as a public benefit, by expanding access to user-governed,
-      interoperable services that empower individuals and organizations to
-      control their digital identity, communications, and information flows
-      through a distributed market of independent providers operating on open
-      protocol standards.
+      The purpose of the company is … to strengthen open public discourse,
+      market competition, and community resilience, as a public benefit, by
+      expanding access to user-governed, interoperable services that empower
+      individuals and organizations to control their digital identity,
+      communications, and information flows through a distributed market of
+      independent providers operating on open protocol standards.
     actions:
       - label: Contact us
         href: /contact/

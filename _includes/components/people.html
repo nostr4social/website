@@ -1,0 +1,53 @@
+{%- comment -%}
+Cards for people: the team, the advisors.
+
+  variant       advisors → the lighter card, role above the name
+  nip05_domain  the domain shown after a profile name (team only)
+  links         {profile, message} — labels for the two profile links
+  items         [{profile, name, role, title, about, picture, link: {label, href}}]
+
+`profile` is a name in .well-known/nostr.json. The snapshot that
+`npm run fetch:profiles` writes to _data/profiles.yml supplies name, about,
+picture and npub; anything set on the item itself wins. A person without a
+profile is drawn from their own fields alone; without a picture the card
+shows the face glyph, so a row stays level.
+{%- endcomment -%}
+{%- assign b = include.block -%}
+<div class="grid grid--3 people{% if b.variant %} people--{{ b.variant }}{% endif %}">
+  {%- for p in b.items -%}
+  {%- assign prof = nil -%}
+  {%- if p.profile %}{% assign prof = site.data.profiles[p.profile] %}{% endif -%}
+  {%- assign name = p.name | default: prof.name -%}
+  {%- assign about = p.about | default: prof.about -%}
+  {%- assign picture = p.picture | default: prof.picture -%}
+  <div class="person">
+    <div class="person__head">
+      {%- if picture -%}
+      <img class="person__pic" src="{{ picture | relative_url }}" alt="" width="72" height="72" loading="lazy">
+      {%- else -%}
+      <span class="person__pic person__pic--empty">{% include lib/icon.html name="face" %}</span>
+      {%- endif -%}
+      <div class="person__who">
+        {%- comment -%} An advisor is introduced by what they advise on; a team member by name. {%- endcomment -%}
+        {%- if b.variant == "advisors" %}<span class="eyebrow eyebrow--gold person__role">{{ p.role }}</span>{% endif -%}
+        <h3 class="person__name">{{ name }}</h3>
+        {%- if b.variant != "advisors" %}<span class="eyebrow eyebrow--gold person__role">{{ p.role }}</span>{% endif -%}
+        {%- if p.title %}<span class="person__title">{{ p.title }}</span>{% endif -%}
+      </div>
+    </div>
+    {%- if p.profile and b.nip05_domain -%}
+    <span class="person__nip05">{% include lib/icon.html name="verified" %}<span class="code">{{ p.profile }}&#64;{{ b.nip05_domain }}</span></span>
+    {%- endif -%}
+    {%- if about %}<p class="person__about">{{ about }}</p>{% endif -%}
+    <div class="person__links">
+      {%- if prof.npub -%}
+      <a href="https://njump.me/{{ prof.npub }}" target="_blank" rel="noopener">{% include lib/icon.html name="external" %}{{ b.links.profile }}</a>
+      <a href="{{ '/contact/' | relative_url }}?to={{ p.profile }}">{% include lib/icon.html name="message" %}{{ b.links.message }}</a>
+      {%- endif -%}
+      {%- if p.link -%}
+      <a href="{{ p.link.href }}" target="_blank" rel="noopener">{% include lib/icon.html name="external" %}{{ p.link.label }}</a>
+      {%- endif -%}
+    </div>
+  </div>
+  {%- endfor -%}
+</div>

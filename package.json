@@ -10,7 +10,8 @@
     "e2e:ui": "node tools/contact-bundle/e2e-ui.mjs",
     "audit:a11y": "node tools/audit/a11y.mjs",
     "audit:responsive": "node tools/audit/responsive.mjs",
-    "check:inboxes": "node tools/contact-bundle/check-inboxes.mjs"
+    "check:inboxes": "node tools/contact-bundle/check-inboxes.mjs",
+    "fetch:profiles": "node tools/profiles/fetch.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

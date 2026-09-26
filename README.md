@@ -192,7 +192,7 @@ control — used for "White Paper Coming Soon".
 
 ## Section catalogue
 
-Twenty section types exist. The first group is layout-level; the rest each
+Twenty-three section types exist. The first group is layout-level; the rest each
 make one argument on one page. All of them take the envelope above; the fields
 listed are their own.
 
@@ -253,15 +253,17 @@ items:
 
 **`list`** — ruled items, no boxes. `columns: 2` or `3` (default). An `href`
 on an item makes its title a link; `code` adds a monospace line under the body
-(a NIP-05 identity); `email: {user, domain, subject}` adds a monospace mailto
-that the contact script assembles so the address is not in the page source.
+(a NIP-05 identity or an npub), and `copy: {label, done}` beside it lets the
+contact script turn that line into a click-to-copy button; `email: {user,
+domain, subject}` adds a monospace mailto that the contact script assembles so
+the address is not in the page source.
 `item_level: h2` when the list follows the page's h1 directly, as the three
 doors on `/contact/` do.
 
 ```yaml
 items:
   - { title: Curators, body: Publish a ranking as a service., href: /trustr/ }
-  - { title: Nostr, body: Reachable by DM., code: hello@nostr4.social }
+  - { title: Nostr, body: Reachable by DM., code: npub1..., copy: { label: Copy our pubkey, done: Copied } }
 ```
 
 **`services-band`** — the same as `list` with three columns; named so the
@@ -400,6 +402,60 @@ items:
 
 The encrypted form. Its copy is large and its own; see
 [The contact form](#the-contact-form).
+
+### The company (used by `/about/`)
+
+**`story`** — prose on the left, the milestones on the right; on a phone the
+timeline turns sideways and wraps into rows of three, then two. Gold marks
+the company, rust what Nostr4 built, a hollow dot what is still ahead. On
+`/about/` it opens the page, so its `head` carries the h1 and there is no
+separate `hero`.
+
+```yaml
+- type: story
+  glow: left
+  head: { title: About us, level: h1 }
+  lede: ...                 # the opening line, larger
+  lede_link: { label, href }
+  blocks:                   # eyebrow-led paragraphs, no headings
+    - { eyebrow: Our vision, body: ... }
+  timeline:
+    eyebrow: Milestones
+    label: Company milestones          # for assistive tech
+    legend: { company: company, built: what we built }
+    items:
+      - { when: Mar 2024, iso: 2024-03, title: NostrMeet.me, tone: rust, note: ... }
+      - { when: ETA Jan 2027, iso: 2027-01, title: ..., future: true, note: ... }
+```
+
+**`people`** — cards for the team or, with `variant: advisors`, the lighter
+cards without a picture. A person is either a `profile` (a name in
+`.well-known/nostr.json`) or full values; any field on the item wins over the
+snapshot in `_data/profiles.yml`, which `npm run fetch:profiles` writes.
+
+```yaml
+- type: people
+  id: team
+  nip05_domain: nostr4.social
+  links: { profile: Nostr profile, message: Send a message }
+  items:
+    - { profile: manime, name: Manuel Mejia, role: Founder / CEO, about: ... }
+    - { name: Joseph Peterson, role: Business advisor, title: ..., link: { label, href } }
+```
+
+**`investors`** — the head and its button left, one tile per round right.
+A tile with `href` links out (`logo` or, until there is one, `name` as a
+wordmark); one with only `note` is the dashed placeholder for the next round.
+
+```yaml
+- type: investors
+  head: { eyebrow: Backed by, title: Our Investors, lede: Inquiries welcome. }
+  actions: [ { label: Contact us, href: /contact/, style: primary } ]
+  items:
+    - { round: Seed round, name: BlockHenge, href: https://blockhenge.com, site: blockhenge.com,
+        logo: /assets/images/investors/blockhenge.png, logo_width: 1002, logo_height: 153 }
+    - { round: Round A, note: Starts spring 2027 }
+```
 
 ## Adding a section to a page
 
@@ -614,10 +670,20 @@ npm run audit:a11y          # alt text, one h1, no skipped levels, labelled fiel
 npm run e2e:ui              # the contact form end to end, against an unreachable relay
 npm run e2e:contact         # the NIP-17 pipeline offline; add a wss:// URL to publish for real
 npm run check:inboxes       # read-only: does each name in nostr.json publish a kind 10050 inbox list?
+npm run fetch:profiles      # snapshot each name's kind 0 into _data/profiles.yml + assets/images/people/
 ```
 
 A recipient without a kind 10050 gets the fallback relays and the sender sees
 a warning, so run `check:inboxes` whenever a name is added to `nostr.json`.
+
+The team cards on `/about/` never fetch anything in the browser: the CSP
+allows no third-party images, and a profile edit should not change the site
+until someone chooses to. `fetch:profiles` reads each name's newest kind 0,
+writes name, a shortened `about`, npub and the picture's local path to
+`_data/profiles.yml`, and saves the picture square-cropped at 240px (Pillow,
+via `tools/profiles/resize.py`; without it the original is copied as is).
+Commit the result. A person's entry in `_data/pages/about.yml` overrides any
+field, which is how the team's blurbs are kept on message.
 
 Deployment is by `.github/workflows/pages.yml`. It is currently reachable only
 by manual dispatch; the `push` trigger is commented out until cutover.

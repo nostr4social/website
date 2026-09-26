@@ -1,0 +1,58 @@
+{%- comment -%}
+The company's own account beside its milestones: prose on the left, the
+timeline on the right; on a phone the prose stacks and the timeline turns
+sideways and wraps into rows.
+
+  lede        markdown, the opening line at the larger setting
+  lede_link   {label, href} — a quiet link under the lede
+  blocks      [{eyebrow, body}] — eyebrow-led paragraphs, no headings
+  timeline    eyebrow, label (for assistive tech), legend {company, built},
+              items [{when, iso, title, note, tone: rust, future: true}]
+
+Gold is the company; rust is what Nostr4 built; a hollow dot is still ahead.
+The node titles are not headings: the page's h1 sits above and the next h2
+below, so a heading here would skip a level.
+{%- endcomment -%}
+{%- assign b = include.block -%}
+{%- assign t = b.timeline -%}
+<div class="story">
+  <div class="story__prose">
+    {%- if b.lede -%}
+    <div class="story__lede">
+      {% include lib/text.html text=b.lede class="lede lede--xl lede--bright" %}
+      {%- if b.lede_link -%}
+      {%- capture href %}{% include lib/href.html href=b.lede_link.href %}{% endcapture -%}
+      <a class="story__link" href="{{ href }}">{{ b.lede_link.label }}</a>
+      {%- endif -%}
+    </div>
+    {%- endif -%}
+    {%- for blk in b.blocks -%}
+    <div class="story__block">
+      <span class="eyebrow eyebrow--gold">{{ blk.eyebrow }}</span>
+      {% include lib/text.html text=blk.body class="story__body" %}
+    </div>
+    {%- endfor -%}
+  </div>
+
+  <aside class="timeline" aria-label="{{ t.label }}">
+    <div class="timeline__head">
+      <span class="eyebrow eyebrow--gold">{{ t.eyebrow }}</span>
+      <ul class="timeline__legend">
+        <li class="timeline__key">{{ t.legend.company }}</li>
+        <li class="timeline__key timeline__key--rust">{{ t.legend.built }}</li>
+      </ul>
+    </div>
+    <ol class="timeline__nodes">
+      {%- for n in t.items -%}
+      <li class="timeline__node{% if n.tone %} timeline__node--{{ n.tone }}{% endif %}{% if n.future %} timeline__node--future{% endif %}">
+        <span class="timeline__dot" aria-hidden="true"></span>
+        <div class="timeline__row">
+          <span class="timeline__title">{{ n.title }}</span>
+          <time class="timeline__when"{% if n.iso %} datetime="{{ n.iso }}"{% endif %}>{{ n.when }}</time>
+        </div>
+        <p class="timeline__note">{{ n.note }}</p>
+      </li>
+      {%- endfor -%}
+    </ol>
+  </aside>
+</div>
