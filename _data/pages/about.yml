@@ -1,9 +1,7 @@
 meta:
   title: About us
   description: >-
-    Nostr4 builds the standards, infrastructure and services that make social
-    apps profitably non-custodial. A Delaware Public Benefit Corporation, seed
-    funded, with a team of three.
+    We develop Nostr standards and infrastructure products, and offer custom Nostr integration services, for social tech companies to leverage non-custody as a business model.
 
 sections:
   # The page's h1 opens this band, so the glow reaches the story and the
@@ -16,7 +14,7 @@ sections:
       title: About us
       level: h1
     lede: >-
-      We build the Nostr standards and infrastructure, and offer integration services, that tech companies need to make social apps profitably non-custodial. 
+      We develop Nostr standards and infrastructure products, and offer custom Nostr integration services, for social tech companies to leverage non-custody as a business model. 
     blocks:
       - eyebrow: Our vision
         body: >-
@@ -173,11 +171,7 @@ sections:
     head:
       title: A Public Benefit Corporation
       lede: >-
-        Most companies write a mission statement as an afterthought. We filed
-        ours in Delaware. Nostr4 is a Public Benefit Corporation whose mission
-        is aligned with its business model. The public benefit declared in our
-        articles of incorporation binds our leadership to one thing **—**
-        growing Nostr.
+        Nostr4 is a PBC, with a "statement of public benefit" embedded in our articles of incorporation. Most of the time, these statements are just virtue signalling unrelated to profit. The Nostr4 statement of benefit is directly aligned with our business model. It simply states that growing (non-custodial) Nostr is itself a justifiable and desirable endeavor for our leadership. We believe this is true, and also that this will be profitable endeavor for our company.
     quote: >-
       The purpose of the company is … to strengthen open public discourse,
       market competition, and community resilience, as a public benefit, by

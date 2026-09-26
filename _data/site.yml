@@ -16,8 +16,7 @@ meta:
   # Appended to every other page's own title.
   title_suffix: "· Nostr4"
   description: >-
-    We develop Nostr standards and infrastructure products, and offer
-    concierge services for social apps to leverage non-custody as a business model.
+    We develop Nostr standards and infrastructure products, and offer custom Nostr integration services, for social tech companies to leverage non-custody as a business model.
   og_image: /assets/images/og/default.png
   og_image_alt: The Nostr4 mark — a gold bolt through a purple ring.
 

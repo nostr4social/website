@@ -18,9 +18,7 @@ sections:
       lede: >-
         TrustR is our flagship recommendation and discovery provider for
         non-custodial social apps. Under the hood, ranking
-        algorithms are highly configurable and portable across providers. On the
-        surface, algos stop being a platform secret and become
-        shared commodity that any app can offer or consume.
+        algorithms are highly configurable and portable across providers. On the surface, platforms don't need to manage feed algorithms, they become a shared commodity that anyone can generate or consume.
     actions:
       - label: Launch the Demo
         href: https://trustr.ing

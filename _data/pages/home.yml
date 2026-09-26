@@ -70,15 +70,11 @@ sections:
           tone: live
         name: TrustR
         body: >-
-          TrustR is a recommendation and discovery provider for non-custodial
-          social apps. It accepts standard TSM requests for rankings from any
-          user's point of view, computes them from that user's Web of Trust, and
-          publishes the results as signed Nostr events that any app can consume.
-          Rankings are configurable by the user and portable to any TSM
-          compatible app or provider. Apps offer recommendation and discovery
-          without taking custody of the algorithm.
+          TrustR is our flagship recommendation and discovery provider for
+          non-custodial social apps. Under the hood, ranking
+          algorithms are highly configurable and portable across providers. On the surface, platforms don't need to manage feed algorithms, they become a shared commodity that anyone can generate or consume.
         standards:
-          label: Standards we designed along the way
+          label: 
           chips:
             - label: "TSM · standard"
               href: https://gitworkshop.dev/manime@nostr4.social/relay.ngit.dev/tsm
