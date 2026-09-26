@@ -32,7 +32,7 @@ await withBrowser(async (api) => {
   api.onEvent((m) => { if (m.method === 'Network.requestWillBeSent') requests.push(m.params.request.url) })
 
   // ── the real recipient list ───────────────────────────────────────────────
-  await api.goto(`${BASE}/contact/?to=liminal&subject=Research+group`)
+  await api.goto(`${BASE}/contact/?to=andrew&subject=Research+group`)
   await api.waitFor(`document.documentElement.dataset.contact === 'ready'`)
 
   const to = await api.eval(`({
@@ -41,9 +41,9 @@ await withBrowser(async (api) => {
     text: document.getElementById('field-to').selectedOptions[0]?.textContent,
     subject: document.getElementById('field-subject').value,
   })`)
-  check('recipients come from nostr.json in file order', to.options.join(',') === 'manime,liminal', to.options.join(','))
-  check('?to=<name> preselects the recipient', to.selected === 'liminal', to.selected)
-  check('the option shows the NIP-05 identity', (to.text || '').includes('liminal@nostr4.social'), to.text)
+  check('recipients come from nostr.json in file order', to.options.join(',') === 'hello,manime,derekross,andrew', to.options.join(','))
+  check('?to=<name> preselects the recipient', to.selected === 'andrew', to.selected)
+  check('the option shows the NIP-05 identity', (to.text || '').includes('andrew@nostr4.social'), to.text)
   check('?subject= prefills the subject', to.subject === 'Research group', to.subject)
 
   check('the composer is on screen with the guest send row', await api.eval(`
