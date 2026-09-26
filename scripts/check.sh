@@ -75,17 +75,18 @@ else
 fi
 
 # --- link and markup validation ----------------------------------------------
+# A build made with --baseurl (the staging deploy under /website/) prefixes
+# every internal link; BASE_PATH tells htmlproofer to strip it before looking.
+proofer_args=(--disable-external --allow-hash-href --ignore-files '/vendor/' --no-enforce-https)
+if [ -n "${BASE_PATH:-}" ]; then
+  proofer_args+=(--swap-urls "^${BASE_PATH%/}/:/")
+fi
 if bundle exec htmlproofer --version >/dev/null 2>&1; then
-  if bundle exec htmlproofer "$SITE" \
-       --disable-external \
-       --allow-hash-href \
-       --ignore-files '/vendor/' \
-       --no-enforce-https >/dev/null 2>&1; then
+  if bundle exec htmlproofer "$SITE" "${proofer_args[@]}" >/dev/null 2>&1; then
     pass "htmlproofer"
   else
     fail "htmlproofer — rerun without the output filter to see why"
-    bundle exec htmlproofer "$SITE" --disable-external --allow-hash-href \
-      --ignore-files '/vendor/' --no-enforce-https 2>&1 | tail -30 | sed 's/^/       /'
+    bundle exec htmlproofer "$SITE" "${proofer_args[@]}" 2>&1 | tail -30 | sed 's/^/       /'
   fi
 else
   note "htmlproofer not installed — skipped"

@@ -1,8 +1,7 @@
 # Builds with Jekyll 4 and deploys to GitHub Pages.
 #
-# NOT YET ENABLED. The site is still being built locally; `workflow_dispatch` is
-# the only trigger until cutover, at which point the `push` trigger below is
-# uncommented and Pages is switched to "GitHub Actions" in the repo settings.
+# Every push to main deploys. Pages is set to "GitHub Actions" in the repo
+# settings; the custom domain lives there too, not in the CNAME file.
 #
 # actions/jekyll-build-pages is deliberately not used — it pins Jekyll 3.
 
@@ -10,8 +9,8 @@ name: Build and deploy
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -43,6 +42,8 @@ jobs:
         run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
 
       - name: Check
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: scripts/check.sh
 
       - uses: actions/upload-pages-artifact@v3
