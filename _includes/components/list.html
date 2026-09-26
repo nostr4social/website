@@ -2,6 +2,9 @@
   items     [{title, body, href, code, email}]
               href   makes the title a link
               code   a monospace line under the body, e.g. a NIP-05 identity
+              copy   {label, done} — with `code`, the contact script turns the
+                     line into a click-to-copy button (label = its accessible
+                     name, done = the status shown after copying)
               email  {user, domain, subject} — a monospace mailto link. The
                      address is assembled by the contact script so it is not
                      written into the page for a scraper; the text is entity-
@@ -23,7 +26,9 @@
     {%- if item.email -%}
     <a class="ruled-item__code code" href="#send" data-user="{{ item.email.user }}" data-domain="{{ item.email.domain }}" data-subject="{{ item.email.subject }}">{{ item.email.user }}&#64;{{ item.email.domain }}</a>
     {%- endif -%}
-    {%- if item.code %}<span class="ruled-item__code code">{{ item.code }}</span>{% endif -%}
+    {%- if item.code -%}
+    <span class="ruled-item__code code"{% if item.copy %} data-copy="{{ item.code }}" data-copy-label="{{ item.copy.label }}" data-copy-done="{{ item.copy.done }}"{% endif %}><span class="ruled-item__code-text">{{ item.code }}</span>{% if item.copy %}{% include lib/icon.html name="copy" class="ruled-item__copy ruled-item__copy--idle" %}{% include lib/icon.html name="check" class="ruled-item__copy ruled-item__copy--done" %}{% endif %}</span>
+    {%- endif -%}
   </div>
   {%- endfor -%}
 </div>

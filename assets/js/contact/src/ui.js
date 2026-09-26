@@ -358,3 +358,47 @@ export function wireEmailFallback() {
     node.textContent = address
   }
 }
+
+/** `head…tail` of a long string, for keys that only need to be recognised. */
+function middle(s, head, tail) {
+  return s.length <= head + tail + 1 ? s : `${s.slice(0, head)}…${s.slice(-tail)}`
+}
+
+/**
+ * Turns every `[data-copy]` line into a click-to-copy button. Without the
+ * script the line is plain text; with it the same node is replaced by a
+ * button carrying the same children, so nothing is written twice. The status
+ * word comes from the data attributes the template set from the copy.
+ */
+export function wireCopyButtons() {
+  for (const node of document.querySelectorAll('[data-copy]')) {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = node.className + ' copyable'
+    button.setAttribute('aria-label', node.dataset.copyLabel || '')
+    button.title = node.dataset.copyLabel || ''
+    while (node.firstChild) button.appendChild(node.firstChild)
+    // A long key shows its two ends on one line; the whole of it is what gets copied.
+    const text = button.querySelector('.ruled-item__code-text')
+    if (text && node.dataset.copy.length > 40) text.textContent = middle(node.dataset.copy, 15, 9)
+    const status = document.createElement('span')
+    status.className = 'copyable__status'
+    status.setAttribute('role', 'status')
+    node.replaceWith(button, status)
+    let timer = null
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(node.dataset.copy)
+      } catch {
+        return /* the text is on screen and selectable */
+      }
+      button.classList.add('is-copied')
+      status.textContent = node.dataset.copyDone || ''
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        button.classList.remove('is-copied')
+        status.textContent = ''
+      }, 1800)
+    })
+  }
+}

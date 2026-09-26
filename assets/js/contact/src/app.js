@@ -51,6 +51,7 @@ import {
   setStatus,
   showReceipt,
   TRAVEL,
+  wireCopyButtons,
   wireEmailFallback,
 } from './ui.js'
 
@@ -338,6 +339,7 @@ async function boot() {
   if (!$('#contact-form')) return
 
   wireEmailFallback()
+  wireCopyButtons()
   prefillSubject()
   wire()
   setSendMode('guest')

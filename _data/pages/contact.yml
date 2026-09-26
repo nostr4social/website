@@ -23,14 +23,11 @@ sections:
       item_level: h2
       items:
         - title: Phone
-          href: /services/
           body: >-
-            A free scoping call for anything on the services page. If Nostr is
-            wrong for what you are building, that is the fastest way to find out.
+            We are still setting up a phone contact method. Please message us directly for best results.
         - title: Email
           body: >-
-            An ordinary mailbox, read by the same people. Unencrypted, and
-            sometimes that is fine.
+            Click to send an email message to our company inbox.
           # Assembled by the script rather than written into the page, so the
           # address is not sitting in the source for a scraper.
           email:
@@ -39,9 +36,12 @@ sections:
             subject: "[nostr4.social] Contact"
         - title: Nostr
           body: >-
-            Reachable by DM from any Nostr client, and verified against this
-            domain.
-          code: hello@nostr4.social
+            Click to copy our pubkey into any Nostr client.
+          code: npub1n0str479lul4smnvquvy33f8ljxkw073fmd0x7tspvkpssjmyggqjdv79a
+          # The script turns the code into a click-to-copy button with these words.
+          copy:
+            label: Copy our pubkey
+            done: Copied
 
   - type: contact-form
     id: send

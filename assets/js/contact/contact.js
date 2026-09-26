@@ -1281,6 +1281,40 @@ function wireEmailFallback() {
     node.textContent = address;
   }
 }
+function middle(s, head, tail) {
+  return s.length <= head + tail + 1 ? s : `${s.slice(0, head)}\u2026${s.slice(-tail)}`;
+}
+function wireCopyButtons() {
+  for (const node of document.querySelectorAll("[data-copy]")) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = node.className + " copyable";
+    button.setAttribute("aria-label", node.dataset.copyLabel || "");
+    button.title = node.dataset.copyLabel || "";
+    while (node.firstChild) button.appendChild(node.firstChild);
+    const text = button.querySelector(".ruled-item__code-text");
+    if (text && node.dataset.copy.length > 40) text.textContent = middle(node.dataset.copy, 15, 9);
+    const status = document.createElement("span");
+    status.className = "copyable__status";
+    status.setAttribute("role", "status");
+    node.replaceWith(button, status);
+    let timer = null;
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(node.dataset.copy);
+      } catch {
+        return;
+      }
+      button.classList.add("is-copied");
+      status.textContent = node.dataset.copyDone || "";
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        button.classList.remove("is-copied");
+        status.textContent = "";
+      }, 1800);
+    });
+  }
+}
 
 // assets/js/contact/src/app.js
 var store = createStore(initialState);
@@ -1515,6 +1549,7 @@ function wire() {
 async function boot() {
   if (!$("#contact-form")) return;
   wireEmailFallback();
+  wireCopyButtons();
   prefillSubject();
   wire();
   setSendMode("guest");

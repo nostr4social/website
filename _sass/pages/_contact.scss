@@ -1093,14 +1093,71 @@
 // ── the doors in the hero ────────────────────────────────────────────────────
 
 .ruled-item__code {
+  align-items: flex-start;
   color: var(--gold);
+  display: inline-flex;
   font-size: 13px;
+  gap: var(--s-2);
   margin-top: var(--s-1);
+  max-width: 100%;
   text-decoration: none;
 }
 
 .ruled-item__code:hover {
   color: var(--gold-dim);
+}
+
+// An npub is 63 characters: let it break wherever the column runs out.
+.ruled-item__code-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ruled-item__copy {
+  flex: none;
+  height: 16px;
+  margin-top: 1px;
+  width: 16px;
+}
+
+// The check only shows once the script has copied; without the script the
+// copy glyph alone hints that the line is meant to be taken.
+.ruled-item__copy--done {
+  display: none;
+}
+
+// The same line, once the script has made it a button.
+// `font-size` and `line-height` only: the family comes from `.code` on the
+// same element, and the `font` shorthand would wipe it.
+.copyable {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.copyable:focus-visible {
+  border-radius: var(--r-hairline);
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.copyable.is-copied .ruled-item__copy--idle {
+  display: none;
+}
+
+.copyable.is-copied .ruled-item__copy--done {
+  display: block;
+}
+
+.copyable__status {
+  color: var(--ink-3);
+  display: block;
+  font-size: var(--fs-xs);
+  min-height: 1.2em;
 }
 
 .notice--inline {

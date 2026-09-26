@@ -44,6 +44,24 @@ await withBrowser(async (api) => {
   check('recipients come from nostr.json in file order', to.options.join(',') === 'hello,manime,derekross,andrew', to.options.join(','))
   check('?to=<name> preselects the recipient', to.selected === 'andrew', to.selected)
   check('the option shows the NIP-05 identity', (to.text || '').includes('andrew@nostr4.social'), to.text)
+
+  // The Nostr door: the npub becomes a button that copies itself.
+  await api.send('Browser.grantPermissions', { permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'], origin: BASE })
+  const door = await api.eval(`(() => {
+    const b = document.querySelector('button.copyable[aria-label]')
+    if (!b) return null
+    b.click()
+    return { label: b.getAttribute('aria-label'), text: b.textContent.trim() }
+  })()`)
+  check('the npub line is a one-line copy button', !!door && /^npub1n0str479lu…[a-z0-9]{9}$/.test(door.text), JSON.stringify(door))
+  await sleep(300)
+  const copied = await api.eval(`(() => ({
+    done: document.querySelector('button.copyable').classList.contains('is-copied'),
+    status: document.querySelector('.copyable__status')?.textContent,
+    clip: navigator.clipboard.readText().catch(() => null),
+  }))()`)
+  const clip = await api.eval(`navigator.clipboard.readText().catch(() => 'unavailable')`)
+  check('clicking it copies the npub', copied.done && clip.startsWith('npub1'), `${copied.status} / ${String(clip).slice(0, 12)}`)
   check('?subject= prefills the subject', to.subject === 'Research group', to.subject)
 
   check('the composer is on screen with the guest send row', await api.eval(`
