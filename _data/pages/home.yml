@@ -32,11 +32,11 @@ sections:
     flush: true
     items:
       - claim: We Collaborate on Standards
-        note: to enable interoperability across independent apps and services. 
+        note: for interoperability across apps and services. 
       - claim: We Run Infrastructure
-        note: to support a stable network with easy onramps for social technology.
+        note: to support a stable network with easy onramps.
       - claim: We Offer Nostr Integration
-        note: for social apps to leverage non-custody **—** as a business model. 
+        note: to leverage non-custody as a business model. 
 
   - type: tiles
     id: nostr
