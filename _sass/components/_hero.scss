@@ -22,9 +22,12 @@
   margin-top: var(--s-2);
 }
 
-// Two columns: thesis left, cast right.
+// Two columns: thesis left, cast right. The row is as tall as the cast's
+// content needs; the thesis spreads over that height, so the title sits at
+// the top and the buttons at the bottom, level with the drawing. The cast
+// starts a step below the title and is capped in width so it stays compact.
 .hero-split {
-  align-items: center;
+  align-items: stretch;
   display: grid;
   gap: var(--s-8);
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -32,11 +35,31 @@
 
 .hero-split .hero {
   gap: var(--s-5);
+  justify-content: space-between;
   max-width: none;
 }
 
 .hero-split .hero__lede {
   max-width: var(--measure-lede);
+}
+
+@include from($bp-mid) {
+  .hero-split .cast {
+    aspect-ratio: auto;
+    grid-template-rows: auto auto auto;
+    justify-self: end;
+    max-width: 540px;
+    padding-top: var(--s-5);
+    row-gap: var(--s-2);
+  }
+
+  .hero-split .cast__item {
+    max-width: 208px;
+  }
+
+  .hero-split .cast__centre {
+    width: 40%;
+  }
 }
 
 // The cast below the thesis rather than beside it.

@@ -29,12 +29,21 @@
   width: 100%;
 }
 
+// The user: the figure with its label, in the middle cell.
+.cast__user {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  grid-area: 2 / 2;
+  position: relative;
+  width: 100%;
+}
+
 .cast__centre {
   color: var(--gold);
-  grid-area: 2 / 2;
   height: auto;
-  position: relative;
-  width: 60%;
+  width: 54%;
 }
 
 .cast__item {
@@ -101,9 +110,12 @@
     display: none;
   }
 
-  .cast__centre {
+  .cast__user {
     grid-area: 2 / 1 / 3 / 4;
     padding-block: var(--s-3);
+  }
+
+  .cast__centre {
     width: 72px;
   }
 

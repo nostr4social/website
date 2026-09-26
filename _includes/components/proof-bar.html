@@ -7,7 +7,7 @@
   {%- for item in b.items -%}
   <div class="proof-bar__item">
     <div class="proof-bar__claim">{{ item.claim }}</div>
-    <div class="proof-bar__note">{{ item.note }}</div>
+    {% include lib/text.html text=item.note class="proof-bar__note" %}
   </div>
   {%- endfor -%}
 </div>

@@ -12,27 +12,30 @@ sections:
     head:
       title: Freedom 4 Social Apps
       lede: >-
-        Nostr4 develops Nostr standards and infrastructure products and offers
-        concierge services for social apps to leverage non-custody **—** as a
-        business model.
+        Nostr is the social layer where independent apps and services thrive.
+        Holding custody of user accounts and data has always been the cost of
+        running a social app. On Nostr, users keep control of their identity,
+        content and feeds while apps reach the entire network **—** no limits,
+        no fees, and no custody to carry.
+
     actions:
-      - label: Learn More About Nostr
+      - label: Learn About Nostr
         href: /nostr/
         style: primary
-      - label: Join our Research Group
-        href: /contact/?subject=Research+group
+      - label: Book a Free Consult
+        href: /contact/?subject=Free+consult
 
   - type: proof-bar
     band: sunk
     ruled: true
     flush: true
     items:
-      - claim: We Build Infrastructure
-        note: TrustR has been live since April 2026.
       - claim: We Collaborate on Standards
-        note: We authored TSM and NAS.
-      - claim: We Develop Open Source
-        note: We build the GrapeRank engine.
+        note: to enable interoperability across independent apps and services. 
+      - claim: We Run Infrastructure
+        note: to support a stable network with easy onramps for social technology.
+      - claim: We Offer Nostr Integration
+        note: for social apps to leverage non-custody **—** as a business model. 
 
   - type: tiles
     id: nostr

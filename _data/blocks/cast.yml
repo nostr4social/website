@@ -1,6 +1,7 @@
 # The four kinds of app a person meets on Nostr. Rust marks the two that Nostr4
 # builds; gold marks the rest of the ecosystem.
 centre: face
+centre_label: User Controlled
 items:
   - icon: phone
     title: Social Client Apps

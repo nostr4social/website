@@ -1,6 +1,6 @@
 {%- comment -%}
   centre        icon name for the figure at the middle
-  centre_label  accessible name for it
+  centre_label  the words under it
   items         [{icon, tone: gold|rust, title, note}] — four, clockwise
                 from the top left
 
@@ -12,11 +12,14 @@ Rust marks the parts Nostr4 builds; gold marks the rest of the ecosystem.
     <g stroke="currentColor" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke">
       <path d="M187.8 127.7 L231.2 169.1"/>
       <path d="M412.2 127.7 L368.8 169.1"/>
-      <path d="M182.6 293.1 L236.4 266.5"/>
-      <path d="M417.4 293.1 L363.6 266.5"/>
+      <path d="M182.6 293.1 L230 252"/>
+      <path d="M417.4 293.1 L370 252"/>
     </g>
   </svg>
-  {% include lib/icon.html name=b.centre class="cast__centre" %}
+  <div class="cast__user">
+    {% include lib/icon.html name=b.centre class="cast__centre" %}
+    {%- if b.centre_label %}<div class="cast__title">{{ b.centre_label }}</div>{% endif -%}
+  </div>
   {%- comment -%} The phone layout's spine; hidden above 480px. {%- endcomment -%}
   <div class="cast__spine cast__spine--top"></div>
   <div class="cast__spine cast__spine--bottom"></div>
