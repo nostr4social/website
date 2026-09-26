@@ -40,6 +40,7 @@
 }
 
 .hero-split .hero__lede {
+  font-size: var(--fs-l);
   max-width: var(--measure-lede);
 }
 
@@ -49,16 +50,21 @@
     grid-template-rows: auto auto auto;
     justify-self: end;
     max-width: 540px;
-    padding-top: var(--s-5);
-    row-gap: var(--s-2);
+    padding-top: var(--s-4);
+    row-gap: 0;
   }
 
   .hero-split .cast__item {
-    max-width: 208px;
+    max-width: 224px;
+  }
+
+  .hero-split .cast__item .icon--xl {
+    height: 40px;
+    width: 40px;
   }
 
   .hero-split .cast__centre {
-    width: 40%;
+    width: 36%;
   }
 }
 
