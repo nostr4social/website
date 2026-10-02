@@ -1,8 +1,16 @@
+# Services lists only what is live today. Nothing that has not shipped goes
+# here: no hosted key management, no passkeys until NostrMe ships. Every
+# engagement starts with the free scoping call, so every button leads there.
+# The cost-of-custody argument lives on /nostr/; link to it, don't repeat it.
+# TrustR is shown as what we built and know, not sold as a service (yet).
+# Research groups are the door for social apps; the bigger pitch happens there.
+
 meta:
   title: Concierge services
   description: >-
     Concierge services for companies at any stage of Nostr curiosity, from
-    sizing up the protocol to shipping on it.
+    sizing up the protocol to shipping on it. Every engagement starts with a
+    free one-hour scoping call.
 
 sections:
   - type: hero
@@ -11,22 +19,139 @@ sections:
       eyebrow: Concierge services
       title: Growth 4 Nostr
       lede: >-
-        Concierge services for companies at any stage of Nostr curiosity, from
-        sizing up the protocol to shipping on it.
+        Own your customers, your audience and your social, on your own
+        website. We help companies at any stage of Nostr curiosity, from sizing
+        up the protocol to shipping on it, and we start with your needs and
+        pain points, not with the protocol.
     actions:
-      - label: Book a free consultation
-        href: /contact/
+      - label: Book a Free Consult
+        href: /contact/?subject=Free+consult
         style: primary
+      - label: See What We Offer
+        href: "#services"
 
-  - type: notice
+  - type: list
+    id: services
+    band: sunk
+    columns: 2
     head:
-      eyebrow: Details coming soon
-      eyebrow_tone: gold
-      title: This page is still being written.
-      lede: >-
-        We are shipping the site before the service catalogue is final. Until it
-        lands, a conversation is the fastest way to find out what we can do for
-        your product.
+      title: What we do
+      lede: Four ways to work with us, in the order most companies meet them.
+    items:
+      - title: Free Scoping Call
+        href: /contact/?subject=Free+consult
+        body: >-
+          One hour. Tell us what you are building and what is getting in the
+          way. You leave with a straight answer about whether Nostr earns its
+          place in your product, and what it would take.
+      - title: Consultation
+        body: >-
+          We advise on Nostr integration for existing products: where the
+          protocol fits, what custody you can release, how your users bring
+          their identity with them, and how discovery and trust work on an
+          open network.
+      - title: Development
+        body: >-
+          Hands-on help integrating Nostr with your existing product. We work
+          alongside your team, on your stack, until it ships.
+      - title: Research Groups
+        href: /contact/?subject=Research+group
+        body: >-
+          Free research groups for social apps and services, on Nostr or
+          sizing it up. We work through non-custody, identity and discovery
+          together, share what we learn, and grow the network together.
+
+  - type: split
+    id: trust
+    wide: true
+    title: Your users already trust someone ...
+    body: >-
+      On an open network, the question is not what an engagement algorithm
+      wants people to see. It is who they trust, and what those people
+      recommend. *TrustR* turns each reader's web of trust into
+      recommendations and discovery for your app: people, content and
+      expertise, ranked from the reader's own point of view.
+
+
+      Results are published as *TSM* events, an open standard, so they work
+      across apps and providers. Apps stop building and staffing their own
+      feed algorithms, and stop carrying the liability for what they surface.
+    punch: >-
+      We built *TrustR*, so discovery and trust are part of every engagement
+      we run.
+    aside:
+      title: ... that is your discovery engine.
+      tone: lifted
+      items:
+        - eyebrow: Users get
+          title: Recommendations They Trust
+          body: Ranked by their own network, not by an ad budget.
+        - eyebrow: Apps get
+          title: Discovery Without Overhead
+          body: >-
+            No ranking infrastructure to build, staff or moderate, and no
+            liability for what an in-house algorithm surfaces.
+        - eyebrow: Nostr gets
+          title: One Open Standard
+          body: Rankings any app can publish, consume, compare and switch between.
+    actions:
+      - label: How TrustR Works
+        href: /trustr/
+      - label: Launch the Demo
+        href: https://trustr.ing
+        style: primary
+        external: true
+        note: trustr.ing
+
+  - type: flow
+    id: how
+    band: sunk
+    head:
+      title: How an engagement runs
+    items:
+      - step: "1"
+        text: >-
+          **Scoping call** **—** an hour on your needs and pain points. Free,
+          and it ends with a straight answer.
+      - step: "2"
+        text: >-
+          **A plan** **—** where Nostr fits, what custody you can release, and
+          what your users gain. If Nostr is not the answer, we say so.
+      - step: "3"
+        text: >-
+          **Build and integrate** **—** with your team, on your stack, from
+          identity to discovery.
+      - step: "4"
+        text: >-
+          **Grow with the network** **—** your users arrive carrying their
+          identity, content and reputation, and your app can reach every other
+          user on Nostr.
+    close: >-
+      Why a social app costs less to run on Nostr is laid out, line by line, on
+      the Nostr page.
+    actions:
+      - label: The Value of Nostr
+        href: /nostr/
+        icon: caret
+
+  - type: list
+    id: who
+    head:
+      title: Who we work with
+    items:
+      - title: Social Apps
+        href: /contact/?subject=Research+group
+        body: >-
+          Apps up against the biggest platforms. Join a research group and
+          find out what changes when you stop fighting for every user alone.
+      - title: Bitcoin Businesses
+        body: >-
+          Companies that already understand self-custody. Nostr brings the
+          same idea to identity, audience and social.
+      - title: Nostr Apps and Services
+        body: >-
+          Builders already on the protocol who want to go further on
+          non-custody, discovery and trust.
 
   - type: callout
     band: raised
@@ -36,6 +161,8 @@ sections:
         A scoping call is an hour, and it ends with a straight answer about
         whether the protocol earns its place in your product.
     actions:
-      - label: Book a free consultation
-        href: /contact/
+      - label: Book a Free Consult
+        href: /contact/?subject=Free+consult
         style: primary
+      - label: Join a Research Group
+        href: /contact/?subject=Research+group
