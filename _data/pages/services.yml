@@ -203,11 +203,11 @@ sections:
       - icon: people
         title: Block built its workspace on Nostr
         body: >-
-          Buzz, launched in July 2026, gives every person and every AI agent
-          its own key. Open source, on an open protocol.
+          Buzz, launched in July 2026, gives every AI agent its own key, tied
+          back to the person who owns it. Open source, on an open protocol.
         link:
-          label: Read the launch coverage
-          href: https://decrypt.co/374026/jack-dorseys-block-launches-buzz-nostr-based-slack-and-github-rival-for-ai-agents
+          label: Read the SiliconANGLE story
+          href: https://siliconangle.com/2026/07/21/block-launches-buzz-open-source-workspace-humans-ai-agents/
       - icon: phone
         title: Vine came back on Nostr
         body: >-
