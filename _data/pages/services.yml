@@ -1,32 +1,288 @@
+# Services: the page a stressed product lead reads in 30 seconds. It has to
+# say that we understand what custody costs them, that there is a small,
+# low-risk first step, that the people behind it wrote the standards, and
+# exactly what happens after they click.
+#
+# Rules for this page:
+# - Only offerings that are live today. No hosted key management, no passkeys
+#   until NostrMe ships. TrustR is what we built and know, not something sold.
+# - No prices. Each offer gives its scope, timebox and what you leave with.
+# - Promises made here are real: a written summary within 48 hours of the
+#   scoping call, and the roadmap is yours to keep.
+# - The research group is the door to the bigger alliance conversation; the
+#   alliance itself is not named here.
+# - The full cost-of-custody argument lives on /nostr/; link to it.
+
 meta:
   title: Concierge services
   description: >-
-    Concierge services for companies at any stage of Nostr curiosity, from
-    sizing up the protocol to shipping on it.
+    Stop paying to hold your users. Nostr4 helps social apps hand custody back
+    to their users and plug into an open network. Start with a free scoping
+    call.
 
 sections:
   - type: hero
     glow: left
     head:
-      eyebrow: Concierge services
-      title: Growth 4 Nostr
+      eyebrow: Growth 4 Nostr
+      title: Stop Paying 4 Custody
       lede: >-
-        Concierge services for companies at any stage of Nostr curiosity, from
-        sizing up the protocol to shipping on it.
+        Running a social app means paying to hold every account, every post,
+        and every legal risk that comes with them. We help you hand that back
+        to your users and plug into a network that is already there.
     actions:
-      - label: Book a free consultation
-        href: /contact/
+      - label: Book a Free Scoping Call
+        href: /contact/?subject=Free+scoping+call
         style: primary
+      - label: Join the Research Group
+        href: /contact/?subject=Research+group
 
-  - type: notice
+  - type: proof-bar
+    band: sunk
+    ruled: true
+    flush: true
+    items:
+      - claim: We Wrote the Standards
+        note: TSM for trust services and NAS for archive storage.
+      - claim: We Ship Open Source
+        note: GrapeRank, the first open source Web of Trust library for Nostr.
+      - claim: We Live on Nostr
+        note: building, shipping and evangelizing the protocol every day.
+
+  - type: split
+    id: problem
+    wide: true
+    title: You are paying to hold your users ...
+    body: >-
+      Every account you store is infrastructure to run, staff to hire, data to
+      protect, content to moderate, and legal exposure to carry. And after all
+      of that, you are still fighting Meta, X and TikTok for every user, alone.
+
+
+      On Nostr, users hold their own identity, posts and relationships. Your
+      app stops being the custodian and starts being the best place to use
+      them.
+    bright: true
+    punch: >-
+      Keep the product. Drop the custody.
+    aside:
+      title: ... when they could hold themselves.
+      tone: lifted
+      items:
+        - eyebrow: Your users get
+          title: Accounts They Own
+          body: >-
+            One identity across every Nostr app. Nobody can lock them out, and
+            switching apps never means starting over.
+        - eyebrow: Your app gets
+          title: A Network Already There
+          body: >-
+            Day one reach into an open network of apps and users, instead of
+            building one from zero.
+        - eyebrow: Your bottom line gets
+          title: Less to Carry
+          body: >-
+            Less infrastructure, less moderation, and less user data on your
+            books to protect and answer for.
+    actions:
+      - label: The Value of Nostr
+        href: /nostr/
+        icon: caret
+
+  - type: products
+    id: services
+    band: sunk
     head:
-      eyebrow: Details coming soon
-      eyebrow_tone: gold
-      title: This page is still being written.
+      watermark: Services
+      light: Four ways to start.
       lede: >-
-        We are shipping the site before the service catalogue is final. Until it
-        lands, a conversation is the fastest way to find out what we can do for
-        your product.
+        Each one has a clear scope, a timebox, and something concrete you walk
+        away with. Most companies start with the free call.
+      lede_size: xl
+    items:
+      - badge:
+          label: Free · 60 minutes
+          tone: live
+        name: Scoping Call
+        body: >-
+          For teams asking whether Nostr fits their product at all. Tell us
+          what you are building and what is getting in the way.
+
+
+          **You leave with:**
+
+          - a straight go or no-go on Nostr for your product
+
+          - **a written one page summary within 48 hours**
+
+          - the next step, if there is one
+        actions:
+          - label: Book a Free Scoping Call
+            href: /contact/?subject=Free+scoping+call
+            style: primary
+      - badge:
+          label: 2 to 3 weeks
+          tone: live
+        name: Nostr Roadmap
+        body: >-
+          For teams ready to plan. We audit what holding custody costs you
+          today and map the move to Nostr.
+
+
+          **You leave with:**
+
+          - what you can stop running, and what it saves
+
+          - how identity and keys work for your users
+
+          - how discovery and trust work, from what we learned building *TrustR*
+
+          - a phased plan with estimates
+
+
+          **The roadmap is yours to keep.** Build it yourself, or with us.
+        actions:
+          - label: Plan Your Roadmap
+            href: /contact/?subject=Nostr+roadmap
+      - badge:
+          label: 4 to 6 weeks
+          tone: live
+        name: Integration Sprint
+        body: >-
+          For teams ready to build. We work in your codebase, alongside your
+          team, until it ships.
+
+
+          **You leave with:**
+
+          - Nostr login and portable accounts
+
+          - your content published to the open network
+
+          - zaps: payments over Bitcoin Lightning, peer to peer
+
+          - Web of Trust discovery for your users
+
+          - keys for your AI agents as well as your users
+        actions:
+          - label: Start a Sprint
+            href: /contact/?subject=Integration+sprint
+      - badge:
+          label: Free · founding cohort
+          tone: live
+        name: Research Group
+        body: >-
+          For social apps on Nostr or sizing it up. A small founding cohort
+          that works through non-custody, identity and discovery together, and
+          shares what it learns.
+
+
+          **You get:**
+
+          - working sessions with our team and the other apps in the group
+
+          - early access to what we build and research
+
+          - a seat at the table as the network grows
+
+
+          Spots in the first cohort are limited.
+        actions:
+          - label: Apply for a Spot
+            href: /contact/?subject=Research+group
+            style: primary
+
+  - type: cards
+    id: why-now
+    head:
+      title: Why now
+      lede: >-
+        The companies moving first are not waiting for Nostr to get big. They
+        are building on it while it grows.
+    items:
+      - icon: people
+        title: Block built its workspace on Nostr
+        body: >-
+          Buzz, launched in July 2026, gives every AI agent its own key, tied
+          back to the person who owns it. Open source, on an open protocol.
+        link:
+          label: Read the SiliconANGLE story
+          href: https://siliconangle.com/2026/07/21/block-launches-buzz-open-source-workspace-humans-ai-agents/
+      - icon: phone
+        title: Vine came back on Nostr
+        body: >-
+          diVine launched to the public in April 2026 with half a million
+          restored Vine videos, built on the protocol.
+        link:
+          label: Read the TechCrunch story
+          href: https://techcrunch.com/2026/04/29/jack-dorsey-backed-vine-reboot-divine-launches-to-public/
+      - icon: broadcast
+        title: People reach for it when it counts
+        body: >-
+          During the January 2026 blackouts in Uganda, bitchat was downloaded
+          more than a million times.
+        link:
+          label: Read the report
+          href: https://www.pulse.ug/story/how-bitchat-works-officials-show-increase-in-downloads-in-uganda-2026010705005595521
+
+  - type: flow
+    id: how
+    band: sunk
+    head:
+      title: What happens after you click
+    items:
+      - step: "1"
+        text: >-
+          **Send the form** **—** a few lines on your product and what is in
+          the way. It is encrypted end to end.
+      - step: "2"
+        text: >-
+          **We reply** to set a time that works for you.
+      - step: "3"
+        text: >-
+          **A 60 minute call** with our team. No sales script, just your
+          product and your questions.
+      - step: "4"
+        text: >-
+          **A written summary within 48 hours,** with a straight answer.
+      - step: "5"
+        text: >-
+          **You decide.** A roadmap, a sprint, a research group spot, or
+          nothing at all.
+
+  - type: list
+    id: faq
+    columns: 2
+    head:
+      title: Questions we hear
+    items:
+      - title: Do we lose our users or our data?
+        body: >-
+          No. You keep your product, your brand and any data you choose to
+          keep privately. Users bring their identity with them, and you can
+          still reach them.
+      - title: What about moderation and legal?
+        body: >-
+          On Nostr, moderation moves toward filters and trust that users
+          control, and compliance shrinks to the data you choose to hold. You
+          carry far less of both.
+      - title: Does this hurt our revenue?
+        body: >-
+          Your product is still yours to sell. Nostr adds peer to peer payments
+          and a wider network to reach. We look at your model on the first
+          call.
+      - title: Is Nostr ready for our scale?
+        body: >-
+          Block, diVine and bitchat are building on it now. The Roadmap tells
+          you plainly what is ready for your product today and what is not.
+      - title: What if Nostr4 disappears?
+        body: >-
+          Nostr is an open protocol that nobody owns, so there is no lock-in,
+          and the roadmap we write is yours to keep.
+      - title: Why start with the research group?
+        body: >-
+          It costs nothing, you learn alongside other apps facing the same
+          problems, and you help decide where the network goes next.
 
   - type: callout
     band: raised
@@ -34,8 +290,11 @@ sections:
       title: The first conversation costs nothing.
       lede: >-
         A scoping call is an hour, and it ends with a straight answer about
-        whether the protocol earns its place in your product.
+        whether the protocol earns its place in your product. The summary
+        follows within 48 hours.
     actions:
-      - label: Book a free consultation
-        href: /contact/
+      - label: Book a Free Scoping Call
+        href: /contact/?subject=Free+scoping+call
         style: primary
+      - label: Join the Research Group
+        href: /contact/?subject=Research+group
