@@ -4,7 +4,7 @@ The brand lockup: mark, wordmark, tagline. `variant: footer` sets the small one.
 {%- assign s = site.data.site -%}
 <a class="lockup{% if include.variant %} lockup--{{ include.variant }}{% endif %}" href="{{ '/' | relative_url }}" aria-label="{{ s.a11y.home_link | escape }}">
   <span class="lockup__row">
-    <img class="lockup__mark" src="{{ '/assets/images/nostr4-mark.png' | relative_url }}" alt="" width="448" height="576">
+    <img class="lockup__mark" src="{{ '/assets/images/nostr4-mark.png' | relative_url }}" alt="" width="429" height="576">
     <span class="lockup__word">{{ s.wordmark.stem }}<i class="four">{{ s.wordmark.four }}</i></span>
   </span>
   <span class="lockup__tagline">{{ s.tagline }}</span>

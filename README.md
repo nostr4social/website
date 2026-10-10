@@ -685,8 +685,18 @@ via `tools/profiles/resize.py`; without it the original is copied as is).
 Commit the result. A person's entry in `_data/pages/about.yml` overrides any
 field, which is how the team's blurbs are kept on message.
 
-Deployment is by `.github/workflows/pages.yml`. It is currently reachable only
-by manual dispatch; the `push` trigger is commented out until cutover.
+The mark is cut once from a master, never edited by hand:
+
+```sh
+python3 tools/brand/icons.py path/to/mark.png   # favicon.ico, the PWA icons, apple-touch-icon, the OG card, the lockup mark
+```
+
+The master is the mark alone on transparency. The script trims it, sets it on
+the ground colour at each size (inside the safe zone for the maskable icon)
+and prints the lockup file's new width, which goes on `lib/lockup.html`.
+
+Deployment is by `.github/workflows/pages.yml`: every push to `main` builds,
+checks and deploys. The custom domain is set in the repo's Pages settings.
 
 ## Where things are
 
