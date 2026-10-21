@@ -15,8 +15,7 @@
 import { $ } from '../../shared/src/dom.js'
 import { config, dev, fmt, query, t } from '../../shared/src/config.js'
 import { pickRecipient } from '../../shared/src/recipients.js'
-import { fetchProfileName } from '../../shared/src/profiles.js'
-import { SimplePool } from '../../shared/src/vendor.js'
+import { createSignIn } from '../../shared/src/signin.js'
 import {
   bootRecipients,
   createStore,
@@ -27,28 +26,14 @@ import {
   retry,
   send,
 } from './state.js'
+import { createGuestSigner, detectNip07, SignerError } from '../../shared/src/signers.js'
 import {
-  connectBunker,
-  connectNip07,
-  createGuestSigner,
-  detectNip07,
-  SignerError,
-  startNostrConnect,
-} from '../../shared/src/signers.js'
-import {
-  closeBunkerModal,
-  markExtension,
-  openBunkerModal,
   receiptText,
-  renderAuthUrl,
-  renderConnect,
-  renderIdentity,
   renderProgress,
   renderRecipients,
   renderResult,
   setError,
   setSendMode,
-  setStatus,
   showReceipt,
   TRAVEL,
   wireCopyButtons,
@@ -57,104 +42,18 @@ import {
 
 const store = createStore(initialState)
 let openedAt = Date.now()
-let connectAbort = null
 let lastSend = null // what the receipt describes; a retry re-publishes from it
 
 const errorCode = (err) => (err instanceof SignerError ? err.code : err?.code || 'unknown')
 const sendMode = () => (store.get().signer ? 'signed' : 'guest')
 
-// ── signing as yourself ──────────────────────────────────────────────────────
-
-async function adopt(signer) {
-  store.set({ signer, profileName: null, error: null })
-  renderIdentity(signer, null)
-  setSendMode('signed')
-  setError($('#sign-error'), null)
-  // A name is nicer than a key. Best effort, after the chip is already up.
-  const pool = new SimplePool()
-  try {
-    const name = await fetchProfileName(pool, signer.pubkey)
-    if (store.get().signer === signer && name) {
-      store.set({ profileName: name })
-      renderIdentity(signer, name)
-    }
-  } finally {
-    pool.destroy()
-  }
-}
-
-/** The extension puts up its own prompt; this page only waits. */
-async function signInExtension() {
-  setError($('#sign-error'), null)
-  setStatus($('#sign-status'), t('status.connecting_nip07'))
-  try {
-    await adopt(await connectNip07())
-  } catch (err) {
-    setError($('#sign-error'), errorCode(err))
-  } finally {
-    setStatus($('#sign-status'), '')
-  }
-}
-
-/** The modal: a nostrconnect:// URI as a QR and a link, or a pasted bunker://. */
-async function signInBunker() {
-  cancelConnect()
-  setError($('#sign-error'), null)
-  setError($('#bunker-error'), null)
-  renderAuthUrl(null)
-  openBunkerModal()
-
-  // Held locally as well as globally: cancelling clears the global one, and the
-  // rejection that follows must not be reported as a failure the user caused.
-  const controller = new AbortController()
-  connectAbort = controller
-
-  const { uri, connected } = startNostrConnect({ onauth: renderAuthUrl, signal: controller.signal })
-  renderConnect({ uri })
-
-  const timer = setTimeout(() => controller.abort(), config.timeouts.nip46_connect)
-  try {
-    const signer = await connected
-    closeBunkerModal()
-    await adopt(signer)
-  } catch (err) {
-    if (!controller.signal.aborted) setError($('#bunker-error'), errorCode(err))
-  } finally {
-    clearTimeout(timer)
-    if (connectAbort === controller) connectAbort = null
-  }
-}
-
-async function connectPastedBunker(event) {
-  event.preventDefault()
-  const input = $('#field-bunker')
-  setError($('#bunker-error'), null)
-  $('#bunker-status-text').textContent = t('status.connecting_nip46')
-  try {
-    const signer = await connectBunker(input.value, { onauth: renderAuthUrl })
-    input.value = ''
-    cancelConnect()
-    closeBunkerModal()
-    await adopt(signer)
-  } catch (err) {
-    setError($('#bunker-error'), errorCode(err))
-  } finally {
-    $('#bunker-status-text').textContent = t('bunker.waiting', '')
-  }
-}
-
-function cancelConnect() {
-  connectAbort?.abort()
-  connectAbort = null
-  renderAuthUrl(null)
-}
-
-function signOut() {
-  cancelConnect()
-  store.get().signer?.close()
-  store.set({ signer: null, profileName: null })
-  setSendMode('guest')
-}
+// Signing as yourself is the shared flow; the page only learns the outcome.
+const signIn = createSignIn({
+  onChange(signer) {
+    store.set({ signer, profileName: null, error: null })
+    setSendMode(signer ? 'signed' : 'guest')
+  },
+})
 
 // ── composing and sending ────────────────────────────────────────────────────
 
@@ -309,30 +208,11 @@ function chooseRecipient(name) {
 function wire() {
   $('#contact-form')?.addEventListener('submit', onSubmit)
   $('#field-to')?.addEventListener('change', (e) => chooseRecipient(e.target.value))
-  $('#sign-extension')?.addEventListener('click', signInExtension)
-  $('#sign-bunker')?.addEventListener('click', signInBunker)
-  $('#sign-out')?.addEventListener('click', signOut)
-  $('#form-bunker')?.addEventListener('submit', connectPastedBunker)
-  $('#bunker-cancel')?.addEventListener('click', closeBunkerModal)
-  // Escape, or a click on the backdrop's cancel: either way the attempt ends.
-  $('#bunker-modal')?.addEventListener('close', cancelConnect)
-  $('#bunker-copy')?.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText($('#bunker-uri').value)
-      $('#bunker-status-text').textContent = t('bunker.copied')
-    } catch {
-      $('#bunker-uri').select()
-    }
-  })
+  signIn.wire()
   $('#result-retry')?.addEventListener('click', onRetry)
   $('#result-again')?.addEventListener('click', sendAnother)
   $('#result-copy')?.addEventListener('click', copyReceipt)
 
-  // A signer session should not outlive the page.
-  window.addEventListener('pagehide', () => {
-    cancelConnect()
-    store.get().signer?.close()
-  })
 }
 
 async function boot() {
@@ -347,7 +227,7 @@ async function boot() {
 
   const hasNip07 = await detectNip07()
   store.set({ hasNip07 })
-  markExtension(hasNip07)
+  signIn.markExtension(hasNip07)
 
   await bootRecipients(store)
   if (store.get().phase === 'unavailable') {

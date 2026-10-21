@@ -1,0 +1,38 @@
+# What the sign-in flow says, on every page that offers it. A page's own
+# `strings` win over these where both have a key.
+identity:
+  nip07: Signed in with your extension.
+  nip46: Signed in with your remote signer.
+  unnamed: Signed in
+status:
+  connecting_nip07: Waiting for your extension to approve...
+  connecting_nip46: Connecting to your signer...
+bunker:
+  qr_alt: Connection URI as a QR code
+  copied: Copied.
+  waiting: Waiting for your signer...
+  auth_note: Your signer needs you to approve this in a browser tab.
+  auth_open: Open the approval page
+errors:
+  nip07_missing: >-
+    No browser extension was found. Install Alby, nos2x or Amber and
+    reload, or sign with a remote bunker.
+  nip07_no_nip44: >-
+    Your extension does not support NIP-44 encryption, which this form
+    requires. Update it, or sign with a remote bunker.
+  nip07_refused: Your extension declined to share a public key.
+  nip07_bad_pubkey: Your extension returned something that is not a public key.
+  bunker_empty: Paste a bunker URI first.
+  bunker_bad_scheme: That is not a bunker URI. It should start with bunker://
+  bunker_is_nip05: >-
+    A name@domain identifier would mean this page contacting someone
+    else's server, which it never does. Paste the bunker:// URI instead.
+  bunker_unparseable: That URI could not be read.
+  bunker_bad_pubkey: That bunker URI has no valid public key in it.
+  bunker_no_relay: That bunker URI names no relay, so there is nowhere to reach the signer.
+  nip46_connect_failed: >-
+    Could not reach your remote signer. Check that it is running and that
+    it approved the connection.
+  nip46_no_pubkey: Your remote signer connected but would not share a public key.
+  nip46_bad_pubkey: Your remote signer returned something that is not a public key.
+  guest_closed: That one-time key has already been used. Reload to start again.

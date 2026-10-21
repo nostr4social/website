@@ -1,0 +1,14 @@
+# The modal that "Sign with Remote Bunker" opens, on every page that has it.
+title: Sign with Remote Bunker
+scan: >-
+  Scan this with your signer, or open it directly. The page asks for two
+  permissions only: seal one message and sign it.
+copy: Copy URI
+paste_title: Or paste a bunker URI
+paste_label: bunker:// URI from your signer
+paste_note: >-
+  A name@domain identifier is not accepted here, because resolving it
+  would mean this page making a request to someone else's server.
+connect: Connect
+cancel: Cancel
+waiting: Waiting for your signer...

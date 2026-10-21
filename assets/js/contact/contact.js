@@ -34,8 +34,18 @@ function readJson(id) {
   if (!node) throw new Error(`missing config block: ${id}`);
   return JSON.parse(node.textContent);
 }
-var strings = readJson("page-strings");
-var config = readJson("page-config");
+function readOptional(id) {
+  return document.getElementById(id) ? readJson(id) : {};
+}
+function merge(base, over) {
+  const out = { ...base };
+  for (const [k, v] of Object.entries(over || {})) {
+    out[k] = v && typeof v === "object" && !Array.isArray(v) && base?.[k] && typeof base[k] === "object" ? merge(base[k], v) : v;
+  }
+  return out;
+}
+var strings = merge(readOptional("page-shared-strings"), readJson("page-strings"));
+var config = merge(readOptional("page-shared-config"), readJson("page-config"));
 var query = new URLSearchParams(location.search);
 function fmt(template, vars = {}) {
   return String(template).replace(/\{(\w+)\}/g, (m, key) => vars[key] == null ? m : String(vars[key]));
@@ -151,13 +161,403 @@ async function fetchProfileName(pool, pubkey) {
   }
 }
 
+// assets/js/shared/src/signers.js
+var SignerError = class extends Error {
+  constructor(code, cause) {
+    super(code);
+    this.code = code;
+    this.cause = cause;
+  }
+};
+var HEX642 = /^[0-9a-f]{64}$/;
+function wipe(secretKey) {
+  if (secretKey instanceof Uint8Array) secretKey.fill(0);
+}
+function detectNip07({ timeout = 800 } = {}) {
+  if (dev.noNip07) return Promise.resolve(false);
+  if (window.nostr) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const poll = () => {
+      if (window.nostr) return resolve(true);
+      if (Date.now() - started >= timeout) return resolve(false);
+      setTimeout(poll, 100);
+    };
+    setTimeout(poll, 100);
+  });
+}
+async function connectNip07() {
+  if (!window.nostr) throw new SignerError("nip07_missing");
+  const nip44 = dev.noNip44 ? null : window.nostr.nip44;
+  if (!nip44 || typeof nip44.encrypt !== "function") throw new SignerError("nip07_no_nip44");
+  let pubkey;
+  try {
+    pubkey = await window.nostr.getPublicKey();
+  } catch (err) {
+    throw new SignerError("nip07_refused", err);
+  }
+  if (!HEX642.test(pubkey)) throw new SignerError("nip07_bad_pubkey");
+  return {
+    kind: "nip07",
+    pubkey,
+    signEvent: (template) => window.nostr.signEvent(template),
+    nip44Encrypt: (target, plaintext) => nip44.encrypt(target, plaintext),
+    close() {
+    }
+  };
+}
+var PERMS = ["sign_event:13", "nip44_encrypt"];
+function bunkerParams(onauth) {
+  return { onauth };
+}
+function parseBunkerUri(input) {
+  const raw = (input || "").trim();
+  if (!raw) throw new SignerError("bunker_empty");
+  if (!raw.startsWith("bunker://")) {
+    throw new SignerError(raw.includes("@") ? "bunker_is_nip05" : "bunker_bad_scheme");
+  }
+  let url;
+  try {
+    url = new URL(raw);
+  } catch (err) {
+    throw new SignerError("bunker_unparseable", err);
+  }
+  const pubkey = url.hostname || url.pathname.replace(/^\/+/, "");
+  if (!HEX642.test(pubkey)) throw new SignerError("bunker_bad_pubkey");
+  const relays = url.searchParams.getAll("relay").filter(isRelayUrl);
+  if (!relays.length) throw new SignerError("bunker_no_relay");
+  return { pubkey, relays, secret: url.searchParams.get("secret") };
+}
+function isRelayUrl(url) {
+  try {
+    return new URL(url).protocol === "wss:";
+  } catch {
+    return false;
+  }
+}
+async function wrapBunker(signer, clientSecretKey) {
+  let pubkey;
+  try {
+    pubkey = await signer.getPublicKey();
+  } catch (err) {
+    wipe(clientSecretKey);
+    throw new SignerError("nip46_no_pubkey", err);
+  }
+  if (!HEX642.test(pubkey)) {
+    wipe(clientSecretKey);
+    throw new SignerError("nip46_bad_pubkey");
+  }
+  return {
+    kind: "nip46",
+    pubkey,
+    signEvent: (template) => signer.signEvent(template),
+    nip44Encrypt: (target, plaintext) => signer.nip44Encrypt(target, plaintext),
+    async close() {
+      try {
+        await signer.close();
+      } finally {
+        wipe(clientSecretKey);
+      }
+    }
+  };
+}
+function startNostrConnect({ onauth, signal } = {}) {
+  const clientSecretKey = generateSecretKey();
+  const clientPubkey = getPublicKey(clientSecretKey);
+  const secret = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
+  const relays = config.relays.nip46;
+  const uri = createNostrConnectURI({
+    clientPubkey,
+    relays,
+    secret,
+    perms: PERMS,
+    name: config.client.name,
+    url: location.origin
+  });
+  const connected = BunkerSigner.fromURI(clientSecretKey, uri, bunkerParams(onauth), signal).then((signer) => wrapBunker(signer, clientSecretKey)).catch((err) => {
+    wipe(clientSecretKey);
+    throw err instanceof SignerError ? err : new SignerError("nip46_connect_failed", err);
+  });
+  return { uri, connected };
+}
+async function connectBunker(input, { onauth } = {}) {
+  const pointer = parseBunkerUri(input);
+  const clientSecretKey = generateSecretKey();
+  try {
+    const signer = BunkerSigner.fromBunker(clientSecretKey, pointer, bunkerParams(onauth));
+    await signer.connect({ name: config.client.name, url: location.origin });
+    return await wrapBunker(signer, clientSecretKey);
+  } catch (err) {
+    wipe(clientSecretKey);
+    throw err instanceof SignerError ? err : new SignerError("nip46_connect_failed", err);
+  }
+}
+function createGuestSigner() {
+  const secretKey = generateSecretKey();
+  const pubkey = getPublicKey(secretKey);
+  let open = true;
+  const assertOpen = () => {
+    if (!open) throw new SignerError("guest_closed");
+  };
+  return {
+    kind: "guest",
+    pubkey,
+    async signEvent(template) {
+      assertOpen();
+      return finalizeEvent(template, secretKey);
+    },
+    async nip44Encrypt(target, plaintext) {
+      assertOpen();
+      return nip44Encrypt(plaintext, getConversationKey(secretKey, target));
+    },
+    close() {
+      open = false;
+      wipe(secretKey);
+    }
+  };
+}
+function bytesToHex(bytes) {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// assets/js/shared/src/qr.js
+var NS = "http://www.w3.org/2000/svg";
+function qrSvg(text, { label, margin = 2 } = {}) {
+  const { data, size } = encode(text, { ecc: "M", border: margin });
+  const side = size;
+  let d = "";
+  for (let y = 0; y < side; y++) {
+    for (let x = 0; x < side; x++) {
+      if (data[y][x]) d += `M${x} ${y}h1v1h-1z`;
+    }
+  }
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${side} ${side}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("shape-rendering", "crispEdges");
+  svg.classList.add("qr");
+  if (label) {
+    const title = document.createElementNS(NS, "title");
+    title.textContent = label;
+    svg.append(title);
+  }
+  const bg = document.createElementNS(NS, "rect");
+  bg.setAttribute("width", String(side));
+  bg.setAttribute("height", String(side));
+  bg.setAttribute("fill", "#ffffff");
+  svg.append(bg);
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("d", d);
+  path.setAttribute("fill", "#14111c");
+  svg.append(path);
+  return svg;
+}
+
+// assets/js/shared/src/connect.js
+function setError(node, code) {
+  if (!node) return;
+  const message = code ? t(`errors.${code}`) || t("errors.unknown") : "";
+  node.textContent = message;
+  show(node, Boolean(message));
+}
+function setStatus(node, message) {
+  if (!node) return;
+  node.textContent = message || "";
+  show(node, Boolean(message));
+}
+function shortNpub(hex) {
+  try {
+    const npub = npubEncode(hex);
+    return `${npub.slice(0, 9)}\u2026${npub.slice(-4)}`;
+  } catch {
+    return `${hex.slice(0, 8)}\u2026${hex.slice(-4)}`;
+  }
+}
+function renderIdentity(signer, profileName) {
+  const name = $("#identity-name");
+  const key = $("#identity-key");
+  const note = $("#identity-note");
+  if (!signer) return;
+  if (name) name.textContent = profileName || t("identity.unnamed");
+  if (key) key.textContent = shortNpub(signer.pubkey);
+  if (note) note.textContent = t(`identity.${signer.kind}`);
+}
+function markExtension(available) {
+  const button = $("#sign-extension");
+  if (button) button.classList.toggle("is-missing", !available);
+}
+function openBunkerModal() {
+  const dialog = $("#bunker-modal");
+  if (dialog && !dialog.open) dialog.showModal();
+}
+function closeBunkerModal() {
+  const dialog = $("#bunker-modal");
+  if (dialog?.open) dialog.close();
+}
+function renderConnect({ uri }) {
+  const qrHost = $("#bunker-qr");
+  if (qrHost) replace(qrHost, qrSvg(uri, { label: t("bunker.qr_alt") }));
+  const uriField = $("#bunker-uri");
+  if (uriField) uriField.value = uri;
+  const links = $("#bunker-signers");
+  if (links) {
+    clear(links);
+    for (const signer of config.nip46.signers) {
+      links.append(
+        el("a", {
+          class: "btn btn--secondary btn--compact",
+          href: signer.nostrconnect_url.replace("{uri}", encodeURIComponent(uri)),
+          target: "_blank",
+          rel: "noopener",
+          text: signer.label
+        })
+      );
+    }
+  }
+}
+function renderAuthUrl(url) {
+  const host = $("#bunker-auth");
+  if (!host) return;
+  if (!url) return show(host, false);
+  replace(
+    host,
+    el("p", { class: "contact__note", text: t("bunker.auth_note") }),
+    el("a", { class: "btn btn--primary btn--compact", href: url, target: "_blank", rel: "noopener", text: t("bunker.auth_open") })
+  );
+  show(host, true);
+}
+
+// assets/js/shared/src/signin.js
+var errorCode = (err) => err instanceof SignerError ? err.code : err?.code || "unknown";
+function createSignIn({ onChange } = {}) {
+  let signer = null;
+  let profileName = null;
+  let connectAbort = null;
+  function show2(mode) {
+    const guest = $("#sign-guest");
+    const signed = $("#sign-signed");
+    if (guest) guest.hidden = mode !== "guest";
+    if (signed) signed.hidden = mode !== "signed";
+  }
+  async function adopt(next) {
+    signer = next;
+    profileName = null;
+    renderIdentity(signer, null);
+    show2("signed");
+    setError($("#sign-error"), null);
+    onChange?.(signer);
+    const pool = new SimplePool();
+    try {
+      const name = await fetchProfileName(pool, next.pubkey);
+      if (signer === next && name) {
+        profileName = name;
+        renderIdentity(signer, name);
+      }
+    } finally {
+      pool.destroy();
+    }
+  }
+  async function signInExtension() {
+    setError($("#sign-error"), null);
+    setStatus($("#sign-status"), t("status.connecting_nip07"));
+    try {
+      await adopt(await connectNip07());
+    } catch (err) {
+      setError($("#sign-error"), errorCode(err));
+    } finally {
+      setStatus($("#sign-status"), "");
+    }
+  }
+  async function signInBunker() {
+    cancelConnect();
+    setError($("#sign-error"), null);
+    setError($("#bunker-error"), null);
+    renderAuthUrl(null);
+    openBunkerModal();
+    const controller = new AbortController();
+    connectAbort = controller;
+    const { uri, connected } = startNostrConnect({ onauth: renderAuthUrl, signal: controller.signal });
+    renderConnect({ uri });
+    const timer = setTimeout(() => controller.abort(), config.timeouts.nip46_connect);
+    try {
+      const next = await connected;
+      closeBunkerModal();
+      await adopt(next);
+    } catch (err) {
+      if (!controller.signal.aborted) setError($("#bunker-error"), errorCode(err));
+    } finally {
+      clearTimeout(timer);
+      if (connectAbort === controller) connectAbort = null;
+    }
+  }
+  async function connectPastedBunker(event) {
+    event.preventDefault();
+    const input = $("#field-bunker");
+    setError($("#bunker-error"), null);
+    $("#bunker-status-text").textContent = t("status.connecting_nip46");
+    try {
+      const next = await connectBunker(input.value, { onauth: renderAuthUrl });
+      input.value = "";
+      cancelConnect();
+      closeBunkerModal();
+      await adopt(next);
+    } catch (err) {
+      setError($("#bunker-error"), errorCode(err));
+    } finally {
+      $("#bunker-status-text").textContent = t("bunker.waiting", "");
+    }
+  }
+  function cancelConnect() {
+    connectAbort?.abort();
+    connectAbort = null;
+    renderAuthUrl(null);
+  }
+  function signOut() {
+    cancelConnect();
+    signer?.close();
+    signer = null;
+    profileName = null;
+    show2("guest");
+    onChange?.(null);
+  }
+  function wire2() {
+    $("#sign-extension")?.addEventListener("click", signInExtension);
+    $("#sign-bunker")?.addEventListener("click", signInBunker);
+    $("#sign-out")?.addEventListener("click", signOut);
+    $("#form-bunker")?.addEventListener("submit", connectPastedBunker);
+    $("#bunker-cancel")?.addEventListener("click", closeBunkerModal);
+    $("#bunker-modal")?.addEventListener("close", cancelConnect);
+    $("#bunker-copy")?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText($("#bunker-uri").value);
+        $("#bunker-status-text").textContent = t("bunker.copied");
+      } catch {
+        $("#bunker-uri").select();
+      }
+    });
+    window.addEventListener("pagehide", () => {
+      cancelConnect();
+      signer?.close();
+    });
+    show2("guest");
+  }
+  return {
+    wire: wire2,
+    markExtension,
+    signOut,
+    current: () => signer,
+    profileName: () => profileName
+  };
+}
+
 // assets/js/shared/src/relays.js
 var KIND_DM_RELAYS = 10050;
 var MAX_RELAYS = 5;
+var LOOPBACK = ["localhost", "127.0.0.1", "[::1]"];
 function normalizeRelay(url) {
   try {
     const parsed = new URL(String(url).trim());
-    if (parsed.protocol !== "wss:") return null;
+    if (parsed.protocol !== "wss:" && !(parsed.protocol === "ws:" && LOOPBACK.includes(parsed.hostname))) return null;
     parsed.hash = "";
     return parsed.toString().replace(/\/$/, "");
   } catch {
@@ -239,7 +639,7 @@ var hasHexBuiltin = /* @__PURE__ */ (() => (
   typeof Uint8Array.from([]).toHex === "function" && typeof Uint8Array.fromHex === "function"
 ))();
 var hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
-function bytesToHex(bytes) {
+function bytesToHex2(bytes) {
   abytes(bytes);
   if (hasHexBuiltin)
     return bytes.toHex();
@@ -554,7 +954,7 @@ function mineSync(event, difficulty, { start = 1, step = 1, batch = 2e4, onBatch
     const hash = sha256(enc.encode(prefix + n + suffix));
     if (leadingZeroBits(hash) >= difficulty) {
       tag[1] = String(n);
-      event.id = bytesToHex(hash);
+      event.id = bytesToHex2(hash);
       return { event, tries: tries + 1 };
     }
     n += step;
@@ -814,218 +1214,7 @@ async function retry(store2, previous, { onProgress, pow = 0 } = {}) {
   return { results, verdict: verdictFor(results) };
 }
 
-// assets/js/shared/src/signers.js
-var SignerError = class extends Error {
-  constructor(code, cause) {
-    super(code);
-    this.code = code;
-    this.cause = cause;
-  }
-};
-var HEX642 = /^[0-9a-f]{64}$/;
-function wipe(secretKey) {
-  if (secretKey instanceof Uint8Array) secretKey.fill(0);
-}
-function detectNip07({ timeout = 800 } = {}) {
-  if (dev.noNip07) return Promise.resolve(false);
-  if (window.nostr) return Promise.resolve(true);
-  return new Promise((resolve) => {
-    const started = Date.now();
-    const poll = () => {
-      if (window.nostr) return resolve(true);
-      if (Date.now() - started >= timeout) return resolve(false);
-      setTimeout(poll, 100);
-    };
-    setTimeout(poll, 100);
-  });
-}
-async function connectNip07() {
-  if (!window.nostr) throw new SignerError("nip07_missing");
-  const nip44 = dev.noNip44 ? null : window.nostr.nip44;
-  if (!nip44 || typeof nip44.encrypt !== "function") throw new SignerError("nip07_no_nip44");
-  let pubkey;
-  try {
-    pubkey = await window.nostr.getPublicKey();
-  } catch (err) {
-    throw new SignerError("nip07_refused", err);
-  }
-  if (!HEX642.test(pubkey)) throw new SignerError("nip07_bad_pubkey");
-  return {
-    kind: "nip07",
-    pubkey,
-    signEvent: (template) => window.nostr.signEvent(template),
-    nip44Encrypt: (target, plaintext) => nip44.encrypt(target, plaintext),
-    close() {
-    }
-  };
-}
-var PERMS = ["sign_event:13", "nip44_encrypt"];
-function bunkerParams(onauth) {
-  return { onauth };
-}
-function parseBunkerUri(input) {
-  const raw = (input || "").trim();
-  if (!raw) throw new SignerError("bunker_empty");
-  if (!raw.startsWith("bunker://")) {
-    throw new SignerError(raw.includes("@") ? "bunker_is_nip05" : "bunker_bad_scheme");
-  }
-  let url;
-  try {
-    url = new URL(raw);
-  } catch (err) {
-    throw new SignerError("bunker_unparseable", err);
-  }
-  const pubkey = url.hostname || url.pathname.replace(/^\/+/, "");
-  if (!HEX642.test(pubkey)) throw new SignerError("bunker_bad_pubkey");
-  const relays = url.searchParams.getAll("relay").filter(isRelayUrl);
-  if (!relays.length) throw new SignerError("bunker_no_relay");
-  return { pubkey, relays, secret: url.searchParams.get("secret") };
-}
-function isRelayUrl(url) {
-  try {
-    return new URL(url).protocol === "wss:";
-  } catch {
-    return false;
-  }
-}
-async function wrapBunker(signer, clientSecretKey) {
-  let pubkey;
-  try {
-    pubkey = await signer.getPublicKey();
-  } catch (err) {
-    wipe(clientSecretKey);
-    throw new SignerError("nip46_no_pubkey", err);
-  }
-  if (!HEX642.test(pubkey)) {
-    wipe(clientSecretKey);
-    throw new SignerError("nip46_bad_pubkey");
-  }
-  return {
-    kind: "nip46",
-    pubkey,
-    signEvent: (template) => signer.signEvent(template),
-    nip44Encrypt: (target, plaintext) => signer.nip44Encrypt(target, plaintext),
-    async close() {
-      try {
-        await signer.close();
-      } finally {
-        wipe(clientSecretKey);
-      }
-    }
-  };
-}
-function startNostrConnect({ onauth, signal } = {}) {
-  const clientSecretKey = generateSecretKey();
-  const clientPubkey = getPublicKey(clientSecretKey);
-  const secret = bytesToHex2(crypto.getRandomValues(new Uint8Array(16)));
-  const relays = config.relays.nip46;
-  const uri = createNostrConnectURI({
-    clientPubkey,
-    relays,
-    secret,
-    perms: PERMS,
-    name: config.client.name,
-    url: location.origin
-  });
-  const connected = BunkerSigner.fromURI(clientSecretKey, uri, bunkerParams(onauth), signal).then((signer) => wrapBunker(signer, clientSecretKey)).catch((err) => {
-    wipe(clientSecretKey);
-    throw err instanceof SignerError ? err : new SignerError("nip46_connect_failed", err);
-  });
-  return { uri, connected };
-}
-async function connectBunker(input, { onauth } = {}) {
-  const pointer = parseBunkerUri(input);
-  const clientSecretKey = generateSecretKey();
-  try {
-    const signer = BunkerSigner.fromBunker(clientSecretKey, pointer, bunkerParams(onauth));
-    await signer.connect({ name: config.client.name, url: location.origin });
-    return await wrapBunker(signer, clientSecretKey);
-  } catch (err) {
-    wipe(clientSecretKey);
-    throw err instanceof SignerError ? err : new SignerError("nip46_connect_failed", err);
-  }
-}
-function createGuestSigner() {
-  const secretKey = generateSecretKey();
-  const pubkey = getPublicKey(secretKey);
-  let open = true;
-  const assertOpen = () => {
-    if (!open) throw new SignerError("guest_closed");
-  };
-  return {
-    kind: "guest",
-    pubkey,
-    async signEvent(template) {
-      assertOpen();
-      return finalizeEvent(template, secretKey);
-    },
-    async nip44Encrypt(target, plaintext) {
-      assertOpen();
-      return nip44Encrypt(plaintext, getConversationKey(secretKey, target));
-    },
-    close() {
-      open = false;
-      wipe(secretKey);
-    }
-  };
-}
-function bytesToHex2(bytes) {
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// assets/js/shared/src/qr.js
-var NS = "http://www.w3.org/2000/svg";
-function qrSvg(text, { label, margin = 2 } = {}) {
-  const { data, size } = encode(text, { ecc: "M", border: margin });
-  const side = size;
-  let d = "";
-  for (let y = 0; y < side; y++) {
-    for (let x = 0; x < side; x++) {
-      if (data[y][x]) d += `M${x} ${y}h1v1h-1z`;
-    }
-  }
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", `0 0 ${side} ${side}`);
-  svg.setAttribute("role", "img");
-  svg.setAttribute("shape-rendering", "crispEdges");
-  svg.classList.add("qr");
-  if (label) {
-    const title = document.createElementNS(NS, "title");
-    title.textContent = label;
-    svg.append(title);
-  }
-  const bg = document.createElementNS(NS, "rect");
-  bg.setAttribute("width", String(side));
-  bg.setAttribute("height", String(side));
-  bg.setAttribute("fill", "#ffffff");
-  svg.append(bg);
-  const path = document.createElementNS(NS, "path");
-  path.setAttribute("d", d);
-  path.setAttribute("fill", "#14111c");
-  svg.append(path);
-  return svg;
-}
-
 // assets/js/contact/src/ui.js
-function setError(node, code) {
-  if (!node) return;
-  const message = code ? t(`errors.${code}`) || t("errors.unknown") : "";
-  node.textContent = message;
-  show(node, Boolean(message));
-}
-function setStatus(node, message) {
-  if (!node) return;
-  node.textContent = message || "";
-  show(node, Boolean(message));
-}
-function shortNpub(hex) {
-  try {
-    const npub = npubEncode(hex);
-    return `${npub.slice(0, 9)}\u2026${npub.slice(-4)}`;
-  } catch {
-    return `${hex.slice(0, 8)}\u2026${hex.slice(-4)}`;
-  }
-}
 function labelFor(recipient) {
   return t(`recipients.labels.${recipient.name}`) || recipient.name;
 }
@@ -1059,19 +1248,6 @@ function setSendMode(mode, { signed = mode === "signed" } = {}) {
   for (const input of $$("#composer-fields input, #composer-fields select, #composer-fields textarea")) {
     input.disabled = mode === "busy";
   }
-}
-function renderIdentity(signer, profileName) {
-  const name = $("#identity-name");
-  const key = $("#identity-key");
-  const note = $("#identity-note");
-  if (!signer) return;
-  if (name) name.textContent = profileName || t("identity.unnamed");
-  if (key) key.textContent = shortNpub(signer.pubkey);
-  if (note) note.textContent = t(`identity.${signer.kind}`);
-}
-function markExtension(available) {
-  const button = $("#sign-extension");
-  if (button) button.classList.toggle("is-missing", !available);
 }
 function setTravel(states, { busy = false, done = false } = {}) {
   const travel = $("#travel");
@@ -1233,46 +1409,6 @@ function faceIcon() {
   if (tpl) svg.append(tpl.cloneNode(true));
   return svg;
 }
-function openBunkerModal() {
-  const dialog = $("#bunker-modal");
-  if (dialog && !dialog.open) dialog.showModal();
-}
-function closeBunkerModal() {
-  const dialog = $("#bunker-modal");
-  if (dialog?.open) dialog.close();
-}
-function renderConnect({ uri }) {
-  const qrHost = $("#bunker-qr");
-  if (qrHost) replace(qrHost, qrSvg(uri, { label: t("bunker.qr_alt") }));
-  const uriField = $("#bunker-uri");
-  if (uriField) uriField.value = uri;
-  const links = $("#bunker-signers");
-  if (links) {
-    clear(links);
-    for (const signer of config.nip46.signers) {
-      links.append(
-        el("a", {
-          class: "btn btn--secondary btn--compact",
-          href: signer.nostrconnect_url.replace("{uri}", encodeURIComponent(uri)),
-          target: "_blank",
-          rel: "noopener",
-          text: signer.label
-        })
-      );
-    }
-  }
-}
-function renderAuthUrl(url) {
-  const host = $("#bunker-auth");
-  if (!host) return;
-  if (!url) return show(host, false);
-  replace(
-    host,
-    el("p", { class: "contact__note", text: t("bunker.auth_note") }),
-    el("a", { class: "btn btn--primary btn--compact", href: url, target: "_blank", rel: "noopener", text: t("bunker.auth_open") })
-  );
-  show(host, true);
-}
 function wireEmailFallback() {
   for (const node of document.querySelectorAll("[data-user][data-domain]")) {
     const address = `${node.dataset.user}@${node.dataset.domain}`;
@@ -1319,87 +1455,15 @@ function wireCopyButtons() {
 // assets/js/contact/src/app.js
 var store = createStore(initialState);
 var openedAt = Date.now();
-var connectAbort = null;
 var lastSend = null;
-var errorCode = (err) => err instanceof SignerError ? err.code : err?.code || "unknown";
+var errorCode2 = (err) => err instanceof SignerError ? err.code : err?.code || "unknown";
 var sendMode = () => store.get().signer ? "signed" : "guest";
-async function adopt(signer) {
-  store.set({ signer, profileName: null, error: null });
-  renderIdentity(signer, null);
-  setSendMode("signed");
-  setError($("#sign-error"), null);
-  const pool = new SimplePool();
-  try {
-    const name = await fetchProfileName(pool, signer.pubkey);
-    if (store.get().signer === signer && name) {
-      store.set({ profileName: name });
-      renderIdentity(signer, name);
-    }
-  } finally {
-    pool.destroy();
+var signIn = createSignIn({
+  onChange(signer) {
+    store.set({ signer, profileName: null, error: null });
+    setSendMode(signer ? "signed" : "guest");
   }
-}
-async function signInExtension() {
-  setError($("#sign-error"), null);
-  setStatus($("#sign-status"), t("status.connecting_nip07"));
-  try {
-    await adopt(await connectNip07());
-  } catch (err) {
-    setError($("#sign-error"), errorCode(err));
-  } finally {
-    setStatus($("#sign-status"), "");
-  }
-}
-async function signInBunker() {
-  cancelConnect();
-  setError($("#sign-error"), null);
-  setError($("#bunker-error"), null);
-  renderAuthUrl(null);
-  openBunkerModal();
-  const controller = new AbortController();
-  connectAbort = controller;
-  const { uri, connected } = startNostrConnect({ onauth: renderAuthUrl, signal: controller.signal });
-  renderConnect({ uri });
-  const timer = setTimeout(() => controller.abort(), config.timeouts.nip46_connect);
-  try {
-    const signer = await connected;
-    closeBunkerModal();
-    await adopt(signer);
-  } catch (err) {
-    if (!controller.signal.aborted) setError($("#bunker-error"), errorCode(err));
-  } finally {
-    clearTimeout(timer);
-    if (connectAbort === controller) connectAbort = null;
-  }
-}
-async function connectPastedBunker(event) {
-  event.preventDefault();
-  const input = $("#field-bunker");
-  setError($("#bunker-error"), null);
-  $("#bunker-status-text").textContent = t("status.connecting_nip46");
-  try {
-    const signer = await connectBunker(input.value, { onauth: renderAuthUrl });
-    input.value = "";
-    cancelConnect();
-    closeBunkerModal();
-    await adopt(signer);
-  } catch (err) {
-    setError($("#bunker-error"), errorCode(err));
-  } finally {
-    $("#bunker-status-text").textContent = t("bunker.waiting", "");
-  }
-}
-function cancelConnect() {
-  connectAbort?.abort();
-  connectAbort = null;
-  renderAuthUrl(null);
-}
-function signOut() {
-  cancelConnect();
-  store.get().signer?.close();
-  store.set({ signer: null, profileName: null });
-  setSendMode("guest");
-}
+});
 function validate(form) {
   if (form.elements.website.value) return "honeypot";
   if (Date.now() - openedAt < config.limits.min_seconds * 1e3) return "too_fast";
@@ -1468,7 +1532,7 @@ async function onSubmit(event) {
     store.set({ phase: "composing" });
     setSendMode(sendMode());
     TRAVEL.rest();
-    setError($("#compose-error"), errorCode(err));
+    setError($("#compose-error"), errorCode2(err));
   } finally {
     if (signer.kind === "guest") signer.close();
   }
@@ -1486,7 +1550,7 @@ async function onRetry() {
     finish(results, verdict, lastSend);
   } catch (err) {
     setSendMode(sendMode());
-    setError($("#contact-error"), errorCode(err));
+    setError($("#contact-error"), errorCode2(err));
     showReceipt(true);
   }
 }
@@ -1524,27 +1588,10 @@ function chooseRecipient(name) {
 function wire() {
   $("#contact-form")?.addEventListener("submit", onSubmit);
   $("#field-to")?.addEventListener("change", (e) => chooseRecipient(e.target.value));
-  $("#sign-extension")?.addEventListener("click", signInExtension);
-  $("#sign-bunker")?.addEventListener("click", signInBunker);
-  $("#sign-out")?.addEventListener("click", signOut);
-  $("#form-bunker")?.addEventListener("submit", connectPastedBunker);
-  $("#bunker-cancel")?.addEventListener("click", closeBunkerModal);
-  $("#bunker-modal")?.addEventListener("close", cancelConnect);
-  $("#bunker-copy")?.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText($("#bunker-uri").value);
-      $("#bunker-status-text").textContent = t("bunker.copied");
-    } catch {
-      $("#bunker-uri").select();
-    }
-  });
+  signIn.wire();
   $("#result-retry")?.addEventListener("click", onRetry);
   $("#result-again")?.addEventListener("click", sendAnother);
   $("#result-copy")?.addEventListener("click", copyReceipt);
-  window.addEventListener("pagehide", () => {
-    cancelConnect();
-    store.get().signer?.close();
-  });
 }
 async function boot() {
   if (!$("#contact-form")) return;
@@ -1556,7 +1603,7 @@ async function boot() {
   TRAVEL.rest();
   const hasNip07 = await detectNip07();
   store.set({ hasNip07 });
-  markExtension(hasNip07);
+  signIn.markExtension(hasNip07);
   await bootRecipients(store);
   if (store.get().phase === "unavailable") {
     setError($("#contact-error"), store.get().error);

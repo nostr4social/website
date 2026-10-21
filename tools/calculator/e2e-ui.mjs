@@ -7,9 +7,20 @@
 //
 // SHOTS=dir writes screenshots of the results at 1440 and 390 wide into dir.
 
-import { writeFile } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
+import { access, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { SimplePool, useWebSocketImplementation } from 'nostr-tools/pool'
+import { verifyEvent } from 'nostr-tools/pure'
+import { getConversationKey, decrypt } from 'nostr-tools/nip44'
+import { getPow } from 'nostr-tools/nip13'
 import { withBrowser } from '../contact-bundle/cdp.mjs'
+import { formAddress, KIND_RESPONSE, parseTemplate, readRecipe, SNAPSHOT, snapshotYaml } from '../forms/lib.mjs'
+import { fixtureTemplate, localRelay } from '../forms/fixture.mjs'
+
+useWebSocketImplementation(WebSocket)
+const PORT = 10547
+const RELAY = `ws://127.0.0.1:${PORT}`
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:4000'
 const SHOTS = process.env.SHOTS || ''
@@ -151,8 +162,85 @@ await withBrowser(async (api) => {
   check('…and the assumption override', shared.egress === '5', shared.egress)
   check('the test marker survives in the page URL', shared.url.includes('test=1'), shared.url)
 
+  // ── saving: a fixture form on a local relay ───────────────────────────────
+  // Only when no real snapshot is committed: the test writes one for a form it
+  // publishes to `nak serve`, waits for the dev server to rebuild the page,
+  // submits through the page itself, and reads the response back as the form
+  // holder would. The snapshot is removed afterwards.
+  let hasSnapshot = true
+  try {
+    await access(SNAPSHOT)
+  } catch {
+    hasSnapshot = false
+  }
+  if (hasSnapshot) {
+    console.log('--   a real form snapshot is committed; the saving path is not exercised against it here')
+  } else {
+    const stopRelay = await localRelay(PORT, { spawn })
+    const pool = new SimplePool()
+    try {
+      const recipe = await readRecipe()
+      const fixture = fixtureTemplate(recipe, RELAY)
+      await Promise.allSettled(pool.publish([RELAY], fixture.event))
+      const snapshot = parseTemplate(fixture.event)
+      await writeFile(SNAPSHOT, snapshotYaml(snapshot, 'naddr1test'))
+      // The dev server rebuilds; the page then carries the form.
+      for (let i = 0; i < 60; i++) {
+        await api.goto(`${BASE}/calculator/?relay=${encodeURIComponent(RELAY)}`)
+        await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+        if ((await api.eval(`document.documentElement.dataset.calculatorForm`)) === 'ready') break
+        await sleep(1000)
+      }
+      check('the page carries the form once a snapshot exists', (await api.eval(`document.documentElement.dataset.calculatorForm`)) === 'ready')
+      check('the sign row is shown', !(await api.eval(`document.getElementById('sign-row').hidden`)))
+
+      await sleep(3200) // past the too-fast guard
+      await api.eval(`(() => {
+        const f = document.getElementById('calc-form')
+        f.elements.mau.value = '12000'
+        f.elements.eng.value = '2'
+        f.querySelector('input[name=ts][value=none]').checked = true
+        f.querySelector('input[name=pay][value=no]').checked = true
+        f.querySelector('input[name=jur][value=us]').checked = true
+        f.elements.email.value = 'founder@example.com'
+        f.elements.company.value = 'Example'
+        f.requestSubmit()
+      })()`)
+      await api.waitFor(`!document.getElementById('calc-results').hidden`)
+      await api.waitFor(`/Saved as a Nostr form response|Could not reach/.test(document.getElementById('r-status').textContent)`, { timeout: 60000 })
+      const status = await api.eval(`document.getElementById('r-status').textContent`)
+      check('the status reports the save', /Saved as a Nostr form response · 1 of 1 relays/.test(status), status)
+
+      const got = await pool.querySync([RELAY], { kinds: [KIND_RESPONSE], '#a': [formAddress(snapshot)] }, { maxWait: 4000 })
+      check('one kind 1069 landed on the relay', got.length === 1, String(got.length))
+      const ev = got[0]
+      if (ev) {
+        check('it is signed, and carries the configured proof of work', verifyEvent(ev) && getPow(ev.id) >= 20, `${getPow(ev.id)} bits`)
+        const answers = JSON.parse(decrypt(ev.content, getConversationKey(fixture.secret, ev.pubkey)))
+        const byId = Object.fromEntries(snapshot.fields.map((f) => [f.id, f.label]))
+        const byLabel = Object.fromEntries(answers.map(([, id, v]) => [byId[id], v]))
+        check('the form secret decrypts the page\'s answers', byLabel['Monthly active users'] === '12000' && byLabel['Email'] === 'founder@example.com' && byLabel['Company'] === 'Example', JSON.stringify(byLabel))
+        check('the computed figures and the link travel with the inputs', /^\d+$/.test(byLabel['Annual custodial cost (USD, typical)'] || '') && (byLabel['Results link'] || '').includes('mau=12000'), byLabel['Results link'])
+        check('the test marker is blank when the URL had none', !('test' in byLabel))
+      }
+      // A lead with contact details also goes to hello's inbox as a gift wrap.
+      const wraps = await pool.querySync([RELAY], { kinds: [1059] }, { maxWait: 3000 })
+      check('a lead message was gift-wrapped to the inbox', wraps.length === 1 && getPow(wraps[0].id) >= 18, `${wraps.length} wraps`)
+    } finally {
+      pool.destroy()
+      stopRelay()
+      await rm(SNAPSHOT, { force: true })
+      // Wait for the dev server to drop the form again, so later runs start clean.
+      for (let i = 0; i < 60; i++) {
+        const html = await (await fetch(`${BASE}/calculator/`)).text().catch(() => '')
+        if (html.includes('id="page-form">null<')) break
+        await sleep(1000)
+      }
+    }
+  }
+
   // ── hygiene ───────────────────────────────────────────────────────────────
-  const foreign = requests.filter((u) => !u.startsWith(BASE) && !u.startsWith('data:') && !u.startsWith('about:'))
+  const foreign = requests.filter((u) => !u.startsWith(BASE) && !u.startsWith('data:') && !u.startsWith('about:') && !u.startsWith(RELAY))
   check('no third-party requests', foreign.length === 0, foreign.join(' '))
   check('no console errors', logs.length === 0, logs.join(' | '))
 })

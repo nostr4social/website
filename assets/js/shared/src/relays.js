@@ -11,10 +11,13 @@ import { config, dev } from './config.js'
 const KIND_DM_RELAYS = 10050
 const MAX_RELAYS = 5
 
+const LOOPBACK = ['localhost', '127.0.0.1', '[::1]']
+
+/** A relay URL, or null. Only wss:, except plain ws: on a loopback host for local testing. */
 export function normalizeRelay(url) {
   try {
     const parsed = new URL(String(url).trim())
-    if (parsed.protocol !== 'wss:') return null
+    if (parsed.protocol !== 'wss:' && !(parsed.protocol === 'ws:' && LOOPBACK.includes(parsed.hostname))) return null
     parsed.hash = ''
     return parsed.toString().replace(/\/$/, '')
   } catch {

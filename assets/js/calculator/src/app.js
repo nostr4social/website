@@ -7,14 +7,20 @@
 //
 // A calculation never waits on the network. Saving the inputs as a Nostr
 // form response (submit.js) happens after the results are on screen, and a
-// link that opens results submits nothing.
+// link that opens results submits nothing. Nobody has to sign in: a one-time
+// key signs the response unless the visitor signed in first.
 
 import { $ } from '../../shared/src/dom.js'
-import { config, readJson, t } from '../../shared/src/config.js'
+import { config, dev, fmt, readJson, t } from '../../shared/src/config.js'
+import { createGuestSigner, detectNip07 } from '../../shared/src/signers.js'
+import { createSignIn } from '../../shared/src/signin.js'
+import { loadRecipients, pickRecipient } from '../../shared/src/recipients.js'
 import { calculate } from './model.js'
 import { decode, encode } from './codec.js'
 import { InputError } from './inputs.js'
 import { markInvalid, readContact, readInputs, writeDefaults, writeInputs } from './form.js'
+import { compact } from './format.js'
+import { composeLead, prepareForm, sendLead, submitResponse } from './submit.js'
 import {
   markChanged,
   readOverrides,
@@ -29,13 +35,17 @@ import {
 
 const assumptions = readJson('page-assumptions')
 const fields = readJson('page-fields')
+const form = prepareForm(readJson('page-form'), readJson('page-recipe'))
 
 let current = null // the last result shown
 let test = null // the hidden test marker, from the URL only
+let openedAt = Date.now()
+let sends = [] // timestamps, for the per-tab rate limit
+let signIn = null
 
 // ── calculating ──────────────────────────────────────────────────────────────
 
-function run(raw, overrides, { submit = false, focus = true } = {}) {
+function run(raw, overrides, { focus = true } = {}) {
   let result
   try {
     result = calculate(raw, assumptions, overrides)
@@ -54,42 +64,104 @@ function run(raw, overrides, { submit = false, focus = true } = {}) {
   renderResults(result)
 
   const query = encode(result.inputs, result.overrides, result.version)
-  const url = `${location.origin}${location.pathname}?${query}`
-  setLink(url)
+  result.link = `${location.origin}${location.pathname}?${query}`
+  setLink(result.link)
   history.replaceState(null, '', `?${query}${test ? `&test=${encodeURIComponent(test)}` : ''}`)
 
   const contact = $('#r-contact')
-  if (contact) {
-    const p = new URLSearchParams({ subject: t('contact_subject'), calc: query })
-    contact.href = `${config.contact_href}?${p.toString()}`
-  }
+  if (contact) contact.href = `${config.contact_href}?${new URLSearchParams({ subject: t('contact_subject'), calc: query })}`
 
   showResults(true, { focus })
-  if (submit) submitResponse(result)
   return result
 }
 
-/** Saving the inputs as a kind 1069 response: wired in the next step. */
-function submitResponse(result) {
-  if (!config.form) return
+// ── saving ───────────────────────────────────────────────────────────────────
+
+/** Reasons not to save. The results show regardless; only the submission is withheld. */
+function withhold(formEl) {
+  if (formEl.elements.website.value) return 'honeypot'
+  if (Date.now() - openedAt < config.limits.min_seconds * 1000) return 'too_fast'
+  const cutoff = Date.now() - config.limits.rate.window
+  sends = sends.filter((at) => at > cutoff)
+  if (sends.length >= config.limits.rate.max) return 'rate_limited'
+  return null
+}
+
+function valuesFor(result, contact) {
+  const T = result.typical.totals
+  return {
+    ...result.inputs,
+    result_custodial: Math.round(T.custodial),
+    result_noncustodial: Math.round(T.noncustodial),
+    link: result.link,
+    overrides: Object.keys(result.overrides).length ? JSON.stringify(result.overrides) : '',
+    version: String(result.version),
+    ...contact,
+    test: test || '',
+  }
+}
+
+async function save(result, contact) {
+  if (!form) return
+  const own = signIn?.current()
+  const signer = own || createGuestSigner()
+  const pow = dev.noPow ? 0 : own ? config.pow.signed : config.pow.response
   setStatus(t('status.saving'))
-  void result
+  try {
+    const { ok, relays } = await submitResponse(form, {
+      signer,
+      values: valuesFor(result, contact),
+      pow,
+      onProgress: ({ tries }) => setStatus(fmt(t('status.mining'), { hashes: tries })),
+    })
+    sends.push(Date.now())
+    setStatus(ok ? fmt(t('status.saved'), { ok, total: relays.length }) : t('status.failed'))
+    if (ok && Object.keys(contact).length) await tell(signer, result, contact)
+  } catch (err) {
+    console.warn('calculator: could not save', err)
+    setStatus(t('status.failed'))
+  } finally {
+    if (!own) signer.close()
+  }
+}
+
+/** A lead goes to hello's inbox as an encrypted message, in addition to the response. */
+async function tell(signer, result, contact) {
+  let recipient
+  try {
+    recipient = pickRecipient(await loadRecipients(), config.lead_recipient)
+  } catch {
+    return
+  }
+  if (!recipient) return
+  const content = composeLead({
+    inputs: result.inputs,
+    result: { custodial: compact(result.typical.totals.custodial), noncustodial: compact(result.typical.totals.noncustodial) },
+    link: result.link,
+    contact,
+    fieldLabels: fields,
+  })
+  try {
+    await sendLead({ signer, recipient, subject: t('compose.subject'), content, pow: dev.noPow ? 0 : signer.kind === 'guest' ? config.pow.anonymous : config.pow.signed })
+  } catch (err) {
+    console.warn('calculator: could not notify', err)
+  }
 }
 
 function onSubmit(event) {
   event.preventDefault()
-  const form = event.currentTarget
-  const raw = readInputs(form)
-  // Contact details are read here and only ever travel with the submission.
-  readContact(form)
-  run(raw, readOverrides(), { submit: true })
+  const formEl = event.currentTarget
+  const result = run(readInputs(formEl), readOverrides())
+  if (!result) return
+  if (withhold(formEl)) return
+  void save(result, readContact(formEl))
 }
 
 /** An assumption edit recomputes what is on screen; it never submits. */
 function onAssumptionChange() {
   markChanged()
   if (!current) return
-  run(readInputs($('#calc-form')), readOverrides(), { submit: false, focus: false })
+  run(readInputs($('#calc-form')), readOverrides(), { focus: false })
 }
 
 function onReset() {
@@ -124,21 +196,31 @@ function wire() {
   wireToggles()
 }
 
-function boot() {
-  const form = $('#calc-form')
-  if (!form) return
+async function boot() {
+  const formEl = $('#calc-form')
+  if (!formEl) return
   wire()
-  writeDefaults(form)
+  writeDefaults(formEl)
 
   const opened = decode(location.search)
   test = opened.test
   if (opened.present) {
-    writeInputs(form, opened.inputs)
+    writeInputs(formEl, opened.inputs)
     writeOverrides(opened.overrides)
-    const result = run(opened.inputs, opened.overrides, { submit: false, focus: false })
+    const result = run(opened.inputs, opened.overrides, { focus: false })
     if (result) setStatus(t('status.shared'))
   }
+
+  if (form) {
+    const row = $('#sign-row')
+    if (row) row.hidden = false
+    signIn = createSignIn()
+    signIn.wire()
+    signIn.markExtension(await detectNip07())
+  }
   document.documentElement.dataset.calculator = 'ready'
+  document.documentElement.dataset.calculatorForm = form ? 'ready' : 'none'
+  if (dev.local) console.info('calculator: localhost overrides active', dev)
 }
 
 boot()

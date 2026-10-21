@@ -1,0 +1,28 @@
+# Machine configuration every scripted page shares: where to look things up,
+# where to fall back to, which remote signers to offer, and how long to wait.
+# A page's own `config` block overrides any key here.
+relays:
+  discovery:
+    - wss://purplepag.es
+    - wss://relay.nostr.band
+    - wss://relay.damus.io
+    - wss://nos.lol
+  fallback_dm:
+    - wss://relay.damus.io
+    - wss://nos.lol
+    - wss://relay.primal.net
+    - wss://relay.0xchat.com
+  nip46:
+    - wss://relay.nsec.app
+    - wss://relay.damus.io
+timeouts:
+  discovery: 4000
+  profile: 3000
+  publish: 8000
+  nip46_connect: 120000
+nip46:
+  # A curated list, not NIP-89 discovery: discovery would mean trusting
+  # whatever an unknown relay advertises, on a page about not doing that.
+  signers:
+    - label: Open in nsec.app
+      nostrconnect_url: https://nsec.app/connect?uri={uri}

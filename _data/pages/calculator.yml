@@ -161,6 +161,13 @@ sections:
           Results appear below at once. Your inputs are also saved as an
           encrypted Nostr form response, so we can see how the calculator is
           used; nothing readable leaves this tab.
+      sign:
+        guest_note: >-
+          Saved with a one-time key, generated in this browser and discarded
+          after use.
+        bunker: Sign with Remote Bunker
+        extension: Sign with Browser Extension
+        switch: Switch
 
     # ── the results ──────────────────────────────────────────────────────────
     results:
@@ -323,9 +330,20 @@ sections:
         money_transmitter: Money-transmitter avoidance
       status:
         saving: Saving your inputs as a Nostr form response
+        mining: "Proving work on the response · {hashes} hashes"
         saved: "Saved as a Nostr form response · {ok} of {total} relays"
         failed: Could not reach a relay to save your inputs. Your results are unaffected.
         shared: Opened from a results link. Nothing was submitted.
+      # The message hello receives when a submission carries contact details.
+      compose:
+        header: "via nostr4.social/calculator:"
+        subject: Cost of custody lead
+        results: "Custodial {custodial} a year; on Nostr {noncustodial}."
+        link: "Results: {link}"
+        name: Name
+        company: Company
+        email: Email
+        npub: Nostr
       errors:
         required: "{field} is required."
         invalid: "{field} has a value this page does not recognise."
@@ -340,9 +358,23 @@ sections:
 
     # ── machine configuration ────────────────────────────────────────────────
     config:
+      client:
+        name: nostr4.social
       contact_href: /contact/
-      # Filled in when the form exists on formstr.app (see tools/forms/).
-      form: null
+      # The name in nostr.json that a lead is sent to.
+      lead_recipient: hello
+      # NIP-13 proof of work, in leading zero bits: on the kind 1069 response
+      # from a one-time key, on the gift wrap of a lead message from one, and
+      # from a signed-in visitor (who skips both). Each bit doubles the work.
+      pow:
+        response: 20
+        anonymous: 18
+        signed: 0
+      limits:
+        min_seconds: 3
+        rate:
+          window: 600000
+          max: 3
 
   - type: callout
     band: raised

@@ -1,0 +1,44 @@
+# The calculator's form, question by question, as it must be built on
+# formstr.app. The site finds each question in the published template by this
+# label, so a label here and the label in the builder must match exactly
+# (case and tags aside). `npm run check:form` confirms they do.
+#
+# Keys are what the page sends: the inputs, then what it computed, then the
+# optional contact details, then the hidden test marker.
+
+fields:
+  mau: { label: Monthly active users }
+  posts: { label: Posts or messages per month }
+  mb: { label: Average storage per user (MB) }
+  eng: { label: Backend or infra engineers }
+  hrs: { label: Engineer hours per week on custody work }
+  hrs_accounts: { label: "Engineer hours per week: accounts" }
+  hrs_graph: { label: "Engineer hours per week: social graph" }
+  hrs_storage: { label: "Engineer hours per week: storage" }
+  ts:
+    label: Trust and safety function
+    options: { none: None, inhouse: In-house, outsourced: Outsourced }
+  ts_n: { label: Trust and safety people or seats }
+  pay:
+    label: In-app payments
+    options: { "no": "No", "yes": "Yes" }
+  rev: { label: Gross monthly in-app revenue (USD) }
+  stores:
+    label: App stores
+    options: { apple: Apple App Store, google: Google Play, web: Web or direct }
+  jur:
+    label: Primary jurisdictions
+    options: { eu: EU, uk: UK, us: US, other: Other }
+  nostr:
+    label: Already on Nostr
+    options: { accounts: Accounts, graph: Social graph, storage: Storage, moderation: Moderation, payments: Payments }
+  result_custodial: { label: "Annual custodial cost (USD, typical)" }
+  result_noncustodial: { label: "Annual non-custodial cost (USD, typical)" }
+  link: { label: Results link }
+  overrides: { label: Assumption overrides (JSON) }
+  version: { label: Assumptions version }
+  name: { label: Name }
+  company: { label: Company }
+  email: { label: Email }
+  npub: { label: Nostr npub }
+  test: { label: test }

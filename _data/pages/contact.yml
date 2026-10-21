@@ -112,22 +112,6 @@ sections:
           active: Waiting.
           done: In the recipient's inbox. The reply goes to the address you gave.
 
-    # The modal the "Sign with Remote Bunker" link opens.
-    bunker:
-      title: Sign with Remote Bunker
-      scan: >-
-        Scan this with your signer, or open it directly. The page asks for two
-        permissions only: seal one message and sign it.
-      copy: Copy URI
-      paste_title: Or paste a bunker URI
-      paste_label: bunker:// URI from your signer
-      paste_note: >-
-        A name@domain identifier is not accepted here, because resolving it
-        would mean this page making a request to someone else's server.
-      connect: Connect
-      cancel: Cancel
-      waiting: Waiting for your signer...
-
     result:
       details: Details
       again: Send another
@@ -210,19 +194,11 @@ sections:
           hello: Nostr4
         self_copy: A copy to you
         from_link: from the link you followed
+      # The sign-in strings are shared (_data/blocks/signin_strings.yml); these
+      # two say what signing in means on this page in particular.
       identity:
         nip07: Signed in with your extension. A copy lands in your own DMs.
         nip46: Signed in with your remote signer. A copy lands in your own DMs.
-        unnamed: Signed in
-      status:
-        connecting_nip07: Waiting for your extension to approve...
-        connecting_nip46: Connecting to your signer...
-      bunker:
-        qr_alt: Connection URI as a QR code
-        copied: Copied.
-        waiting: Waiting for your signer...
-        auth_note: Your signer needs you to approve this in a browser tab.
-        auth_open: Open the approval page
       # The plaintext of the message, as the recipient's client shows it. The
       # first line is what an inbox list displays, so it names the source.
       compose:
@@ -282,28 +258,6 @@ sections:
         subject_long: The subject is too long.
         recipient_missing: Choose who the message goes to.
         rate_limited: That is three messages in ten minutes. Give it a rest.
-        nip07_missing: >-
-          No browser extension was found. Install Alby, nos2x or Amber and
-          reload, or sign with a remote bunker.
-        nip07_no_nip44: >-
-          Your extension does not support NIP-44 encryption, which this form
-          requires. Update it, or sign with a remote bunker.
-        nip07_refused: Your extension declined to share a public key.
-        nip07_bad_pubkey: Your extension returned something that is not a public key.
-        bunker_empty: Paste a bunker URI first.
-        bunker_bad_scheme: That is not a bunker URI. It should start with bunker://
-        bunker_is_nip05: >-
-          A name@domain identifier would mean this page contacting someone
-          else's server, which it never does. Paste the bunker:// URI instead.
-        bunker_unparseable: That URI could not be read.
-        bunker_bad_pubkey: That bunker URI has no valid public key in it.
-        bunker_no_relay: That bunker URI names no relay, so there is nowhere to reach the signer.
-        nip46_connect_failed: >-
-          Could not reach your remote signer. Check that it is running and that
-          it approved the connection.
-        nip46_no_pubkey: Your remote signer connected but would not share a public key.
-        nip46_bad_pubkey: Your remote signer returned something that is not a public key.
-        guest_closed: That one-time key has already been used. Reload to start again.
         recipients_unavailable: >-
           Could not load the list of people this form sends to. Email works.
         recipients_malformed: The recipient list is not readable. Email works.
@@ -314,20 +268,6 @@ sections:
     config:
       client:
         name: nostr4.social
-      relays:
-        discovery:
-          - wss://purplepag.es
-          - wss://relay.nostr.band
-          - wss://relay.damus.io
-          - wss://nos.lol
-        fallback_dm:
-          - wss://relay.damus.io
-          - wss://nos.lol
-          - wss://relay.primal.net
-          - wss://relay.0xchat.com
-        nip46:
-          - wss://relay.nsec.app
-          - wss://relay.damus.io
       # NIP-13 proof of work on the gift wrap, in leading zero bits. A browser
       # hashes a wrap-sized preimage about 120k times a second per core, so 18
       # bits (260k hashes on average) is a second or two on a desktop and a few
@@ -337,11 +277,6 @@ sections:
       pow:
         anonymous: 18
         signed: 0
-      timeouts:
-        discovery: 4000
-        profile: 3000
-        publish: 8000
-        nip46_connect: 120000
       limits:
         message:
           min: 20
@@ -352,9 +287,3 @@ sections:
         rate:
           window: 600000
           max: 3
-      nip46:
-        # A curated list, not NIP-89 discovery: discovery would mean trusting
-        # whatever an unknown relay advertises, on a page about not doing that.
-        signers:
-          - label: Open in nsec.app
-            nostrconnect_url: https://nsec.app/connect?uri={uri}

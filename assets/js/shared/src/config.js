@@ -10,8 +10,22 @@ export function readJson(id) {
   return JSON.parse(node.textContent)
 }
 
-export const strings = readJson('page-strings')
-export const config = readJson('page-config')
+function readOptional(id) {
+  return document.getElementById(id) ? readJson(id) : {}
+}
+
+function merge(base, over) {
+  const out = { ...base }
+  for (const [k, v] of Object.entries(over || {})) {
+    out[k] = v && typeof v === 'object' && !Array.isArray(v) && base?.[k] && typeof base[k] === 'object' ? merge(base[k], v) : v
+  }
+  return out
+}
+
+// Two more blocks carry what every scripted page shares (`page-shared-strings`,
+// `page-shared-config`); the page's own blocks win where both have a key.
+export const strings = merge(readOptional('page-shared-strings'), readJson('page-strings'))
+export const config = merge(readOptional('page-shared-config'), readJson('page-config'))
 
 /** The page's query string. `?to=<name>` and `?subject=` work everywhere. */
 export const query = new URLSearchParams(location.search)

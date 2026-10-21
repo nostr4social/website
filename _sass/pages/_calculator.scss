@@ -176,6 +176,16 @@
   max-width: 36em;
 }
 
+// The sign row: the one-time-key line and the two doors, or the identity chip.
+.signrow {
+  border-top: 1px solid var(--line);
+  padding-top: var(--s-5);
+}
+
+.signrow .sendrow__alt {
+  gap: var(--s-3);
+}
+
 // ── the results ──────────────────────────────────────────────────────────────
 
 .results {
