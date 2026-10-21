@@ -46,6 +46,7 @@ Find the page under `_data/pages/`:
 | `/services/` | `_data/pages/services.yml` |
 | `/about/` | `_data/pages/about.yml` |
 | `/contact/` | `_data/pages/contact.yml` |
+| `/calculator/` | `_data/pages/calculator.yml` |
 | the 404 page | `_data/pages/404.yml` |
 
 Edit the text, save, and the site rebuilds. Copy that appears on more than one
@@ -59,6 +60,7 @@ changed once:
 | `services_band.yml` | `/`, `/nostr/`, `/trustr/` | Consultation · Research · Development |
 | `cast.yml` | `/` | the hero diagram: the user and four kinds of app |
 | `trustr_cast.yml` | `/trustr/` | the hero diagram: TrustR.ing and three customers |
+| `signin_strings.yml`, `bunker_modal.yml`, `nostr_config.yml` | `/contact/`, `/calculator/` | the sign-in copy, the remote-signer modal, and the relay and signer configuration every scripted page shares |
 
 Site-wide words — the tagline, the copyright line, the nav labels, the footer
 columns, the accessibility strings — are in `_data/site.yml`, `_data/nav.yml`
@@ -403,6 +405,12 @@ items:
 The encrypted form. Its copy is large and its own; see
 [The contact form](#the-contact-form).
 
+### The calculator (used by `/calculator/`)
+
+**`calculator`** — the Cost of Custody Calculator; see
+[The calculator](#the-calculator). Owns its layout: the form, the results and
+the assumptions panel all come from its section in `_data/pages/calculator.yml`.
+
 ### The company (used by `/about/`)
 
 **`story`** — prose on the left, the milestones on the right; on a phone the
@@ -645,6 +653,39 @@ The built files are committed, so the site deploys without Node. Their
 hashes are in the page as subresource integrity, which is why a rebuild is
 required after any change — an unbuilt edit simply fails to load.
 
+## The calculator
+
+`/calculator/` is the second page that runs JavaScript. Its words are in
+`_data/pages/calculator.yml`; its numbers are in `_data/assumptions/v1.json`,
+which is served unchanged at `/calculator/assumptions.v1.json` and explained
+in `calculator/assumptions.v1.md`, written from the same file by
+`npm run build:assumptions` (`check:assumptions` fails CI when it is stale).
+Every assumption has a typical, low and high value, a source and a
+confidence grade; the page shows typical and the band, and lets the reader
+change any value. The model is one pure module,
+`assets/js/calculator/src/model.js`, tested by `npm run test:model`.
+
+Results are a link: the inputs and any changed assumptions as query
+parameters, never anything about the person. A calculation is also saved as
+a Nostr form response (NIP-101 as formstr.app implements it): a kind 1069
+event, encrypted to the form's key, signed by a one-time key with proof of
+work, published to the relays the form names. A submission with contact
+details also sends `hello` a NIP-17 message.
+
+The form is built by hand in formstr.app to `_data/forms/recipe.yml`. Then:
+
+```sh
+npm run snapshot:form -- naddr1...   # writes _data/forms/calculator.yml from the live template
+npm run check:form                   # fails when the live template no longer matches the snapshot
+FORM_SECRET=nsec1... npm run responses -- --since 7d   # read responses back, verified and decrypted
+npm run e2e:form                     # the pipeline offline, against `nak serve`
+npm run e2e:calculator               # the page in headless Chrome; saves through a fixture form when no snapshot exists
+```
+
+Until a snapshot is committed the page submits nothing and says nothing
+about it. A `?test=…` on the page marks a submission as a test so it can be
+filtered out.
+
 ## Building and checking
 
 Ruby 3.2 and the bundler in `/home/manime/gems/bin`:
@@ -673,7 +714,10 @@ Chrome and need no extra dependencies):
 npm run audit:responsive    # every page × 1440/1200/900/600/479/390/360: no horizontal scroll
 npm run audit:a11y          # alt text, one h1, no skipped levels, labelled fields, named controls
 npm run e2e:ui              # the contact form end to end, against an unreachable relay
+npm run e2e:calculator      # the calculator end to end, through a fixture form on a local relay
 npm run e2e:contact         # the NIP-17 pipeline offline; add a wss:// URL to publish for real
+npm run e2e:form            # the form-response pipeline offline, against `nak serve`
+npm run test:model          # the cost model and the results-link codec
 npm run check:inboxes       # read-only: does each name in nostr.json publish a kind 10050 inbox list?
 npm run fetch:profiles      # snapshot each name's kind 0 into _data/profiles.yml + assets/images/people/
 ```
@@ -732,9 +776,12 @@ assets/
   images/             the mark; og/default.png
   js/shared/          src/ is the code every scripted page shares; pow-worker.js is its build
   js/contact/         src/ is the page's own flow; contact.js is the build
+  js/calculator/      src/ is the model, the codec and the page flow; calculator.js is the build
   js/vendor/          nostr-tools and uqr, pinned and hashed
 tools/
   contact-bundle/     build, check, e2e, and the CDP browser driver
+  calculator/         the assumptions explainer, the model tests, the page's browser test, the research
+  forms/              snapshot, check and read the Nostr form; the offline pipeline test
   audit/              responsive and a11y audits
 scripts/check.sh      the build gate
 .well-known/nostr.json  NIP-05 — also who the contact form sends to
