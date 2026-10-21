@@ -1,0 +1,360 @@
+# The calculator: the /nostr/ argument with the reader's own numbers in it.
+# Six cost lines, two columns, a range on every figure, and every assumption
+# on the page where it can be changed. The form is a Nostr form: a submission
+# is a kind 1069 event encrypted to the form's key, and the page says so.
+#
+# Rules for this page:
+# - Overclaiming is the risk. Typical is the headline; the range is the claim.
+# - The non-custodial column is never zero where an obligation remains.
+# - Nothing about the person is ever in the results link.
+
+meta:
+  title: Cost of Custody Calculator
+  description: >-
+    Estimate what holding your users' accounts and data costs you a year, in
+    six lines, and what each line looks like after a Nostr integration. Every
+    assumption is sourced and editable.
+
+sections:
+  - type: hero
+    glow: left
+    tight: true
+    head:
+      eyebrow: The business case, in numbers
+      eyebrow_tone: gold
+      title: Cost of Custody Calculator
+      lede: >-
+        Custody is a cost center. Put in what you already know about your app
+        and see what holding your users costs you a year, line by line, and
+        what remains of each line once users hold themselves. Every number
+        here comes with its source, and every one can be changed.
+
+  - type: calculator
+    id: calculator
+
+    # ── the form ─────────────────────────────────────────────────────────────
+    form:
+      title: Your numbers
+      lede: >-
+        Eight things a founder knows offhand. Blank optional fields use the
+        defaults listed under Assumptions.
+      groups:
+        - id: users
+          title: Your users
+          fields: [mau, posts, mb]
+        - id: team
+          title: Your team
+          fields: [eng, hrs]
+          # The per-area split, folded away unless wanted.
+          more:
+            label: Split those hours by area instead
+            fields: [hrs_accounts, hrs_graph, hrs_storage]
+        - id: moderation
+          title: Trust and safety
+          fields: [ts, ts_n]
+        - id: payments
+          title: Payments
+          fields: [pay, rev, stores]
+        - id: jurisdictions
+          title: Where your users are
+          fields: [jur]
+        - id: nostr
+          title: Already on Nostr
+          fields: [nostr]
+      fields:
+        mau:
+          label: Monthly active users
+          placeholder: "50000"
+        posts:
+          label: Posts or messages per month
+          placeholder: "1000000"
+          note: Leave blank for twenty per user.
+        mb:
+          label: Average storage per user
+          unit: MB
+          placeholder: "50"
+          note: Photos, video, attachments. Leave blank for 50 MB.
+        eng:
+          label: Backend or infra engineers
+          placeholder: "3"
+        hrs:
+          label: Engineer hours per week on accounts, graph and storage
+          placeholder: optional
+          note: >-
+            Leave blank and the model attributes a share of each engineer's
+            time; see Assumptions.
+        hrs_accounts:
+          label: Hours per week on accounts and personal data
+          placeholder: optional
+        hrs_graph:
+          label: Hours per week on the social graph and feeds
+          placeholder: optional
+        hrs_storage:
+          label: Hours per week on storage and serving
+          placeholder: optional
+        ts:
+          label: Trust and safety function
+          options:
+            none: None
+            inhouse: In-house
+            outsourced: Outsourced
+          note: >-
+            With none, the moderation line shows what the benchmark says a
+            function for your size costs.
+        ts_n:
+          label: People or seats
+          placeholder: "2"
+        pay:
+          label: In-app payments
+          options:
+            "no": "No"
+            "yes": "Yes"
+        rev:
+          label: Gross monthly in-app revenue
+          unit: USD
+          placeholder: "20000"
+        stores:
+          label: Where you sell
+          options:
+            apple: Apple App Store
+            google: Google Play
+            web: Web or direct
+          note: Revenue is split evenly across what you tick.
+        jur:
+          label: Primary jurisdictions
+          options:
+            eu: EU
+            uk: UK
+            us: US
+            other: Other
+        nostr:
+          label: Parts of your app that are already non-custodial on Nostr
+          options:
+            accounts: Accounts
+            graph: Social graph
+            storage: Storage
+            moderation: Moderation
+            payments: Payments
+          note: A ticked line shows its non-custodial cost in both columns.
+      contact:
+        title: Who is asking
+        note: >-
+          Optional. If you leave your details, we can follow up on your
+          numbers. They travel encrypted and never appear in the results link.
+        fields:
+          name:
+            label: Name
+            placeholder: optional
+          company:
+            label: Company
+            placeholder: optional
+          email:
+            label: Email
+            placeholder: optional
+          npub:
+            label: Nostr npub
+            placeholder: optional
+      honeypot_label: Leave this field empty
+      submit:
+        label: Calculate
+        note: >-
+          Results appear below at once. Your inputs are also saved as an
+          encrypted Nostr form response, so we can see how the calculator is
+          used; nothing readable leaves this tab.
+
+    # ── the results ──────────────────────────────────────────────────────────
+    results:
+      eyebrow: Your estimate
+      title: What custody costs you
+      hero:
+        label: Custodial cost per year, typical
+      tiles:
+        noncustodial:
+          label: On Nostr, per year
+        per_mau:
+          label: Per active user, per year
+        saving:
+          label: Released per year
+      legend:
+        custodial: Custodial today
+        noncustodial: On Nostr
+      columns:
+        line: Cost line
+        custodial: Custodial today
+        noncustodial: On Nostr
+        bars: Compared
+        remains: What remains
+      lines:
+        - id: accounts
+          icon: lock-closed
+          title: Accounts & personal data
+          remains: >-
+            Age checks where the law demands them, and support for users who
+            manage their own keys.
+        - id: graph
+          icon: hub
+          title: Social graph & feeds
+          remains: >-
+            A client that assembles feeds from relays, and a ranking service
+            you run or choose.
+        - id: storage
+          icon: storage
+          title: Compute & storage
+          remains: >-
+            A relay or two for reliability, media you choose to host, and a
+            thin cache.
+        - id: compliance
+          icon: doc
+          title: Compliance & liability
+          remains: >-
+            Platform-content duties under the DSA and the Online Safety Act
+            stay, and a privacy program for whatever you still retain.
+        - id: moderation
+          icon: gavel
+          title: Moderation
+          remains: >-
+            Illegal-content reports, app-store policy, and appeals on what your
+            app itself hosts. Ranking and discovery move to web of trust.
+        - id: payments
+          icon: card
+          title: Payments
+          remains: >-
+            Store rules still apply to what is sold inside the app. Your own
+            revenue can move to peer-to-peer rails at about 1% instead of
+            3% plus 15 to 30%.
+      already: Already on Nostr
+      implied: Benchmark-implied; no function was given
+      no_payments: No in-app payments
+      actions:
+        share:
+          label: Share Results
+          note: >-
+            The link carries your inputs and any assumptions you changed.
+            Nothing about you.
+        contact:
+          label: Sanity-check this number with us
+        edit:
+          label: Edit inputs
+      link_label: Results link
+
+    # ── the assumptions panel ────────────────────────────────────────────────
+    assumptions:
+      title: Assumptions
+      summary: "Every number, its source, and a field to change it"
+      intro: >-
+        Typical is what the results show. Low and high bound the range beside
+        every figure, and low always means the smaller cost. Change a typical
+        value and the results update; the change travels in the results link.
+      columns:
+        what: What
+        typical: Typical
+        low: Low
+        high: High
+        unit: Unit
+        confidence: Confidence
+        source: Source
+      confidence:
+        high: sourced
+        medium: derived
+        low: weak
+        unsourced: unsourced
+      lines:
+        shared: Used by more than one line
+        accounts: Accounts & personal data
+        graph: Social graph & feeds
+        storage: Compute & storage
+        compliance: Compliance & liability
+        moderation: Moderation
+        payments: Payments
+      reset: Reset to typical
+      files_label: The files behind this
+      files:
+        - label: assumptions.v1.json
+          href: /calculator/assumptions.v1.json
+        - label: assumptions.v1.md
+          href: /calculator/assumptions.v1.md
+      noscript: >-
+        The calculator needs JavaScript to run. The assumptions it uses are
+        listed here, with sources; for an estimate by hand, contact us.
+
+    # ── strings the script needs ─────────────────────────────────────────────
+    strings:
+      range: "Range {low} to {high}"
+      range_short: "{low} to {high}"
+      per_mau_pair: "{custodial} today, {noncustodial} on Nostr"
+      version: "Assumptions version {version}"
+      share_done: Link copied
+      contact_subject: Cost of custody estimate
+      changed: changed
+      details:
+        show: Show the parts
+        hide: Hide the parts
+        tier_small: small-business tier
+        tier_standard: standard tier
+        us_small: below the CCPA threshold
+        us_large: at or above the CCPA threshold
+        people: "{n} people"
+        rate: "{rate} applied"
+        gb: "{gb} GB"
+      parts:
+        auth: Authentication service
+        resets: Password resets
+        verify: Identity and age checks
+        engineering: Engineering time
+        key_support: Supporting self-managed keys
+        database: Graph and metadata database
+        feed_compute: Feed and recommendation compute
+        ranking: Ranking provider
+        blob: Media storage
+        egress: Egress
+        serving: Serving compute
+        relay: A relay of your own
+        privacy_programs: Privacy programs
+        content_law: Platform-content law
+        dsar: Access requests
+        insurance: Cyber insurance
+        breach: Expected breach loss
+        labour: Review labour
+        appeals: Appeals and escalation
+        tooling: Moderation tooling
+        store_apple: Apple App Store commission
+        store_google: Google Play commission
+        processor: Payment processing
+        money_transmitter: Money-transmitter avoidance
+      status:
+        saving: Saving your inputs as a Nostr form response
+        saved: "Saved as a Nostr form response · {ok} of {total} relays"
+        failed: Could not reach a relay to save your inputs. Your results are unaffected.
+        shared: Opened from a results link. Nothing was submitted.
+      errors:
+        required: "{field} is required."
+        invalid: "{field} has a value this page does not recognise."
+        not_a_number: "{field} must be a number."
+        not_an_integer: "{field} must be a whole number."
+        too_small: "{field} is too small."
+        too_large: "{field} is larger than this model handles."
+        unknown: Something went wrong. Reload and try again.
+      money:
+        year: per year
+        per_mau: per active user per year
+
+    # ── machine configuration ────────────────────────────────────────────────
+    config:
+      contact_href: /contact/
+      # Filled in when the form exists on formstr.app (see tools/forms/).
+      form: null
+
+  - type: callout
+    band: raised
+    head:
+      title: This is the argument, with your numbers in it.
+      lede: >-
+        The six lines come from the business case for Nostr. Read why each
+        one exists, and what the protocol hands back, then tell us where our
+        estimate is wrong.
+    actions:
+      - label: Read Nostr 4 Social Apps
+        href: /nostr/
+      - label: Book a Free Consult
+        href: /contact/?subject=Free+consult
+        style: primary

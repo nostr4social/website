@@ -35,9 +35,10 @@ csp:
   default: >-
     default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self';
     manifest-src 'self'; base-uri 'none'; form-action 'none'
-  # /contact/ loads its own module and opens relay sockets the visitor's own
-  # data chooses, so `connect-src` cannot be an allow-list. Said plainly on the page.
-  contact: >-
+  # A page that runs a script of its own (/contact/, /calculator/) and opens
+  # relay sockets the visitor's own data chooses, so `connect-src` cannot be
+  # an allow-list. Said plainly on each page.
+  scripted: >-
     default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self';
     script-src 'self'; connect-src 'self' wss:; manifest-src 'self';
     base-uri 'none'; form-action 'none'

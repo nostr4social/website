@@ -3,7 +3,8 @@
 // Three groups: `shared` (the vendored libraries and the proof-of-work worker,
 // used by every page that runs a script), then one group per page that has a
 // bundle of its own. A page's include reads its paths and hashes from
-// _data/assets.yml under its group name.
+// _data/assets.yml under its group name. A target's key must be unique here;
+// `name` is what it is called inside its group (the page bundles are all `app`).
 //
 //   npm run build:contact
 //
@@ -50,6 +51,14 @@ export const targets = {
     // they can be cached, hashed and reviewed on their own.
     external: ['/assets/js/vendor/*'],
   },
+  calculator: {
+    group: 'calculator',
+    name: 'app',
+    entry: 'assets/js/calculator/src/app.js',
+    out: 'assets/js/calculator/calculator.js',
+    minify: false,
+    external: ['/assets/js/vendor/*'],
+  },
   // The proof-of-work miner runs in a Web Worker, so it is its own file and
   // carries its own copy of sha256: a worker cannot share the page's modules.
   // No SRI attribute exists for workers; same-origin CSP and the byte-compare
@@ -83,7 +92,7 @@ export async function buildAll({ write = true } = {}) {
     const bytes = write
       ? await readFile(resolve(root, t.out))
       : Buffer.from(result.outputFiles[0].contents)
-    out[name] = { group: t.group, path: '/' + t.out, integrity: sri(bytes), size: bytes.length, bytes }
+    out[name] = { group: t.group, name: t.name || name, path: '/' + t.out, integrity: sri(bytes), size: bytes.length, bytes }
   }
   return out
 }
@@ -100,7 +109,7 @@ function toYaml(assets) {
     lines.push(`${group}:`)
     for (const [name, a] of Object.entries(assets)) {
       if (a.group !== group) continue
-      lines.push(`  ${name}:`)
+      lines.push(`  ${a.name || name}:`)
       lines.push(`    path: ${a.path}`)
       lines.push(`    integrity: "${a.integrity}"`)
     }

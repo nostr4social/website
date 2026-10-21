@@ -1,0 +1,174 @@
+@use "../breakpoints" as *;
+
+// Form controls, shared by every page that has a form: the contact composer
+// and the calculator. A field is a label over its input with a quiet note
+// under it; a select is the native control, dressed; the trap is the
+// honeypot. The small pieces at the end (wide and ghost buttons, the link
+// that is a button, the spinner, the progress pill) are the same on every
+// form too.
+
+// ── fields ───────────────────────────────────────────────────────────────────
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  position: relative;
+}
+
+.field__label {
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  font-weight: var(--fw-ui);
+}
+
+.field__input {
+  background: var(--bg-0);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-ui);
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+  line-height: var(--lh-body);
+  padding: var(--s-3) var(--s-4);
+  width: 100%;
+}
+
+.field__input::placeholder {
+  color: var(--ink-3);
+}
+
+.field__input:focus-visible {
+  border-color: var(--purple-lift);
+  outline: none;
+}
+
+.field__input--area {
+  min-height: 11em;
+  resize: vertical;
+}
+
+.field__input--small {
+  font-size: var(--fs-xs);
+  padding: var(--s-2) var(--s-3);
+}
+
+.field__note {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+}
+
+// A native select, dressed. The caret is the site's own glyph, turned.
+.select {
+  display: block;
+  position: relative;
+}
+
+.select__input {
+  appearance: none;
+  cursor: pointer;
+  padding-right: var(--s-9);
+}
+
+.select__input option {
+  background: var(--bg-1);
+  color: var(--ink-0);
+}
+
+.select__caret {
+  color: var(--ink-3);
+  height: 14px;
+  pointer-events: none;
+  position: absolute;
+  right: var(--s-4);
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  width: 14px;
+}
+
+// A phone has no room for "name · name@domain" at full size.
+@include below($bp-phone) {
+  .select__input {
+    font-size: var(--fs-s);
+    padding-right: var(--s-7);
+  }
+}
+
+// The honeypot. Off screen rather than display:none, which a bot would skip.
+.field--trap {
+  height: 1px;
+  left: -9999px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+// ── buttons that act within a form ───────────────────────────────────────────
+
+.btn--wide {
+  width: 100%;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--ink-2);
+}
+
+.btn--ghost:hover {
+  color: var(--ink-0);
+}
+
+.linkbutton {
+  background: none;
+  border: 0;
+  color: var(--purple-lift);
+  cursor: pointer;
+  font-size: inherit;
+  font-weight: var(--fw-ui);
+  padding: 0;
+}
+
+.linkbutton:hover {
+  color: var(--purple-lift-hover);
+}
+
+.spinner {
+  animation: spin 900ms linear infinite;
+  border: 3px solid var(--purple-lift);
+  border-radius: var(--r-pill);
+  border-right-color: transparent;
+  display: inline-block;
+  flex: none;
+  height: 18px;
+  width: 18px;
+}
+
+.spinner--small {
+  border-width: 2px;
+  height: 12px;
+  width: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.progress {
+  align-items: center;
+  background: var(--bg-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-ui);
+  color: var(--ink-0);
+  display: inline-flex;
+  font-size: var(--fs-m);
+  font-weight: var(--fw-ui);
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-5);
+}
+
+.progress__detail {
+  color: var(--ink-3);
+  font-weight: var(--fw-body);
+}

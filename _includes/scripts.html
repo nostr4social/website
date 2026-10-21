@@ -1,5 +1,5 @@
 {%- comment -%}
-Five of the six pages emit nothing here. Only /contact/ names a module.
+Most pages emit nothing here; /contact/ and /calculator/ load their modules from their own includes.
 {%- endcomment -%}
 {%- for script in page.scripts -%}
 <script type="module" src="{{ script | relative_url }}"></script>

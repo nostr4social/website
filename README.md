@@ -498,7 +498,7 @@ home page:
    ---
    ```
 
-   The layout is applied automatically. Add `csp: contact` only if the page
+   The layout is applied automatically. Add `csp: scripted` only if the page
    needs JavaScript (see the contact form); otherwise it gets the strict
    default policy that forbids scripts.
 3. **Reach it.** Add it to `_data/nav.yml` (masthead) and/or `_data/footer.yml`

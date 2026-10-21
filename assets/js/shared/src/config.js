@@ -4,7 +4,7 @@
 // site's, not the script's. Every page that runs a script carries the same two
 // blocks, `page-strings` and `page-config`, so this module serves all of them.
 
-function readJson(id) {
+export function readJson(id) {
   const node = document.getElementById(id)
   if (!node) throw new Error(`missing config block: ${id}`)
   return JSON.parse(node.textContent)

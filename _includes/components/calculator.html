@@ -1,0 +1,260 @@
+{%- comment -%}
+The Cost of Custody Calculator. Every word here comes from
+_data/pages/calculator.yml; every number from _data/assumptions/v<N>.json.
+The script (assets/js/calculator/) fills the slots this markup leaves open
+and never writes copy of its own.
+
+Three parts, top to bottom:
+  form        the inputs, built from `form.groups` and `form.fields`
+  results     hidden until a calculation: a hero figure, three tiles, the
+              six-line table with paired bars, the actions, a status line
+  assumptions a disclosure holding every assumption as an editable row,
+              rendered by Jekyll so it also stands without JavaScript
+
+Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
+{%- endcomment -%}
+{%- assign s = include.section -%}
+{%- assign f = s.form -%}
+{%- assign r = s.results -%}
+{%- assign asm = s.assumptions -%}
+{%- assign data = site.data.assumptions.v1 -%}
+{%- assign shared = site.data.assets.shared -%}
+{%- assign a = site.data.assets.calculator -%}
+<div class="calc" id="calc">
+
+  {%- comment -%} ── the form ───────────────────────────────────────────── {%- endcomment -%}
+  <form class="calc-form" id="calc-form" novalidate>
+    <div class="calc-form__head">
+      <h2 class="calc-form__title">{{ f.title }}</h2>
+      {% include lib/text.html text=f.lede class="calc-form__lede" %}
+    </div>
+
+    {%- for group in f.groups -%}
+    <fieldset class="group" id="group-{{ group.id }}">
+      <legend class="group__legend">{{ group.title }}</legend>
+      <div class="group__fields">
+      {%- for key in group.fields -%}
+        {%- assign field = f.fields[key] -%}
+        {%- if field.options -%}
+          {%- comment -%} a choice group: radios for one answer, checkboxes for several {%- endcomment -%}
+          {%- assign multi = false -%}
+          {%- if key == "stores" or key == "jur" or key == "nostr" %}{% assign multi = true %}{% endif -%}
+          <fieldset class="field field--choices" id="field-{{ key }}">
+            <legend class="field__label">{{ field.label }}</legend>
+            <div class="choices">
+            {%- for opt in field.options -%}
+              <label class="choice">
+                <input type="{% if multi %}checkbox{% else %}radio{% endif %}" name="{{ key }}" value="{{ opt[0] }}" id="f-{{ key }}-{{ opt[0] }}">
+                <span class="choice__label">{{ opt[1] }}</span>
+              </label>
+            {%- endfor -%}
+            </div>
+            {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}
+          </fieldset>
+        {%- else -%}
+          <label class="field" id="field-{{ key }}">
+            <span class="field__label">{{ field.label }}{% if field.unit %} <span class="field__unit">({{ field.unit }})</span>{% endif %}</span>
+            <input class="field__input" id="f-{{ key }}" name="{{ key }}" type="text" inputmode="decimal" autocomplete="off"
+                   placeholder="{{ field.placeholder }}">
+            {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}
+          </label>
+        {%- endif -%}
+      {%- endfor -%}
+      </div>
+      {%- if group.more -%}
+      <details class="group__more">
+        <summary class="group__more-label">{{ group.more.label }}</summary>
+        <div class="group__fields">
+        {%- for key in group.more.fields -%}
+          {%- assign field = f.fields[key] -%}
+          <label class="field" id="field-{{ key }}">
+            <span class="field__label">{{ field.label }}</span>
+            <input class="field__input" id="f-{{ key }}" name="{{ key }}" type="text" inputmode="decimal" autocomplete="off" placeholder="{{ field.placeholder }}">
+          </label>
+        {%- endfor -%}
+        </div>
+      </details>
+      {%- endif -%}
+    </fieldset>
+    {%- endfor -%}
+
+    <fieldset class="group group--contact" id="group-contact">
+      <legend class="group__legend">{{ f.contact.title }}</legend>
+      <p class="group__note">{{ f.contact.note }}</p>
+      <div class="group__fields">
+      {%- for item in f.contact.fields -%}
+        <label class="field" id="field-{{ item[0] }}">
+          <span class="field__label">{{ item[1].label }}</span>
+          <input class="field__input" id="f-{{ item[0] }}" name="{{ item[0] }}" type="text" autocomplete="off" placeholder="{{ item[1].placeholder }}">
+        </label>
+      {%- endfor -%}
+      </div>
+    </fieldset>
+
+    {%- comment -%} Off-screen, not hidden: a bot fills it, a person never sees it. {%- endcomment -%}
+    <label class="field field--trap" aria-hidden="true">
+      <span class="field__label">{{ f.honeypot_label }}</span>
+      <input id="f-website" name="website" type="text" tabindex="-1" autocomplete="off">
+    </label>
+
+    <p class="form-error" id="calc-error" hidden role="alert"></p>
+    <div class="calc-form__submit">
+      <button type="submit" class="btn btn--primary btn--lg" id="calc-submit">{{ f.submit.label }}</button>
+      <p class="calc-form__note">{{ f.submit.note }}</p>
+    </div>
+  </form>
+
+  {%- comment -%} ── the results ────────────────────────────────────────── {%- endcomment -%}
+  <section class="results" id="calc-results" hidden aria-labelledby="results-title">
+    <div class="results__head">
+      <span class="eyebrow eyebrow--gold">{{ r.eyebrow }}</span>
+      <h2 class="results__title" id="results-title" tabindex="-1">{{ r.title }}</h2>
+    </div>
+
+    <div class="figures">
+      <div class="figures__hero">
+        <span class="stat__label">{{ r.hero.label }}</span>
+        <span class="hero-figure" id="r-hero"></span>
+        <span class="stat__range" id="r-hero-range"></span>
+      </div>
+      <div class="figures__tiles">
+        <div class="stat">
+          <span class="stat__label">{{ r.tiles.noncustodial.label }}</span>
+          <span class="stat__value" id="r-nc"></span>
+          <span class="stat__range" id="r-nc-range"></span>
+        </div>
+        <div class="stat">
+          <span class="stat__label">{{ r.tiles.per_mau.label }}</span>
+          <span class="stat__value" id="r-permau"></span>
+          <span class="stat__range" id="r-permau-pair"></span>
+        </div>
+        <div class="stat">
+          <span class="stat__label">{{ r.tiles.saving.label }}</span>
+          <span class="stat__value" id="r-saving"></span>
+          <span class="stat__range" id="r-saving-range"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend" aria-hidden="true">
+      <span class="legend__item"><span class="legend__swatch legend__swatch--c"></span>{{ r.legend.custodial }}</span>
+      <span class="legend__item"><span class="legend__swatch legend__swatch--nc"></span>{{ r.legend.noncustodial }}</span>
+    </div>
+
+    <table class="ledger-table" id="r-table">
+      <thead>
+        <tr>
+          <th scope="col" class="lt-line">{{ r.columns.line }}</th>
+          <th scope="col" class="lt-num">{{ r.columns.custodial }}</th>
+          <th scope="col" class="lt-num">{{ r.columns.noncustodial }}</th>
+          <th scope="col" class="lt-bars">{{ r.columns.bars }}</th>
+          <th scope="col" class="lt-remains">{{ r.columns.remains }}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for line in r.lines -%}
+        <tr class="lt-row" data-line="{{ line.id }}">
+          <th scope="row" class="lt-line"><div class="lt-cell">
+            <span class="lt-title">{% include lib/icon.html name=line.icon class="lt-icon" %}<span>{{ line.title }}</span></span>
+            <span class="lt-flags">
+              <span class="badge badge--live lt-flag lt-flag--already" hidden>{{ r.already }}</span>
+              <span class="badge badge--soon lt-flag lt-flag--implied" hidden>{{ r.implied }}</span>
+              <span class="badge badge--soon lt-flag lt-flag--none" hidden>{{ r.no_payments }}</span>
+            </span>
+            <button type="button" class="linkbutton lt-toggle" aria-expanded="false" aria-controls="parts-{{ line.id }}" data-show="{{ s.strings.details.show }}" data-hide="{{ s.strings.details.hide }}">{{ s.strings.details.show }}</button>
+          </div></th>
+          <td class="lt-num" data-label="{{ r.columns.custodial }}"><span class="lt-value lt-value--c"></span><span class="lt-range"></span></td>
+          <td class="lt-num" data-label="{{ r.columns.noncustodial }}"><span class="lt-value lt-value--nc"></span><span class="lt-range"></span></td>
+          <td class="lt-bars" data-label="{{ r.columns.bars }}" aria-hidden="true">
+            <span class="bar bar--c"></span>
+            <span class="bar bar--nc"></span>
+          </td>
+          <td class="lt-remains" data-label="{{ r.columns.remains }}">{{ line.remains }}</td>
+        </tr>
+        <tr class="lt-parts" id="parts-{{ line.id }}" data-line="{{ line.id }}" hidden>
+          <td colspan="5"><ul class="parts"></ul></td>
+        </tr>
+      {%- endfor -%}
+      </tbody>
+    </table>
+
+    <div class="results__actions">
+      <div class="share">
+        <button type="button" class="btn btn--primary" id="r-share">{{ r.actions.share.label }}</button>
+        <label class="share__link">
+          <span class="visually-hidden">{{ r.link_label }}</span>
+          <input class="field__input field__input--small code" id="r-link" type="text" readonly>
+        </label>
+        <span class="share__note">{{ r.actions.share.note }}</span>
+      </div>
+      <div class="actions actions--flush">
+        <a class="btn btn--secondary" id="r-contact" href="{{ s.config.contact_href | relative_url }}">{{ r.actions.contact.label }}</a>
+        <button type="button" class="btn btn--ghost" id="r-edit">{{ r.actions.edit.label }}</button>
+      </div>
+    </div>
+    <p class="results__status" id="r-status" role="status"></p>
+    <p class="results__version" id="r-version"></p>
+  </section>
+
+  {%- comment -%} ── the assumptions ────────────────────────────────────── {%- endcomment -%}
+  <details class="assume" id="calc-assume">
+    <summary class="assume__summary">
+      <span class="assume__title">{{ asm.title }}</span>
+      <span class="assume__hint">{{ asm.summary }}</span>
+    </summary>
+    <div class="assume__body">
+      <p class="assume__intro">{{ asm.intro }}</p>
+      <noscript><p class="notice notice--inline">{{ asm.noscript }}</p></noscript>
+      {%- for group in asm.lines -%}
+      {%- assign gid = group[0] -%}
+      <h3 class="assume__group">{{ group[1] }}</h3>
+      <table class="assume-table">
+        <thead>
+          <tr>
+            <th scope="col">{{ asm.columns.what }}</th>
+            <th scope="col" class="assume-num">{{ asm.columns.typical }}</th>
+            <th scope="col" class="assume-num">{{ asm.columns.low }}</th>
+            <th scope="col" class="assume-num">{{ asm.columns.high }}</th>
+            <th scope="col">{{ asm.columns.unit }}</th>
+            <th scope="col">{{ asm.columns.confidence }}</th>
+            <th scope="col">{{ asm.columns.source }}</th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for entry in data.assumptions -%}
+          {%- assign key = entry[0] -%}
+          {%- assign v = entry[1] -%}
+          {%- if v.line == gid -%}
+          <tr data-key="{{ key }}">
+            <th scope="row" class="assume-what"><label for="a-{{ key }}">{{ v.label }}</label>{% if v.note %}<span class="assume-note">{{ v.note }}</span>{% endif %}</th>
+            <td class="assume-num" data-label="{{ asm.columns.typical }}"><input class="field__input field__input--small assume-input" id="a-{{ key }}" type="number" inputmode="decimal" step="any" min="0" value="{{ v.typical }}" data-key="{{ key }}" data-typical="{{ v.typical }}"></td>
+            <td class="assume-num" data-label="{{ asm.columns.low }}">{{ v.low }}</td>
+            <td class="assume-num" data-label="{{ asm.columns.high }}">{{ v.high }}</td>
+            <td data-label="{{ asm.columns.unit }}">{{ v.unit }}</td>
+            <td data-label="{{ asm.columns.confidence }}"><span class="conf conf--{{ v.confidence }}">{{ asm.confidence[v.confidence] }}</span></td>
+            <td class="assume-source" data-label="{{ asm.columns.source }}">{% if v.source %}<a href="{{ v.source.url }}" rel="noopener" target="_blank">{{ v.source.title }}</a> <span class="assume-date">{{ v.source.date }}</span>{% endif %}</td>
+          </tr>
+          {%- endif -%}
+        {%- endfor -%}
+        </tbody>
+      </table>
+      {%- endfor -%}
+      <div class="assume__foot">
+        <button type="button" class="btn btn--secondary btn--compact" id="a-reset">{{ asm.reset }}</button>
+        <span class="eyebrow">{{ asm.files_label }}</span>
+        <div class="chip-row">
+        {%- for file in asm.files -%}
+          <a class="chip" href="{{ file.href | relative_url }}">{{ file.label }}</a>
+        {%- endfor -%}
+        </div>
+      </div>
+    </div>
+  </details>
+
+  {%- comment -%} Inert data, not executable. {%- endcomment -%}
+  <script type="application/json" id="page-strings">{{ s.strings | jsonify }}</script>
+  <script type="application/json" id="page-config">{{ s.config | jsonify }}</script>
+  <script type="application/json" id="page-fields">{{ f.fields | jsonify }}</script>
+  <script type="application/json" id="page-assumptions">{{ data | jsonify }}</script>
+</div>
+<script type="module" src="{{ a.app.path }}" integrity="{{ a.app.integrity }}" crossorigin></script>

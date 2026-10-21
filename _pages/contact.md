@@ -1,5 +1,5 @@
 ---
 permalink: /contact/
 data: contact
-csp: contact
+csp: scripted
 ---

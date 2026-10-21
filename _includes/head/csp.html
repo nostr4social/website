@@ -1,7 +1,7 @@
 {%- comment -%}
 Content-Security-Policy as a meta tag, because GitHub Pages serves no headers.
 `page.csp` names a policy in _data/site.yml; pages that ship no JavaScript get
-`default`, which forbids script outright.
+`default`, which forbids script outright; the two that do use `scripted`.
 {%- endcomment -%}
 {%- assign key = page.csp | default: "default" -%}
 {%- assign policy = site.data.site.csp[key] -%}

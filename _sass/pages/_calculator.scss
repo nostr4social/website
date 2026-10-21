@@ -1,0 +1,794 @@
+@use "../breakpoints" as *;
+
+// /calculator/ — the form, the results and the assumptions, stacked.
+//
+// The results follow the data-viz rules this site uses: one hero figure, stat
+// tiles for the rest, thin paired bars in the emphasis form (custodial in the
+// de-emphasis grey, the Nostr figure in the protocol purple), a legend because
+// there are two series, and the full table so nothing is colour-alone.
+
+.calc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-7);
+}
+
+// ── the form ─────────────────────────────────────────────────────────────────
+
+.calc-form {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  padding: var(--pad-panel);
+}
+
+.calc-form__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.calc-form__title {
+  color: var(--ink-0);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-heading);
+}
+
+.calc-form__lede {
+  color: var(--ink-2);
+  font-size: var(--fs-m);
+  max-width: var(--measure-card);
+}
+
+.group {
+  border: 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin: 0;
+  min-width: 0;
+  padding: var(--s-5) 0 0;
+}
+
+.group__legend {
+  color: var(--ink-0);
+  font-size: var(--fs-l);
+  font-weight: var(--fw-title);
+  line-height: var(--lh-heading);
+  padding: 0;
+  // A legend sits in the border; pushing it down keeps the rule above it clean.
+  margin-bottom: var(--s-2);
+}
+
+.group__note {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  max-width: var(--measure-card);
+}
+
+.group__fields {
+  display: grid;
+  gap: var(--s-4) var(--s-5);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.group__more {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: var(--s-3) var(--s-4);
+}
+
+.group__more-label {
+  color: var(--purple-lift);
+  cursor: pointer;
+  font-size: var(--fs-s);
+  font-weight: var(--fw-ui);
+}
+
+.group__more[open] .group__more-label {
+  margin-bottom: var(--s-4);
+}
+
+.field--choices {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.field--choices .field__label {
+  padding: 0;
+}
+
+.field__unit {
+  color: var(--ink-3);
+  font-weight: var(--fw-body);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+// A choice is a pill around a real checkbox or radio, so it stays accessible.
+.choice {
+  align-items: center;
+  background: var(--bg-0);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  color: var(--ink-1);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: var(--fs-s);
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+}
+
+.choice input {
+  accent-color: var(--purple);
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--purple-lift);
+  color: var(--ink-0);
+}
+
+.choice:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.field.is-invalid .field__input {
+  border-color: var(--rust);
+}
+
+.form-error {
+  border-left: var(--rail) solid var(--rust);
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  padding-left: var(--s-4);
+}
+
+.calc-form__submit {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: var(--s-5);
+  padding-top: var(--s-5);
+}
+
+.calc-form__note {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+  line-height: var(--lh-card);
+  max-width: 36em;
+}
+
+// ── the results ──────────────────────────────────────────────────────────────
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+}
+
+.results__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.results__title {
+  color: var(--ink-0);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-heading);
+}
+
+.results__title:focus {
+  outline: none;
+}
+
+.figures {
+  align-items: stretch;
+  display: grid;
+  gap: var(--s-5);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+}
+
+.figures__hero,
+.stat {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  justify-content: center;
+  padding: var(--pad-card);
+}
+
+.figures__hero {
+  border-left: var(--rail) solid var(--gold);
+}
+
+.figures__tiles {
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stat__label {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+  line-height: var(--lh-heading);
+}
+
+// The one hero figure on the page: the number everything else is relative to.
+// Proportional figures, not tabular; it stands alone.
+.hero-figure {
+  color: var(--ink-0);
+  font-size: var(--fs-display);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-display);
+  line-height: var(--lh-display);
+}
+
+.stat__value {
+  color: var(--ink-0);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-heading);
+}
+
+.stat__range {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+}
+
+.legend {
+  color: var(--ink-2);
+  display: flex;
+  font-size: var(--fs-s);
+  gap: var(--s-5);
+}
+
+.legend__item {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--s-2);
+}
+
+.legend__swatch {
+  border-radius: var(--r-hairline);
+  display: inline-block;
+  height: 10px;
+  width: 18px;
+}
+
+.legend__swatch--c,
+.bar--c {
+  background: var(--line-raised);
+}
+
+.legend__swatch--nc,
+.bar--nc {
+  background: var(--purple-lift);
+}
+
+// The ledger as a table. Values in tabular figures so they align; ranges
+// beneath them in the quiet ink; the bars share one scale across all rows.
+.ledger-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.ledger-table th,
+.ledger-table td {
+  border-top: 1px solid var(--line);
+  padding: var(--s-4) var(--s-3);
+  text-align: left;
+  vertical-align: top;
+}
+
+.ledger-table thead th {
+  border-top: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-ui);
+  letter-spacing: 0.04em;
+  padding-top: 0;
+  text-transform: uppercase;
+}
+
+.ledger-table th:first-child,
+.ledger-table td:first-child {
+  padding-left: 0;
+}
+
+.ledger-table th:last-child,
+.ledger-table td:last-child {
+  padding-right: 0;
+}
+
+.lt-line {
+  width: 24%;
+}
+
+.lt-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.lt-title {
+  align-items: center;
+  color: var(--ink-0);
+  display: flex;
+  font-size: var(--fs-m);
+  font-weight: var(--fw-title);
+  gap: var(--s-2);
+  line-height: var(--lh-heading);
+}
+
+.lt-icon {
+  color: var(--gold);
+  flex: none;
+  height: 18px;
+  width: 18px;
+}
+
+.lt-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+
+.lt-flags:empty {
+  display: none;
+}
+
+.lt-toggle {
+  align-self: flex-start;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.ledger-table .lt-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  width: 15%;
+}
+
+.lt-value {
+  color: var(--ink-0);
+  display: block;
+  font-size: var(--fs-l);
+  font-weight: var(--fw-ui);
+}
+
+.lt-range {
+  color: var(--ink-3);
+  display: block;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+  margin-top: var(--s-1);
+}
+
+.lt-bars {
+  width: 20%;
+}
+
+// Thin marks, 4px rounded data end, square at the baseline, a 2px surface gap
+// between the pair. Width is the series value on the table's shared scale.
+.bar {
+  --w: 0%;
+  border-radius: 0 var(--r-ui) var(--r-ui) 0;
+  display: block;
+  height: 10px;
+  margin-top: 4px;
+  min-width: 2px;
+  width: var(--w);
+}
+
+.bar + .bar {
+  margin-top: 2px;
+}
+
+.lt-remains {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+}
+
+// A line that is already non-custodial, or a payments line with nothing in it.
+.lt-row.is-already .lt-value--c,
+.lt-row.is-none .lt-value {
+  color: var(--ink-3);
+}
+
+.lt-parts td {
+  background: var(--bg-sunk);
+  border-top: 0;
+  padding: var(--s-3) var(--s-4) var(--s-4);
+}
+
+.parts {
+  display: grid;
+  gap: var(--s-2) var(--s-5);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.part {
+  align-items: baseline;
+  display: flex;
+  font-size: var(--fs-s);
+  gap: var(--s-3);
+  justify-content: space-between;
+}
+
+.part__label {
+  color: var(--ink-2);
+}
+
+.part__meta {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  margin-left: var(--s-2);
+}
+
+.part__nums {
+  color: var(--ink-1);
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.part__nums b {
+  color: var(--ink-0);
+  font-weight: var(--fw-ui);
+}
+
+.results__actions {
+  align-items: flex-start;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding-top: var(--s-5);
+}
+
+.share {
+  align-items: center;
+  display: grid;
+  gap: var(--s-2) var(--s-4);
+  grid-template-columns: auto minmax(0, 1fr);
+  width: 100%;
+}
+
+.share__link {
+  display: block;
+  min-width: 0;
+}
+
+.share__note {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  grid-column: 2;
+  line-height: var(--lh-card);
+}
+
+.results__status,
+.results__version {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+  line-height: var(--lh-card);
+}
+
+.results__status:empty,
+.results__version:empty {
+  display: none;
+}
+
+// ── the assumptions ──────────────────────────────────────────────────────────
+
+.assume {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: var(--s-4) var(--s-5);
+}
+
+.assume__summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: var(--s-4);
+  justify-content: space-between;
+  list-style: none;
+}
+
+.assume__summary::-webkit-details-marker {
+  display: none;
+}
+
+.assume__title {
+  color: var(--ink-0);
+  flex: none;
+  font-size: var(--fs-m);
+  font-weight: var(--fw-ui);
+}
+
+.assume__hint {
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+  text-align: right;
+}
+
+.assume__hint::after {
+  content: " ▸";
+}
+
+.assume[open] .assume__hint::after {
+  content: " ▾";
+}
+
+.assume__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding-top: var(--s-5);
+}
+
+.assume__intro {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  max-width: var(--measure-prose);
+}
+
+.assume__group {
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+  font-weight: var(--fw-title);
+  margin-top: var(--s-3);
+}
+
+.assume-table {
+  border-collapse: collapse;
+  font-size: var(--fs-s);
+  width: 100%;
+}
+
+.assume-table th,
+.assume-table td {
+  border-top: 1px solid var(--line);
+  padding: var(--s-3) var(--s-3);
+  text-align: left;
+  vertical-align: top;
+}
+
+.assume-table thead th {
+  border-top: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-ui);
+  text-transform: uppercase;
+}
+
+.assume-table th:first-child,
+.assume-table td:first-child {
+  padding-left: 0;
+}
+
+.assume-what {
+  color: var(--ink-1);
+  font-weight: var(--fw-body);
+  width: 30%;
+}
+
+.assume-what label {
+  color: var(--ink-0);
+  display: block;
+  font-weight: var(--fw-ui);
+}
+
+.assume-note {
+  color: var(--ink-3);
+  display: block;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+  margin-top: var(--s-1);
+}
+
+.assume-table .assume-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.assume-input {
+  max-width: 9em;
+  text-align: right;
+}
+
+tr.is-changed .assume-input {
+  border-color: var(--gold);
+}
+
+.assume-source a {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.assume-date {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+// Confidence as a labelled badge, never colour alone.
+.conf {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  display: inline-block;
+  font-size: var(--fs-eyebrow);
+  font-weight: var(--fw-ui);
+  letter-spacing: var(--ls-eyebrow);
+  line-height: var(--lh-heading);
+  padding: var(--s-1) var(--s-3);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.conf--high {
+  background: var(--tint-ok);
+  border-color: transparent;
+  color: var(--ok);
+}
+
+.conf--medium {
+  color: var(--purple-chip);
+}
+
+.conf--low {
+  color: var(--gold);
+}
+
+.conf--unsourced {
+  color: var(--ink-2);
+}
+
+.assume__foot {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+  padding-top: var(--s-4);
+}
+
+// ── breakpoints ──────────────────────────────────────────────────────────────
+
+@include below($bp-mid) {
+  .calc-form {
+    padding: var(--pad-card);
+  }
+
+  .figures {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lt-remains {
+    display: none;
+  }
+
+  .ledger-table thead .lt-remains {
+    display: none;
+  }
+}
+
+@include below($bp-narrow) {
+  .group__fields,
+  .parts,
+  .figures__tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calc-form__submit {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .share {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .share__note {
+    grid-column: 1;
+  }
+
+  // Each table row becomes a card: cells stack, and the column name comes
+  // from the data-label the template wrote.
+  .ledger-table thead,
+  .assume-table thead {
+    display: none;
+  }
+
+  .ledger-table,
+  .ledger-table tbody,
+  .ledger-table tr,
+  .ledger-table th,
+  .ledger-table td,
+  .assume-table,
+  .assume-table tbody,
+  .assume-table tr,
+  .assume-table th,
+  .assume-table td {
+    display: block;
+    width: auto;
+  }
+
+  .ledger-table td,
+  .assume-table td {
+    border-top: 0;
+    padding: var(--s-2) 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .ledger-table th,
+  .assume-table th {
+    padding-inline: 0;
+  }
+
+  .ledger-table td[data-label]::before,
+  .assume-table td[data-label]::before {
+    color: var(--ink-3);
+    content: attr(data-label);
+    display: block;
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+  }
+
+  .lt-bars {
+    max-width: 60%;
+  }
+
+  .lt-bars::before {
+    display: none;
+  }
+
+  .lt-remains {
+    display: block;
+  }
+
+  .lt-parts td {
+    padding-inline: var(--s-3);
+  }
+
+  .lt-parts[hidden] {
+    display: none;
+  }
+
+  .assume-input {
+    max-width: none;
+  }
+}
