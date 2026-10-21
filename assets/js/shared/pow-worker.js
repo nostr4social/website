@@ -329,7 +329,7 @@ var sha256 = /* @__PURE__ */ createHasher(
   /* @__PURE__ */ oidNist(1)
 );
 
-// assets/js/contact/src/pow-core.js
+// assets/js/shared/src/pow-core.js
 var enc = new TextEncoder();
 function leadingZeroBits(hash) {
   let count = 0;
@@ -366,7 +366,7 @@ function mineSync(event, difficulty, { start = 1, step = 1, batch = 2e4, onBatch
   }
 }
 
-// assets/js/contact/src/pow-worker.js
+// assets/js/shared/src/pow-worker.js
 self.onmessage = ({ data }) => {
   const { event, difficulty, start = 1, step = 1 } = data;
   const result = mineSync(event, difficulty, {

@@ -1,4 +1,4 @@
-// assets/js/contact/src/dom.js
+// assets/js/shared/src/dom.js
 var $ = (sel, root = document) => root.querySelector(sel);
 var $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 function el(tag, attrs = {}, children = []) {
@@ -28,14 +28,14 @@ function show(node, visible) {
   node.hidden = !visible;
 }
 
-// assets/js/contact/src/config.js
+// assets/js/shared/src/config.js
 function readJson(id) {
   const node = document.getElementById(id);
   if (!node) throw new Error(`missing config block: ${id}`);
   return JSON.parse(node.textContent);
 }
-var strings = readJson("contact-strings");
-var config = readJson("contact-config");
+var strings = readJson("page-strings");
+var config = readJson("page-config");
 var query = new URLSearchParams(location.search);
 function fmt(template, vars = {}) {
   return String(template).replace(/\{(\w+)\}/g, (m, key) => vars[key] == null ? m : String(vars[key]));
@@ -59,7 +59,7 @@ var dev = (() => {
   };
 })();
 
-// assets/js/contact/src/vendor.js
+// assets/js/shared/src/vendor.js
 import {
   generateSecretKey,
   getPublicKey,
@@ -75,7 +75,7 @@ import {
 } from "/assets/js/vendor/nostr-tools/nostr-tools-2.25.2.esm.min.js";
 import { encode } from "/assets/js/vendor/uqr/uqr-0.1.3.esm.min.js";
 
-// assets/js/contact/src/recipients.js
+// assets/js/shared/src/recipients.js
 var HEX64 = /^[0-9a-f]{64}$/;
 var RecipientError = class extends Error {
   constructor(code, cause) {
@@ -125,7 +125,7 @@ function pickRecipient(recipients, wanted) {
   return recipients.find((r) => r.name.toLowerCase() === name) || recipients[0];
 }
 
-// assets/js/contact/src/profiles.js
+// assets/js/shared/src/profiles.js
 var KIND_PROFILE = 0;
 var MAX_NAME = 40;
 async function fetchProfileName(pool, pubkey) {
@@ -151,7 +151,7 @@ async function fetchProfileName(pool, pubkey) {
   }
 }
 
-// assets/js/contact/src/relays.js
+// assets/js/shared/src/relays.js
 var KIND_DM_RELAYS = 10050;
 var MAX_RELAYS = 5;
 function normalizeRelay(url) {
@@ -525,7 +525,7 @@ var sha256 = /* @__PURE__ */ createHasher(
   /* @__PURE__ */ oidNist(1)
 );
 
-// assets/js/contact/src/pow-core.js
+// assets/js/shared/src/pow-core.js
 var enc = new TextEncoder();
 function leadingZeroBits(hash) {
   let count = 0;
@@ -562,8 +562,8 @@ function mineSync(event, difficulty, { start = 1, step = 1, batch = 2e4, onBatch
   }
 }
 
-// assets/js/contact/src/pow.js
-var WORKER_PATH = "/assets/js/contact/pow-worker.js";
+// assets/js/shared/src/pow.js
+var WORKER_PATH = "/assets/js/shared/pow-worker.js";
 function workerCount() {
   const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 2 : 2;
   return Math.max(1, Math.min(4, cores - 1));
@@ -613,7 +613,7 @@ function minePow(event, difficulty, { onProgress, signal } = {}) {
   });
 }
 
-// assets/js/contact/src/nip17.js
+// assets/js/shared/src/nip17.js
 var KIND_CHAT = 14;
 var KIND_SEAL = 13;
 var KIND_WRAP = 1059;
@@ -814,7 +814,7 @@ async function retry(store2, previous, { onProgress, pow = 0 } = {}) {
   return { results, verdict: verdictFor(results) };
 }
 
-// assets/js/contact/src/signers.js
+// assets/js/shared/src/signers.js
 var SignerError = class extends Error {
   constructor(code, cause) {
     super(code);
@@ -973,7 +973,7 @@ function bytesToHex2(bytes) {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// assets/js/contact/src/qr.js
+// assets/js/shared/src/qr.js
 var NS = "http://www.w3.org/2000/svg";
 function qrSvg(text, { label, margin = 2 } = {}) {
   const { data, size } = encode(text, { ecc: "M", border: margin });

@@ -3,7 +3,7 @@
 //   node tools/contact-bundle/e2e.mjs                 # crypto only, offline
 //   node tools/contact-bundle/e2e.mjs wss://relay...  # also publish and read back
 //
-// This runs the real assets/js/contact/src/nip17.js — not a copy of it. The
+// This runs the real assets/js/shared/src/nip17.js — not a copy of it. The
 // module imports the vendored browser bundle by absolute URL, so the bundler
 // here aliases that path to the installed package.
 
@@ -44,7 +44,7 @@ const dir = await mkdtemp(join(tmpdir(), 'nostr4-e2e-'))
 const entry = join(dir, 'entry.mjs')
 await writeFile(
   entry,
-  `export * from '${resolve(root, 'assets/js/contact/src/nip17.js')}'\n` +
+  `export * from '${resolve(root, 'assets/js/shared/src/nip17.js')}'\n` +
     `export { useWebSocketImplementation } from 'nostr-tools/pool'\n` +
     `export * as pure from 'nostr-tools/pure'\n` +
     `export * as nip59 from 'nostr-tools/nip59'\n` +

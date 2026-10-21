@@ -1,4 +1,9 @@
-// Builds the four files /contact/ loads, and records their hashes.
+// Builds every script the site ships, and records their hashes.
+//
+// Three groups: `shared` (the vendored libraries and the proof-of-work worker,
+// used by every page that runs a script), then one group per page that has a
+// bundle of its own. A page's include reads its paths and hashes from
+// _data/assets.yml under its group name.
 //
 //   npm run build:contact
 //
@@ -25,16 +30,19 @@ const UQR = await version('uqr')
 
 export const targets = {
   nostr_tools: {
+    group: 'shared',
     entry: 'tools/contact-bundle/vendor-nostr-tools.entry.js',
     out: `assets/js/vendor/nostr-tools/nostr-tools-${NOSTR_TOOLS}.esm.min.js`,
     minify: true,
   },
   uqr: {
+    group: 'shared',
     entry: 'tools/contact-bundle/vendor-uqr.entry.js',
     out: `assets/js/vendor/uqr/uqr-${UQR}.esm.min.js`,
     minify: true,
   },
   app: {
+    group: 'contact',
     entry: 'assets/js/contact/src/app.js',
     out: 'assets/js/contact/contact.js',
     minify: false,
@@ -47,8 +55,9 @@ export const targets = {
   // No SRI attribute exists for workers; same-origin CSP and the byte-compare
   // in check.mjs are what pin it.
   pow_worker: {
-    entry: 'assets/js/contact/src/pow-worker.js',
-    out: 'assets/js/contact/pow-worker.js',
+    group: 'shared',
+    entry: 'assets/js/shared/src/pow-worker.js',
+    out: 'assets/js/shared/pow-worker.js',
     minify: false,
   },
 }
@@ -74,7 +83,7 @@ export async function buildAll({ write = true } = {}) {
     const bytes = write
       ? await readFile(resolve(root, t.out))
       : Buffer.from(result.outputFiles[0].contents)
-    out[name] = { path: '/' + t.out, integrity: sri(bytes), size: bytes.length, bytes }
+    out[name] = { group: t.group, path: '/' + t.out, integrity: sri(bytes), size: bytes.length, bytes }
   }
   return out
 }
@@ -85,12 +94,16 @@ function toYaml(assets) {
     '#',
     '# `npm run check:contact` rebuilds from the pinned sources and fails if any',
     '# of these hashes moved, so the committed files cannot drift from the code.',
-    'contact:',
   ]
-  for (const [name, a] of Object.entries(assets)) {
-    lines.push(`  ${name}:`)
-    lines.push(`    path: ${a.path}`)
-    lines.push(`    integrity: "${a.integrity}"`)
+  const groups = [...new Set(Object.values(assets).map((a) => a.group))]
+  for (const group of groups) {
+    lines.push(`${group}:`)
+    for (const [name, a] of Object.entries(assets)) {
+      if (a.group !== group) continue
+      lines.push(`  ${name}:`)
+      lines.push(`    path: ${a.path}`)
+      lines.push(`    integrity: "${a.integrity}"`)
+    }
   }
   return lines.join('\n') + '\n'
 }

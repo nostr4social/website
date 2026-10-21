@@ -4,10 +4,10 @@
 // is signing it, how far the send has got, which relays took it, and what went
 // wrong.
 
-import { $, $$, clear, el, replace, show } from './dom.js'
-import { config, fmt, t } from './config.js'
-import { qrSvg } from './qr.js'
-import { npubEncode } from './vendor.js'
+import { $, $$, clear, el, replace, show } from '../../shared/src/dom.js'
+import { config, fmt, t } from '../../shared/src/config.js'
+import { qrSvg } from '../../shared/src/qr.js'
+import { npubEncode } from '../../shared/src/vendor.js'
 
 // ── small helpers ────────────────────────────────────────────────────────────
 

@@ -12,11 +12,11 @@
 // Nobody has to sign in. Unless you do, a key is made when you press send,
 // used for that one message, and zero-filled.
 
-import { $ } from './dom.js'
-import { config, dev, fmt, query, t } from './config.js'
-import { pickRecipient } from './recipients.js'
-import { fetchProfileName } from './profiles.js'
-import { SimplePool } from './vendor.js'
+import { $ } from '../../shared/src/dom.js'
+import { config, dev, fmt, query, t } from '../../shared/src/config.js'
+import { pickRecipient } from '../../shared/src/recipients.js'
+import { fetchProfileName } from '../../shared/src/profiles.js'
+import { SimplePool } from '../../shared/src/vendor.js'
 import {
   bootRecipients,
   createStore,
@@ -34,7 +34,7 @@ import {
   detectNip07,
   SignerError,
   startNostrConnect,
-} from './signers.js'
+} from '../../shared/src/signers.js'
 import {
   closeBunkerModal,
   markExtension,

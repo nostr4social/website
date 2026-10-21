@@ -622,13 +622,18 @@ nsec.app link and a bunker:// paste. A signed-in sender also gets a copy of
 the message in their own DMs, and the reply-to field is hidden for them.
 
 Proof of work: a message from a one-time key carries a NIP-13 nonce on its
-gift wrap, mined in a Web Worker (`pow-worker.js`) to `config.pow.anonymous`
+gift wrap, mined in a Web Worker (`assets/js/shared/pow-worker.js`) to `config.pow.anonymous`
 leading zero bits. Signed-in senders mine `config.pow.signed`, which is zero.
 Set either to `0` to turn it off. On localhost, `?nopow` skips it.
 
-The script itself is in `assets/js/contact/src/` and is built into
-`assets/js/contact/contact.js`, the worker, and two vendored libraries. Change a source
-file or a dependency pin, then:
+The page's own flow is in `assets/js/contact/src/` (`app.js`, `state.js`,
+`ui.js`). Everything a second scripted page would need too — the DOM helpers,
+the loader for the two JSON blocks, the three signers, proof of work and its
+worker, the NIP-17 pipeline, inbox-relay lookup, the recipient list, the QR
+drawer and the vendor pins — lives in `assets/js/shared/src/`. The build
+writes `assets/js/contact/contact.js`, the shared worker, and the two vendored
+libraries, grouped in `_data/assets.yml` as `shared` and `contact`. Change a
+source file or a dependency pin, then:
 
 ```sh
 npm ci
@@ -725,7 +730,8 @@ assets/
   css/site.scss       the one stylesheet; @use each partial
   fonts/              Archivo (variable) and IBM Plex Mono, self-hosted, OFL
   images/             the mark; og/default.png
-  js/contact/         src/ is the code; contact.js is the build
+  js/shared/          src/ is the code every scripted page shares; pow-worker.js is its build
+  js/contact/         src/ is the page's own flow; contact.js is the build
   js/vendor/          nostr-tools and uqr, pinned and hashed
 tools/
   contact-bundle/     build, check, e2e, and the CDP browser driver

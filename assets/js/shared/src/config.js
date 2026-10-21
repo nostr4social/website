@@ -1,7 +1,8 @@
 // Copy and configuration arrive as two inert JSON blocks that Jekyll renders
-// from _data/pages/contact.yml. Nothing here is a literal in the code, for the
-// same reason nothing in the templates is: the words are the site's, not the
-// script's.
+// from the page's file under _data/pages/. Nothing here is a literal in the
+// code, for the same reason nothing in the templates is: the words are the
+// site's, not the script's. Every page that runs a script carries the same two
+// blocks, `page-strings` and `page-config`, so this module serves all of them.
 
 function readJson(id) {
   const node = document.getElementById(id)
@@ -9,8 +10,8 @@ function readJson(id) {
   return JSON.parse(node.textContent)
 }
 
-export const strings = readJson('contact-strings')
-export const config = readJson('contact-config')
+export const strings = readJson('page-strings')
+export const config = readJson('page-config')
 
 /** The page's query string. `?to=<name>` and `?subject=` work everywhere. */
 export const query = new URLSearchParams(location.search)

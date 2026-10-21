@@ -2,16 +2,17 @@
 #
 # `npm run check:contact` rebuilds from the pinned sources and fails if any
 # of these hashes moved, so the committed files cannot drift from the code.
-contact:
+shared:
   nostr_tools:
     path: /assets/js/vendor/nostr-tools/nostr-tools-2.25.2.esm.min.js
     integrity: "sha384-CuDpdRvLSmfiwWwTi36I5xZ9z2i8WU6hC6MxFMY2COfV/UbmTg07xsRx9N/0Ix/T"
   uqr:
     path: /assets/js/vendor/uqr/uqr-0.1.3.esm.min.js
     integrity: "sha384-qQ3dTCin/VMbdg2YWgZ8OePJ7nbojdnfZ3lpsntY3sA6Fm7IKk0HI8QTTmv7Nss+"
+  pow_worker:
+    path: /assets/js/shared/pow-worker.js
+    integrity: "sha384-xStKdkBkFghnOr3OSkGGAFzaVY4NSslTZSTSGLpCd3i61Rqyk3c2J+k41MGCm/Tw"
+contact:
   app:
     path: /assets/js/contact/contact.js
-    integrity: "sha384-i87GUMqkvZSAeOe2IIH7FT+4M7rCpa39AMmilW8AKSPmorvtoIdKttI7Rs+/0JNB"
-  pow_worker:
-    path: /assets/js/contact/pow-worker.js
-    integrity: "sha384-oHLPxjKoDMDwpQr+HWJTgadCKEXI/HRErYdOSpuDV38RBuZuzL0XR/XuG+a0BOuF"
+    integrity: "sha384-dWbocTjbD3hpVxhFaXIzwsXsvNTLtpGyzr0C05fd4qQ79pAmS0t//nLnRUfr3VlE"

@@ -9,11 +9,11 @@
 //
 // Everything the view needs is in one object; the view re-renders on change.
 
-import { SimplePool } from './vendor.js'
-import { config, dev, t } from './config.js'
-import { loadRecipients } from './recipients.js'
-import { inboxRelaysFor } from './relays.js'
-import { buildRumor, publishWrap, sealFor, wrapFor } from './nip17.js'
+import { SimplePool } from '../../shared/src/vendor.js'
+import { config, dev, t } from '../../shared/src/config.js'
+import { loadRecipients } from '../../shared/src/recipients.js'
+import { inboxRelaysFor } from '../../shared/src/relays.js'
+import { buildRumor, publishWrap, sealFor, wrapFor } from '../../shared/src/nip17.js'
 
 export function createStore(initial) {
   let state = initial

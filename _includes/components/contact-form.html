@@ -14,6 +14,7 @@ The receipt takes the fields-and-send cell when a message has gone out.
 {%- endcomment -%}
 {%- assign s = include.section -%}
 {%- assign a = site.data.assets.contact -%}
+{%- assign shared = site.data.assets.shared -%}
 <div class="contact" id="contact">
   {% include lib/section-head.html head=s.head %}
 
@@ -210,9 +211,9 @@ The receipt takes the fields-and-send cell when a message has gone out.
     Inert data, not executable: the browser does not run application/json.
     A '<' cannot appear here — scripts/check.sh fails the build if one is in _data.
   {%- endcomment -%}
-  <script type="application/json" id="contact-strings">{{ s.strings | jsonify }}</script>
-  <script type="application/json" id="contact-config">{{ s.config | jsonify }}</script>
+  <script type="application/json" id="page-strings">{{ s.strings | jsonify }}</script>
+  <script type="application/json" id="page-config">{{ s.config | jsonify }}</script>
 </div>
-<link rel="modulepreload" href="{{ a.nostr_tools.path }}" integrity="{{ a.nostr_tools.integrity }}" crossorigin>
-<link rel="modulepreload" href="{{ a.uqr.path }}" integrity="{{ a.uqr.integrity }}" crossorigin>
+<link rel="modulepreload" href="{{ shared.nostr_tools.path }}" integrity="{{ shared.nostr_tools.integrity }}" crossorigin>
+<link rel="modulepreload" href="{{ shared.uqr.path }}" integrity="{{ shared.uqr.integrity }}" crossorigin>
 <script type="module" src="{{ a.app.path }}" integrity="{{ a.app.integrity }}" crossorigin></script>

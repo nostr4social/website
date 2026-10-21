@@ -4,7 +4,7 @@
 
 import { mineSync } from './pow-core.js'
 
-export const WORKER_PATH = '/assets/js/contact/pow-worker.js'
+export const WORKER_PATH = '/assets/js/shared/pow-worker.js'
 
 function workerCount() {
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2

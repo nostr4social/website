@@ -1,5 +1,5 @@
 // The proof-of-work miner, off the main thread. Built as its own file with
-// its own copy of sha256 (see tools/contact-bundle/build.mjs).
+// its own copy of sha256 (see tools/contact-bundle/build.mjs); shared by every page that mines.
 //
 //   in:  { event, difficulty, start, step }
 //   out: { tries }            every few thousand hashes, for the progress line

@@ -160,7 +160,7 @@ await withBrowser(async (api) => {
     result.relays.some((r) => r.includes('is-failed') && r.includes('dead.invalid')), result.relays.join(' | '))
   check('the wrapper event id is shown', /^[0-9a-f]{64}$/.test(result.wrapId || ''), result.wrapId)
   const zeroBits = (hex) => { let n = 0; for (const c of hex) { const v = parseInt(c, 16); if (v === 0) { n += 4; continue } n += Math.clz32(v) - 28; break } return n }
-  const difficulty = await api.eval(`JSON.parse(document.getElementById('contact-config').textContent).pow.anonymous`)
+  const difficulty = await api.eval(`JSON.parse(document.getElementById('page-config').textContent).pow.anonymous`)
   check(`a one-time key's wrapper carries the configured ${difficulty} bits of proof of work`, zeroBits(result.wrapId || 'f') >= difficulty, `${zeroBits(result.wrapId || 'f')} bits`)
   check('the chain marks the relays as the point of failure', result.travel === 'done,failed,rest', result.travel)
   check('retry is offered after a failure', result.retry)
