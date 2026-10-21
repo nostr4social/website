@@ -2,6 +2,8 @@
 items:
   - label: Nostr
     href: /nostr/
+  - label: Calculator
+    href: /calculator/
   - label: TrustR
     href: /trustr/
   - label: Services

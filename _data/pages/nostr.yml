@@ -21,9 +21,12 @@ sections:
       level: h1
     actions_align: center
     actions:
+      - label: Calculate Your Cost of Custody
+        href: /calculator/
+        style: primary
+        size: lg
       - label: Book a Free Consult
         href: /contact/
-        style: primary
         size: lg
 
   - type: ledger

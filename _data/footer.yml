@@ -16,3 +16,5 @@ columns:
     links:
       - label: Nostr 4 Social Apps
         href: /nostr/
+      - label: Cost of Custody Calculator
+        href: /calculator/
