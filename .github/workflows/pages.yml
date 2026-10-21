@@ -48,8 +48,9 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
 
-  # The contact bundle is committed. This proves the committed files are exactly
-  # what the pinned sources build, so a reviewer never has to trust the blob.
+  # The script bundles and the assumptions explainer are committed. This proves
+  # the committed files are exactly what the sources build, so a reviewer never
+  # has to trust a blob.
   verify-bundle:
     runs-on: ubuntu-latest
     steps:
@@ -60,6 +61,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check:contact
+      - run: npm run check:assumptions
 
   deploy:
     needs: [build, verify-bundle]

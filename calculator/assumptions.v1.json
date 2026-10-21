@@ -1,0 +1,5 @@
+---
+# Served unchanged from _data/assumptions/v1.json; the explainer beside it is
+# written from the same file by tools/calculator/assumptions.mjs.
+---
+{{ site.data.assumptions.v1 | jsonify }}

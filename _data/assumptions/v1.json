@@ -1,0 +1,873 @@
+{
+  "version": 1,
+  "date": "2026-10-21",
+  "currency": "USD",
+  "gbp_usd": 1.3,
+  "scenarios": [
+    "low",
+    "typical",
+    "high"
+  ],
+  "assumptions": {
+    "eng_base_salary": {
+      "label": "Backend or infra engineer, base salary",
+      "unit": "USD per year",
+      "typical": 135980,
+      "low": 110000,
+      "high": 180000,
+      "confidence": "high",
+      "source": {
+        "title": "BLS Occupational Outlook: software developers, median annual wage",
+        "url": "https://www.bls.gov/ooh/computer-and-information-technology/software-developers.htm",
+        "date": "2025-05"
+      },
+      "note": "US median for software developers. Infra specialists run higher; the median is the defensible default.",
+      "line": "shared",
+      "group": "people"
+    },
+    "loaded_multiplier": {
+      "label": "Benefits multiplier on base salary",
+      "unit": "multiplier",
+      "typical": 1.43,
+      "low": 1.3,
+      "high": 1.6,
+      "confidence": "high",
+      "source": {
+        "title": "BLS Employer Costs for Employee Compensation, private industry",
+        "url": "https://www.bls.gov/news.release/ecec.nr0.htm",
+        "date": "2026-06"
+      },
+      "note": "Private-industry total compensation divided by wages: benefits are 30% of compensation.",
+      "line": "shared",
+      "group": "people"
+    },
+    "overhead_multiplier": {
+      "label": "Overhead multiplier (equipment, office, software)",
+      "unit": "multiplier",
+      "typical": 1.15,
+      "low": 1.05,
+      "high": 1.25,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "ECEC excludes non-compensation overhead. A conservative allowance, editable.",
+      "line": "shared",
+      "group": "people"
+    },
+    "share_eng_accounts": {
+      "label": "Share of backend time spent on accounts and personal data",
+      "unit": "ratio",
+      "typical": 0.15,
+      "low": 0.08,
+      "high": 0.25,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Used only when no engineer hours are given.",
+      "line": "accounts",
+      "group": "people"
+    },
+    "share_eng_graph": {
+      "label": "Share of backend time spent on the social graph and feeds",
+      "unit": "ratio",
+      "typical": 0.2,
+      "low": 0.1,
+      "high": 0.3,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Used only when no engineer hours are given.",
+      "line": "graph",
+      "group": "people"
+    },
+    "share_eng_storage": {
+      "label": "Share of backend time spent on storage and serving",
+      "unit": "ratio",
+      "typical": 0.15,
+      "low": 0.08,
+      "high": 0.25,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Used only when no engineer hours are given.",
+      "line": "storage",
+      "group": "people"
+    },
+    "ts_base_salary": {
+      "label": "Trust and safety analyst, base salary",
+      "unit": "USD per year",
+      "typical": 85000,
+      "low": 70480,
+      "high": 101409,
+      "confidence": "low",
+      "source": {
+        "title": "Payscale: Trust and Safety Analyst salary",
+        "url": "https://www.payscale.com/research/US/Job=Trust_and_Safety_Analyst/Salary",
+        "date": "2025-03"
+      },
+      "note": "Payscale median 70,480; Glassdoor average 101,409 (small samples, self-reported).",
+      "line": "moderation",
+      "group": "people"
+    },
+    "moderator_base_salary": {
+      "label": "In-house content moderator, base salary",
+      "unit": "USD per year",
+      "typical": 42500,
+      "low": 38000,
+      "high": 55000,
+      "confidence": "low",
+      "source": {
+        "title": "Payscale: Content Moderator hourly rate",
+        "url": "https://www.payscale.com/research/US/Job=Content_Moderator/Hourly_Rate",
+        "date": "2025-07"
+      },
+      "note": "Payscale median 20.44 per hour over 2,080 hours.",
+      "line": "moderation",
+      "group": "people"
+    },
+    "moderator_seat_outsourced": {
+      "label": "Outsourced moderation seat, all-in",
+      "unit": "USD per seat per year",
+      "typical": 16000,
+      "low": 12000,
+      "high": 32000,
+      "confidence": "low",
+      "source": {
+        "title": "365outsource: content moderation outsourcing rates",
+        "url": "https://365outsource.com/content-moderation-services/",
+        "date": "2026"
+      },
+      "note": "Offshore list price about 8 per hour over 2,000 hours; US BPO 15 to 25 per hour. List prices, not contracts.",
+      "line": "moderation",
+      "group": "people"
+    },
+    "mods_per_million_mau": {
+      "label": "Moderators per million monthly users",
+      "unit": "people per 1M MAU",
+      "typical": 5,
+      "low": 3,
+      "high": 15,
+      "confidence": "high",
+      "source": {
+        "title": "Snap DSA transparency report H2 2025 (human resources and AMAR files)",
+        "url": "https://values.snap.com/privacy/transparency/european-union-h2-2025",
+        "date": "2026-04"
+      },
+      "note": "From DSA transparency reports: LinkedIn about 3, Pinterest at most 5, Snap about 15 per million EU users. Video and ephemeral messaging sit at the top.",
+      "line": "moderation",
+      "group": "people"
+    },
+    "blob_gb_month": {
+      "label": "Object storage",
+      "unit": "USD per GB-month",
+      "typical": 0.023,
+      "low": 0.00695,
+      "high": 0.026,
+      "confidence": "high",
+      "source": {
+        "title": "AWS Price List API, Amazon S3 us-east-1",
+        "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.csv",
+        "date": "2026-10"
+      },
+      "note": "S3 Standard first 50 TB. Low is Backblaze B2; high is GCS multi-region.",
+      "line": "storage",
+      "group": "infra"
+    },
+    "db_gb_month": {
+      "label": "Database storage",
+      "unit": "USD per GB-month",
+      "typical": 0.23,
+      "low": 0.115,
+      "high": 0.345,
+      "confidence": "high",
+      "source": {
+        "title": "AWS Price List API, Amazon RDS PostgreSQL gp3 us-east-1",
+        "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/us-east-1/index.csv",
+        "date": "2026-10"
+      },
+      "note": "RDS PostgreSQL gp3 Multi-AZ. Low is single-AZ; high is Multi-AZ with readable standbys. Compute instances are extra and not modelled here.",
+      "line": "graph",
+      "group": "infra"
+    },
+    "egress_gb": {
+      "label": "Egress to the internet",
+      "unit": "USD per GB",
+      "typical": 0.09,
+      "low": 0.0,
+      "high": 0.12,
+      "confidence": "high",
+      "source": {
+        "title": "AWS Price List API, data transfer out to the internet",
+        "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/index.csv",
+        "date": "2026-06"
+      },
+      "note": "AWS first 10 TB. Low is Cloudflare R2 (zero); high is Google Cloud.",
+      "line": "storage",
+      "group": "infra"
+    },
+    "egress_gb_per_mau_month": {
+      "label": "Egress per active user",
+      "unit": "GB per MAU per month",
+      "typical": 1.0,
+      "low": 0.3,
+      "high": 5.0,
+      "confidence": "unsourced",
+      "source": {
+        "title": "Ericsson Mobility Report key figures (22 GB per smartphone per month, all apps)",
+        "url": "https://www.ericsson.com/en/reports-and-papers/mobility-report/key-figures",
+        "date": "2025"
+      },
+      "note": "No platform publishes bytes served per user. The only proxy is 22 GB per smartphone per month across all apps.",
+      "line": "storage",
+      "group": "infra"
+    },
+    "db_mb_per_mau": {
+      "label": "Graph and profile metadata per user",
+      "unit": "MB per MAU",
+      "typical": 20,
+      "low": 5,
+      "high": 100,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Follows, profile, indexes and counters. Editable.",
+      "line": "graph",
+      "group": "infra"
+    },
+    "db_kb_per_post": {
+      "label": "Metadata per post or message, retained twelve months",
+      "unit": "KB per post",
+      "typical": 2,
+      "low": 1,
+      "high": 5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Row plus indexes, not the media. Retention of twelve months is a model constant.",
+      "line": "graph",
+      "group": "infra"
+    },
+    "compute_per_mau_year": {
+      "label": "Serving and feed compute per active user",
+      "unit": "USD per MAU per year",
+      "typical": 1.0,
+      "low": 0.5,
+      "high": 3.0,
+      "confidence": "medium",
+      "source": {
+        "title": "Pinterest FY2025 Form 10-K: cost of revenue and MAU",
+        "url": "https://www.sec.gov/Archives/edgar/data/1506293/000150629326000021/pins-20251231.htm",
+        "date": "2026-02"
+      },
+      "note": "Derived: Pinterest cost of revenue is 1.36 per MAU-year and Reddit 1.60 per DAU-year (both include hosting, ops staff and fees); Snap infrastructure alone is 3.40 per DAU-year. The typical value nets out storage and egress, which this model counts separately.",
+      "line": "shared",
+      "group": "infra"
+    },
+    "feed_compute_share": {
+      "label": "Share of that compute spent on feeds and recommendations",
+      "unit": "ratio",
+      "typical": 0.4,
+      "low": 0.3,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "The rest is serving. Editable.",
+      "line": "graph",
+      "group": "infra"
+    },
+    "relay_cost_year": {
+      "label": "Running one relay of your own",
+      "unit": "USD per year",
+      "typical": 3600,
+      "low": 600,
+      "high": 12000,
+      "confidence": "low",
+      "source": {
+        "title": "Third-party estimates of Bluesky relay and PDS hosting cost",
+        "url": "https://bsky.app",
+        "date": "2026"
+      },
+      "note": "Third-party hosting estimates for a Bluesky relay or PDS run 30 to 512 per month. A Nostr relay with AUTH and rate limits sits in the same band.",
+      "line": "storage",
+      "group": "infra"
+    },
+    "media_sponsor_share": {
+      "label": "Media hosting an app still sponsors after moving to Nostr",
+      "unit": "ratio",
+      "typical": 0.25,
+      "low": 0.1,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Blossom or similar: users can host their own media, apps often still pay for some of it.",
+      "line": "storage",
+      "group": "infra"
+    },
+    "cache_per_mau_year": {
+      "label": "A thin cache in front of relays",
+      "unit": "USD per MAU per year",
+      "typical": 0.05,
+      "low": 0.02,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "What a Nostr app still serves itself.",
+      "line": "storage",
+      "group": "infra"
+    },
+    "auth_per_mau_month": {
+      "label": "Authentication as a service",
+      "unit": "USD per MAU per month",
+      "typical": 0.0046,
+      "low": 0.0025,
+      "high": 0.02,
+      "confidence": "high",
+      "source": {
+        "title": "Google Cloud Identity Platform pricing",
+        "url": "https://cloud.google.com/identity-platform/pricing",
+        "date": "2026"
+      },
+      "note": "Identity Platform 100k to 1M tier. Low is its 10M-plus tier; high is Clerk beyond 50k.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "reset_rate_per_mau_year": {
+      "label": "Password resets per user",
+      "unit": "resets per MAU per year",
+      "typical": 0.25,
+      "low": 0.1,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "No consumer-app source. Editable.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "reset_cost": {
+      "label": "Cost of one password reset",
+      "unit": "USD per reset",
+      "typical": 0.5,
+      "low": 0.1,
+      "high": 5.0,
+      "confidence": "low",
+      "source": {
+        "title": "BleepingComputer, citing Forrester on helpdesk password resets",
+        "url": "https://www.bleepingcomputer.com/news/security/the-true-cost-of-password-resets/",
+        "date": "2024-11"
+      },
+      "note": "Self-service email or SMS plus a share of support. The 70-dollar figure often cited from Forrester is for enterprise helpdesks and is not used.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_price": {
+      "label": "Identity or age verification",
+      "unit": "USD per check",
+      "typical": 1.5,
+      "low": 0.8,
+      "high": 1.89,
+      "confidence": "high",
+      "source": {
+        "title": "Stripe Identity pricing",
+        "url": "https://stripe.com/identity",
+        "date": "2026"
+      },
+      "note": "Stripe Identity document plus selfie; Veriff 0.80 to 1.89 with monthly minimums.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_share_uk": {
+      "label": "Users needing a check per year, UK",
+      "unit": "ratio of MAU",
+      "typical": 0.25,
+      "low": 0.1,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Online Safety Act age assurance applies to services likely to be accessed by children. Editable.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_share_us": {
+      "label": "Users needing a check per year, US",
+      "unit": "ratio of MAU",
+      "typical": 0.1,
+      "low": 0.02,
+      "high": 0.3,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "State app-store age laws (Utah, Texas) are in live litigation. Editable.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_share_eu": {
+      "label": "Users needing a check per year, EU",
+      "unit": "ratio of MAU",
+      "typical": 0.05,
+      "low": 0.01,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Editable.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_share_other": {
+      "label": "Users needing a check per year, other",
+      "unit": "ratio of MAU",
+      "typical": 0.02,
+      "low": 0.0,
+      "high": 0.1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Editable.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "key_support_per_mau_year": {
+      "label": "Supporting users who manage their own keys",
+      "unit": "USD per MAU per year",
+      "typical": 0.02,
+      "low": 0.005,
+      "high": 0.1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Onboarding help, recovery guidance, signer integrations. What remains of the accounts line on Nostr.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "ranking_fee_per_mau_year": {
+      "label": "A ranking or discovery provider",
+      "unit": "USD per MAU per year",
+      "typical": 0.05,
+      "low": 0.01,
+      "high": 0.25,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Web-of-trust ranking as a service. No public price list exists yet, including ours.",
+      "line": "graph",
+      "group": "graph"
+    },
+    "graph_eng_remains_share": {
+      "label": "Graph engineering that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.3,
+      "low": 0.2,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Assembling feeds from relays on the client.",
+      "line": "graph",
+      "group": "graph"
+    },
+    "gdpr_program_year": {
+      "label": "GDPR program for a small app (EU or UK)",
+      "unit": "USD per year",
+      "typical": 30000,
+      "low": 10000,
+      "high": 50000,
+      "confidence": "low",
+      "source": {
+        "title": "Legiscope: GDPR compliance cost ranges for SMEs (vendor estimate)",
+        "url": "https://legiscope.com/blog/gdpr-compliance-cost",
+        "date": "2026"
+      },
+      "note": "Vendor ranges: micro 5k to 15k EUR, small 15k to 50k. Outsourced DPO alone runs 1,500 to 8,000 per month.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "uk_osa_year": {
+      "label": "UK Online Safety Act, small or micro service",
+      "unit": "USD per year",
+      "typical": 11000,
+      "low": 3000,
+      "high": 65000,
+      "confidence": "medium",
+      "source": {
+        "title": "DSIT Online Safety Act enactment impact assessment, tables 49 to 52",
+        "url": "https://assets.publishing.service.gov.uk/media/6716222b9242eecc6c849b09/Online_Safety_act_enactment_impact_assessment.pdf",
+        "date": "2024-10"
+      },
+      "note": "Impact assessment, 2019 prices: ongoing 6,040 GBP with moderation and risk assessment, plus 7,460 GBP transition spread over three years; low is the 87 GBP basic case; high is a small high-risk service at 50,800 GBP. Converted at 1.30 USD per GBP.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "dsa_year": {
+      "label": "EU Digital Services Act, non-VLOP platform",
+      "unit": "USD per year",
+      "typical": 5000,
+      "low": 1500,
+      "high": 20000,
+      "confidence": "unsourced",
+      "source": {
+        "title": "ACT position paper citing the Commission's DSA notice-and-action setup floor",
+        "url": "https://www.acte.be/",
+        "date": "2021"
+      },
+      "note": "Point of contact, legal representative outside the EU, notice-and-action, statements of reasons. The only published floor is the Commission's 1,500 EUR setup estimate.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "us_privacy_year_small": {
+      "label": "US privacy program, below the CCPA threshold",
+      "unit": "USD per year",
+      "typical": 3000,
+      "low": 1000,
+      "high": 10000,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Policy, COPPA posture, basic counsel.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "us_privacy_year_large": {
+      "label": "US privacy program, at or above the CCPA threshold",
+      "unit": "USD per year",
+      "typical": 15000,
+      "low": 5000,
+      "high": 50000,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Counsel, opt-out mechanisms, state-law tracking.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "ccpa_consumer_threshold": {
+      "label": "CCPA consumer threshold",
+      "unit": "consumers",
+      "typical": 100000,
+      "low": 100000,
+      "high": 100000,
+      "confidence": "high",
+      "source": {
+        "title": "California Attorney General: CCPA thresholds",
+        "url": "https://oag.ca.gov/privacy/ccpa",
+        "date": "2026"
+      },
+      "note": "The law applies above 25M USD revenue, or 100k California consumers, or 50% of revenue from selling personal information. The model uses MAU as the proxy for consumers.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "dsar_rate_per_mau_year": {
+      "label": "Data subject access requests per user",
+      "unit": "requests per MAU per year",
+      "typical": 0.0032,
+      "low": 0.001,
+      "high": 0.01,
+      "confidence": "low",
+      "source": {
+        "title": "DataGrail citing Gartner 2023 Market Guide: cost per manually handled DSAR",
+        "url": "https://www.datagrail.io/blog/data-privacy/dsar-cost/",
+        "date": "2023"
+      },
+      "note": "3.2 per thousand customers, attributed to DLA Piper.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "dsar_cost": {
+      "label": "Cost of handling one request",
+      "unit": "USD per request",
+      "typical": 300,
+      "low": 50,
+      "high": 1524,
+      "confidence": "low",
+      "source": {
+        "title": "DataGrail citing Gartner 2023 Market Guide: cost per manually handled DSAR",
+        "url": "https://www.datagrail.io/blog/data-privacy/dsar-cost/",
+        "date": "2023"
+      },
+      "note": "Gartner's 1,524 is for a manually handled request; automated export is far cheaper.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "cyber_insurance_year": {
+      "label": "Cyber liability insurance, small business",
+      "unit": "USD per year",
+      "typical": 1552,
+      "low": 1200,
+      "high": 7000,
+      "confidence": "medium",
+      "source": {
+        "title": "Insureon: cyber liability insurance cost for small businesses",
+        "url": "https://www.insureon.com/small-business-insurance/cyber-liability/cost",
+        "date": "2026-04"
+      },
+      "note": "Median of policies sold. Scales with data held.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "breach_prob_year": {
+      "label": "Probability of a breach in a year",
+      "unit": "ratio",
+      "typical": 0.05,
+      "low": 0.02,
+      "high": 0.15,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "No per-firm annual figure is published. Hiscox reports 59% of SMEs saw an attack in twelve months, which is not a breach rate.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "breach_cost_per_user": {
+      "label": "Breach cost per affected user",
+      "unit": "USD per user",
+      "typical": 20,
+      "low": 5,
+      "high": 150,
+      "confidence": "unsourced",
+      "source": {
+        "title": "IBM Cost of a Data Breach Report 2026: global average",
+        "url": "https://www.ibm.com/reports/data-breach",
+        "date": "2026"
+      },
+      "note": "IBM stopped publishing a per-record figure; earlier editions ran around 150 to 165 per record for large organisations. The typical value is deliberately far below that.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "breach_cost_cap": {
+      "label": "Breach cost cap",
+      "unit": "USD",
+      "typical": 4990000,
+      "low": 4990000,
+      "high": 11500000,
+      "confidence": "high",
+      "source": {
+        "title": "IBM Cost of a Data Breach Report 2026: global average",
+        "url": "https://www.ibm.com/reports/data-breach",
+        "date": "2026"
+      },
+      "note": "The 2026 global mean. High is the US mean reported from the same edition. Expected loss is never scaled above it.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "privacy_remains_share": {
+      "label": "Privacy program that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.3,
+      "low": 0.2,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "For whatever the app still retains privately.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "insurance_remains_share": {
+      "label": "Insurance that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.5,
+      "low": 0.3,
+      "high": 0.8,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Editable.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "retained_data_share": {
+      "label": "Personal data an app still holds on Nostr",
+      "unit": "ratio",
+      "typical": 0.1,
+      "low": 0.05,
+      "high": 0.3,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Scales the expected breach loss.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "ts_tooling_per_mau_year": {
+      "label": "Moderation tooling",
+      "unit": "USD per MAU per year",
+      "typical": 0.05,
+      "low": 0.01,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Classifiers, queues, hash matching. Vendor pricing is per item and unpublished at small scale.",
+      "line": "moderation",
+      "group": "moderation"
+    },
+    "appeals_share": {
+      "label": "Appeals and escalation on top of review labour",
+      "unit": "ratio",
+      "typical": 0.1,
+      "low": 0.05,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Editable.",
+      "line": "moderation",
+      "group": "moderation"
+    },
+    "moderation_remains_share": {
+      "label": "Moderation that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.4,
+      "low": 0.25,
+      "high": 0.6,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Illegal-content reports, app-store policy, appeals on what the app hosts. Ranking and discovery move to web of trust.",
+      "line": "moderation",
+      "group": "moderation"
+    },
+    "apple_rate_standard": {
+      "label": "Apple App Store commission, standard",
+      "unit": "ratio of in-app revenue",
+      "typical": 0.3,
+      "low": 0.26,
+      "high": 0.3,
+      "confidence": "high",
+      "source": {
+        "title": "Apple App Store Small Business Program",
+        "url": "https://developer.apple.com/app-store/small-business-program/",
+        "date": "2026"
+      },
+      "note": "30% worldwide; 26% under the EU terms effective 2026-10-01. Subscriptions drop to 15% after the first year, not modelled.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "apple_rate_small": {
+      "label": "Apple App Store commission, Small Business Program",
+      "unit": "ratio of in-app revenue",
+      "typical": 0.15,
+      "low": 0.15,
+      "high": 0.15,
+      "confidence": "high",
+      "source": {
+        "title": "Apple App Store Small Business Program",
+        "url": "https://developer.apple.com/app-store/small-business-program/",
+        "date": "2026"
+      },
+      "note": "Under 1M USD of prior-year proceeds.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "google_rate_standard": {
+      "label": "Google Play commission above 1M USD",
+      "unit": "ratio of in-app revenue",
+      "typical": 0.25,
+      "low": 0.2,
+      "high": 0.3,
+      "confidence": "high",
+      "source": {
+        "title": "Google Play service fees (US, UK and EEA from 2026-06-30; other markets)",
+        "url": "https://support.google.com/googleplay/android-developer/answer/112622",
+        "date": "2026-06"
+      },
+      "note": "US, UK and EEA from 2026-06-30: 20% new installs or 25% existing, plus 5% if Play Billing is used. Other markets 30%.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "google_rate_small": {
+      "label": "Google Play commission on the first 1M USD",
+      "unit": "ratio of in-app revenue",
+      "typical": 0.15,
+      "low": 0.1,
+      "high": 0.15,
+      "confidence": "high",
+      "source": {
+        "title": "Google Play service fees (US, UK and EEA from 2026-06-30; other markets)",
+        "url": "https://support.google.com/googleplay/android-developer/answer/112622",
+        "date": "2026-06"
+      },
+      "note": "10% service fee plus 5% billing fee in the US, UK and EEA; 15% elsewhere.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "store_small_threshold": {
+      "label": "Small-business threshold for store tiers",
+      "unit": "USD per year",
+      "typical": 1000000,
+      "low": 1000000,
+      "high": 1000000,
+      "confidence": "high",
+      "source": {
+        "title": "Apple App Store Small Business Program",
+        "url": "https://developer.apple.com/app-store/small-business-program/",
+        "date": "2026"
+      },
+      "note": "Both stores step at 1M USD a year.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "processor_rate": {
+      "label": "Card processor rate",
+      "unit": "ratio of web revenue",
+      "typical": 0.029,
+      "low": 0.015,
+      "high": 0.0349,
+      "confidence": "high",
+      "source": {
+        "title": "Stripe pricing (US)",
+        "url": "https://stripe.com/pricing",
+        "date": "2026"
+      },
+      "note": "Stripe US 2.9%; low is Stripe UK domestic cards 1.5%; high is PayPal Checkout 3.49%.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "processor_fixed": {
+      "label": "Card processor fixed fee",
+      "unit": "USD per transaction",
+      "typical": 0.3,
+      "low": 0.2,
+      "high": 0.49,
+      "confidence": "high",
+      "source": {
+        "title": "Stripe pricing (US)",
+        "url": "https://stripe.com/pricing",
+        "date": "2026"
+      },
+      "note": "Stripe 0.30; UK 20p; PayPal 0.49.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "avg_ticket": {
+      "label": "Average transaction size",
+      "unit": "USD",
+      "typical": 10,
+      "low": 5,
+      "high": 30,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Turns revenue into a transaction count for the fixed fee.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "lightning_rate": {
+      "label": "Lightning or on-chain processor rate",
+      "unit": "ratio of revenue",
+      "typical": 0.01,
+      "low": 0.0,
+      "high": 0.01,
+      "confidence": "high",
+      "source": {
+        "title": "OpenNode pricing and fees",
+        "url": "http://help.opennode.com/en/articles/3176293-pricing-and-fees",
+        "date": "2026"
+      },
+      "note": "OpenNode about 1%; BTCPay Server 0%.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "mt_avoidance_year": {
+      "label": "Legal work to stay out of money-transmitter status",
+      "unit": "USD per year",
+      "typical": 10000,
+      "low": 2000,
+      "high": 50000,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Counsel and structuring for in-app balances or payouts.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "mt_remains_share": {
+      "label": "Of that legal work, what remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.2,
+      "low": 0.1,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "An app that never holds funds has far less exposure.",
+      "line": "payments",
+      "group": "payments"
+    }
+  }
+}
