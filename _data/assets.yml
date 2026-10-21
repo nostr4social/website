@@ -15,7 +15,7 @@ shared:
 contact:
   app:
     path: /assets/js/contact/contact.js
-    integrity: "sha384-ZDVlbHlPLSnlXiqtErWJ4Ece5ahQu4bkkinSrO9ReIxgd6hkXrUXXEyp+UwfDXSe"
+    integrity: "sha384-nuYWZ+y444s+TCnAPnMRbSFl3lVmW0sk8lzRs3B9iF0e8BSXB90jyjOva9huFN0q"
 calculator:
   app:
     path: /assets/js/calculator/calculator.js

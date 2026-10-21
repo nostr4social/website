@@ -199,6 +199,25 @@ function prefillSubject() {
   if (asked && field) field.value = asked.slice(0, config.limits.subject.max)
 }
 
+/**
+ * `?calc=<query>` arrives from the calculator's "sanity-check this number"
+ * door: the inputs as the results link's own query string. They are laid out
+ * as lines the reader can edit, with the link that reopens the results.
+ */
+function prefillCalc() {
+  const calc = query.get('calc')
+  const field = $('#field-message')
+  if (!calc || !field || field.value) return
+  const params = new URLSearchParams(calc)
+  const lines = [t('compose.calc_intro')]
+  for (const [key, value] of params.entries()) {
+    if (key === 'v' || key === 'test') continue
+    lines.push(fmt(t('compose.calc_line'), { key, value }))
+  }
+  lines.push('', fmt(t('compose.calc_link'), { link: `${location.origin}${config.calculator_href}?${calc}` }), '')
+  field.value = lines.join('\n').slice(0, config.limits.message.max)
+}
+
 function chooseRecipient(name) {
   const { recipients } = store.get()
   const recipient = recipients.find((r) => r.name === name) || null
@@ -221,6 +240,7 @@ async function boot() {
   wireEmailFallback()
   wireCopyButtons()
   prefillSubject()
+  prefillCalc()
   wire()
   setSendMode('guest')
   TRAVEL.rest()

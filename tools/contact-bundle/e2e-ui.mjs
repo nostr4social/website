@@ -176,6 +176,13 @@ await withBrowser(async (api) => {
       && document.getElementById('field-to').value === 'test'
   `))
 
+  // ── a link from the calculator ────────────────────────────────────────────
+  await api.goto(`${BASE}/contact/?subject=Cost+of+custody+estimate&calc=mau%3D50000%26jur%3Deu%252Cus%26v%3D1`)
+  await api.waitFor(`document.documentElement.dataset.contact === 'ready'`)
+  const prefilled = await api.eval(`({ subject: document.getElementById('field-subject').value, message: document.getElementById('field-message').value })`)
+  check('a calculator link prefills the subject and the inputs as lines', prefilled.subject === 'Cost of custody estimate' && prefilled.message.startsWith('My cost-of-custody inputs:\nmau: 50000\njur: eu,us'), JSON.stringify(prefilled))
+  check('…with the link that reopens the results', prefilled.message.includes(`Results: ${BASE}/calculator/?mau%3D50000`) || prefilled.message.includes(`Results: ${BASE}/calculator/?mau=50000`), prefilled.message)
+
   check('still no third-party HTTP',
     requests.every((u) => u.startsWith(BASE) || u.startsWith('data:') || u.startsWith('wss://dead.invalid')),
     requests.filter((u) => !u.startsWith(BASE) && !u.startsWith('data:') && !u.startsWith('wss://dead.invalid')).join(' '))

@@ -209,6 +209,10 @@ sections:
           Sent with a one-time key that was discarded after sending. A reply
           over Nostr will not arrive; use the address above.
         footer_signed: ""
+        # What a link from the calculator's results puts in the message.
+        calc_intro: "My cost-of-custody inputs:"
+        calc_line: "{key}: {value}"
+        calc_link: "Results: {link}"
       sending:
         resolving: Finding inbox relays
         encrypting: Sealing
@@ -268,6 +272,7 @@ sections:
     config:
       client:
         name: nostr4.social
+      calculator_href: /calculator/
       # NIP-13 proof of work on the gift wrap, in leading zero bits. A browser
       # hashes a wrap-sized preimage about 120k times a second per core, so 18
       # bits (260k hashes on average) is a second or two on a desktop and a few
