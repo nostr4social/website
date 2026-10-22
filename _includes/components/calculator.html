@@ -63,6 +63,28 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
             </div>
             {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}
           </fieldset>
+        {%- elsif field.slider -%}
+          {%- comment -%}
+            A number as a stepped slider over the field's stops. Only the ends
+            are labelled; the chosen stop is named beside the track.
+          {%- endcomment -%}
+          {%- capture values %}{% for stop in field.stops %}{{ stop[0] }}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
+          {%- capture labels %}{% for stop in field.stops %}{{ stop[1] }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
+          <div class="field field--slider" id="field-{{ key }}">
+            <div class="slider-row slider-row--single">
+              <label class="slider-row__label field__label" for="f-{{ key }}">{{ field.label }}</label>
+              <div class="slider-row__control">
+                <input class="slider" type="range" id="f-{{ key }}" name="{{ key }}" min="0" max="{{ field.stops.size | minus: 1 }}" step="1" value="0"
+                       data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ field.stops.first[1] }}">
+                <div class="slider__ticks slider__ticks--ends" aria-hidden="true">
+                  <span class="slider__tick">{{ field.stops.first[1] }}</span>
+                  <span class="slider__tick">{% for stop in field.stops %}{% if forloop.last %}{{ stop[1] }}{% endif %}{% endfor %}</span>
+                </div>
+              </div>
+              <output class="slider-row__value" for="f-{{ key }}">{{ field.stops.first[1] }}</output>
+            </div>
+            {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}
+          </div>
         {%- elsif field.options -%}
           {%- comment -%} a choice group: radios for one answer, checkboxes for several {%- endcomment -%}
           {%- assign multi = false -%}

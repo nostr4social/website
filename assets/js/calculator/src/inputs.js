@@ -46,7 +46,7 @@ export const INPUTS = {
   eng_legal: band(HOURS), // legal and compliance
   mod_inhouse: band(HEADS, '0'), // content review and moderation: in-house employees
   mod_vendor: band(HEADS, '0'), // outside vendor seats
-  legal_usd: { type: 'number', required: false, default: null, min: 0, max: 1e12 },
+  legal_usd: { type: 'number', required: false, default: null, min: 0, max: 1e12, omit: '0' }, // 0 means not given
 
   // Payment Gateway
   rails: { type: 'multi', required: false, default: [], options: ['p2p', 'apple', 'google', 'processor', 'reseller'] },

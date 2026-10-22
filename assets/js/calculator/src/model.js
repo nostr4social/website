@@ -153,7 +153,7 @@ function compliance(inputs, v) {
 
   // Reported legal spend replaces the program estimates; the content-law
   // floor still applies to what remains.
-  const reported = num(inputs.legal_usd)
+  const reported = num(inputs.legal_usd) || null // 0 means not given
   let programs
   let programsRemain
   if (reported != null && reported > 0) {

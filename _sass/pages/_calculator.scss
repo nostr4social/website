@@ -243,6 +243,29 @@
   text-align: right;
 }
 
+// A number as a slider: the field's own label above, the track full width.
+.field--slider {
+  grid-column: 1 / -1;
+}
+
+.slider-row--single {
+  border-top: 0;
+  grid-template-columns: minmax(0, 1fr) 7em;
+  padding-top: 0;
+}
+
+.slider-row--single .slider-row__label {
+  grid-column: 1 / -1;
+}
+
+.slider__ticks--ends .slider__tick:first-child {
+  text-align: left;
+}
+
+.slider__ticks--ends .slider__tick:last-child {
+  text-align: right;
+}
+
 .field.is-invalid .field__input {
   border-color: var(--rust);
 }

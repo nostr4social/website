@@ -38,8 +38,9 @@ sections:
     form:
       title: Your numbers
       lede: >-
-        The same questions as our Nostr form. Blank optional answers use the
-        defaults listed under Assumptions.
+        The same questions as our Nostr form. Every slider starts on a
+        typical answer; the defaults behind them are listed under
+        Assumptions.
       groups:
         - id: nostr
           title: Non Custody
@@ -60,15 +61,51 @@ sections:
       fields:
         mau:
           label: Number of Monthly Active Users (MAU)
-          placeholder: "50000"
+          slider: true
+          stops:
+            "1000": 1k
+            "2000": 2k
+            "5000": 5k
+            "10000": 10k
+            "20000": 20k
+            "50000": 50k
+            "100000": 100k
+            "200000": 200k
+            "500000": 500k
+            "1000000": 1M
+            "2000000": 2M
+            "5000000": 5M
+            "10000000": 10M
         posts_per_user:
           label: Average number of Posts or Messages per month per user
-          placeholder: "20"
-          note: Leave blank for twenty.
+          slider: true
+          stops:
+            "1": "1"
+            "2": "2"
+            "5": "5"
+            "10": "10"
+            "20": "20"
+            "50": "50"
+            "100": "100"
+            "200": "200"
+            "500": "500"
+            "1000": "1000"
         mb:
           label: Average storage per user (in MB)
-          placeholder: "50"
-          note: Photos, video, attachments. Leave blank for 50 MB.
+          slider: true
+          stops:
+            "0": "0"
+            "5": 5 MB
+            "10": 10 MB
+            "20": 20 MB
+            "50": 50 MB
+            "100": 100 MB
+            "200": 200 MB
+            "500": 500 MB
+            "1000": 1 GB
+            "2000": 2 GB
+            "5000": 5 GB
+          note: Photos, video, attachments.
         engineering_grid:
           label: Software Engineering (hours per week)
           grid: true
@@ -82,7 +119,7 @@ sections:
             eng_content: Managing user content
             eng_infra: Managing infrastructure
             eng_legal: Legal and compliance
-          note: A row left blank uses the default hours listed under Assumptions.
+          note: The sliders start on the default hours listed under Assumptions.
         moderation_grid:
           label: Content review & moderation (head count)
           grid: true
@@ -100,7 +137,19 @@ sections:
             benchmark says a function for your size costs.
         legal_usd:
           label: Legal, privacy and compliance (in USD, approximate per year)
-          placeholder: optional
+          slider: true
+          stops:
+            "0": not given
+            "1000": $1k
+            "2000": $2k
+            "5000": $5k
+            "10000": $10k
+            "20000": $20k
+            "50000": $50k
+            "100000": $100k
+            "200000": $200k
+            "500000": $500k
+            "1000000": $1M
           note: If given, it replaces our estimate of your compliance programs.
         rails:
           label: What in-app payments do you facilitate in your app?
@@ -113,7 +162,21 @@ sections:
           note: Tick none if you take no payments. Revenue is split evenly across what you tick.
         rev:
           label: What is your approximate in-app revenue (gross monthly USD)
-          placeholder: "20000"
+          slider: true
+          stops:
+            "0": none
+            "1000": $1k
+            "2000": $2k
+            "5000": $5k
+            "10000": $10k
+            "20000": $20k
+            "50000": $50k
+            "100000": $100k
+            "200000": $200k
+            "500000": $500k
+            "1000000": $1M
+            "2000000": $2M
+            "5000000": $5M
         balances:
           label: Do you hold user balances, credits or wallets?
           options:

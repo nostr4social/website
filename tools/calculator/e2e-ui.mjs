@@ -49,30 +49,36 @@ await withBrowser(async (api) => {
     const on = [...document.querySelectorAll('#calc-form input:checked')].map(i => i.name + '=' + i.value).sort().join(' ')
     return on
   })()`) === 'jur=us')
-  check('the three grids are sliders, one per row', (await api.eval(`document.querySelectorAll('input[type=range]').length`)) === 16)
+  check('every grid row and number is a slider', (await api.eval(`document.querySelectorAll('input[type=range]').length`)) === 21)
   check('engineering sliders start on the band nearest the default hours', (await api.eval(`(() => {
     const s = document.querySelector('input[name=eng_content]')
     return s.dataset.values.split(',')[s.value] + ':' + s.closest('.slider-row').querySelector('output').textContent
   })()`)) === '5:1 to 10')
   check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 64)
 
-  // ── a required field left empty ───────────────────────────────────────────
-  await api.eval(`document.getElementById('calc-form').requestSubmit()`)
-  await sleep(200)
+  check('number sliders start on their defaults', (await api.eval(`(() => {
+    const v = (n) => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.values.split(',')[s.value] + '=' + s.closest('.slider-row').querySelector('output').textContent }
+    return [v('mau'), v('posts_per_user'), v('mb'), v('rev'), v('legal_usd')].join(' ')
+  })()`)) === '50000=50k 20=20 50=50 MB 0=none 0=not given')
+
+  // ── a bad value in a link ─────────────────────────────────────────────────
+  await api.goto(`${BASE}/calculator/?mau=abc&jur=us`)
+  await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
   const err = await api.eval(`({ text: document.getElementById('calc-error').textContent, hidden: document.getElementById('calc-error').hidden, invalid: document.querySelector('.is-invalid')?.id })`)
-  check('an empty required field is refused and named', !err.hidden && err.text.includes('Monthly Active Users') && err.invalid === 'field-mau', JSON.stringify(err))
+  check('a bad value in a link is refused and named', !err.hidden && err.text.includes('Monthly Active Users') && err.invalid === 'field-mau', JSON.stringify(err))
   check('…and the results stay hidden', await api.eval(`document.getElementById('calc-results').hidden`))
+  await api.goto(`${BASE}/calculator/`)
+  await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
 
   // ── a full calculation ────────────────────────────────────────────────────
   await api.eval(`(() => {
     const f = document.getElementById('calc-form')
-    f.elements.mau.value = '50,000'
     const slide = (name, value) => { const s = f.querySelector('input[name=' + name + ']'); s.value = s.dataset.values.split(',').indexOf(value); s.dispatchEvent(new Event('input', { bubbles: true })) }
+    slide('mau', '50000'); slide('rev', '20000')
     slide('eng_accounts', '5'); slide('eng_content', '25'); slide('eng_infra', '25'); slide('mod_inhouse', '5')
     f.querySelector('input[name=rails][value=apple]').checked = true
     f.querySelector('input[name=rails][value=google]').checked = true
     f.querySelector('input[name=rails][value=processor]').checked = true
-    f.elements.rev.value = '20000'
     f.querySelector('input[name=jur][value=eu]').checked = true
     f.querySelector('input[name=jur][value=uk]').checked = true
     f.requestSubmit()
@@ -157,7 +163,7 @@ await withBrowser(async (api) => {
   const shared = await api.eval(`({
     hidden: document.getElementById('calc-results').hidden,
     status: document.getElementById('r-status').textContent,
-    mau: document.getElementById('f-mau').value,
+    mau: (() => { const s = document.getElementById('f-mau'); return s.dataset.values.split(',')[s.value] })(),
     ts: (() => { const s = document.querySelector('input[name=eng_content]'); return s.dataset.values.split(',')[s.value] })(),
     egress: document.getElementById('a-egress_gb_per_mau_month').value,
     url: location.search,
@@ -205,9 +211,8 @@ await withBrowser(async (api) => {
       await sleep(3200) // past the too-fast guard
       await api.eval(`(() => {
         const f = document.getElementById('calc-form')
-        f.elements.mau.value = '12000'
         const slide = (name, value) => { const s = f.querySelector('input[name=' + name + ']'); s.value = s.dataset.values.split(',').indexOf(value); s.dispatchEvent(new Event('input', { bubbles: true })) }
-        slide('eng_infra', '25'); slide('n_media_storage', '0.5')
+        slide('mau', '10000'); slide('eng_infra', '25'); slide('n_media_storage', '0.5')
         f.querySelector('input[name=jur][value=us]').checked = true
         f.elements.email.value = 'founder@example.com'
         f.elements.company.value = 'Example'
@@ -226,8 +231,8 @@ await withBrowser(async (api) => {
         const answers = JSON.parse(decrypt(ev.content, getConversationKey(fixture.secret, ev.pubkey)))
         const byId = Object.fromEntries(snapshot.fields.map((f) => [f.id, f.label]))
         const byLabel = Object.fromEntries(answers.map(([, id, v]) => [byId[id], v]))
-        check('the form secret decrypts the page\'s answers', byLabel['Number of Monthly Active Users (MAU)'] === '12000' && byLabel['Email Address'] === 'founder@example.com' && byLabel['Company Name'] === 'Example', JSON.stringify(byLabel))
-        check('the computed figures and the link travel with the inputs', /^\d+$/.test(byLabel['Annual custodial cost (USD, typical)'] || '') && (byLabel['Results link'] || '').includes('mau=12000'), byLabel['Results link'])
+        check('the form secret decrypts the page\'s answers', byLabel['Number of Monthly Active Users (MAU)'] === '10000' && byLabel['Email Address'] === 'founder@example.com' && byLabel['Company Name'] === 'Example', JSON.stringify(byLabel))
+        check('the computed figures and the link travel with the inputs', /^\d+$/.test(byLabel['Annual custodial cost (USD, typical)'] || '') && (byLabel['Results link'] || '').includes('mau=10000'), byLabel['Results link'])
         check('the test marker is blank when the URL had none', !('test' in byLabel))
         const eng = JSON.parse(byLabel['Software Engineering (hours per week)'] || '{}')
         const nostr = JSON.parse(byLabel['Our app already uses Nostr:'] || '{}')

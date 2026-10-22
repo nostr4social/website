@@ -92,7 +92,7 @@ export function writeInputs(form, inputs) {
 export function writeDefaults(form, defaultHours = {}) {
   const starting = {}
   for (const [key, spec] of Object.entries(INPUTS)) {
-    if (spec.type === 'multi') starting[key] = spec.default
+    if (spec.type === 'multi' || ((spec.type === 'number' || spec.type === 'integer') && spec.default != null)) starting[key] = spec.default
   }
   for (const [area, hours] of Object.entries(defaultHours)) starting[`eng_${area}`] = hours
   writeInputs(form, starting)

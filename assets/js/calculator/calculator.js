@@ -594,7 +594,8 @@ var INPUTS = {
   // content review and moderation: in-house employees
   mod_vendor: band(HEADS, "0"),
   // outside vendor seats
-  legal_usd: { type: "number", required: false, default: null, min: 0, max: 1e12 },
+  legal_usd: { type: "number", required: false, default: null, min: 0, max: 1e12, omit: "0" },
+  // 0 means not given
   // Payment Gateway
   rails: { type: "multi", required: false, default: [], options: ["p2p", "apple", "google", "processor", "reseller"] },
   rev: { type: "number", required: false, default: 0, min: 0, max: 1e12 },
@@ -772,7 +773,7 @@ function compliance(inputs, v) {
   const usTier = us ? mau >= v.ccpa_consumer_threshold ? "large" : "small" : null;
   const usp = us ? usTier === "large" ? v.us_privacy_year_large : v.us_privacy_year_small : 0;
   const contentLaw = osa + dsa;
-  const reported = num(inputs.legal_usd);
+  const reported = num(inputs.legal_usd) || null;
   let programs;
   let programsRemain;
   if (reported != null && reported > 0) {
@@ -990,7 +991,7 @@ function writeInputs(form2, inputs) {
 function writeDefaults(form2, defaultHours = {}) {
   const starting = {};
   for (const [key, spec] of Object.entries(INPUTS)) {
-    if (spec.type === "multi") starting[key] = spec.default;
+    if (spec.type === "multi" || (spec.type === "number" || spec.type === "integer") && spec.default != null) starting[key] = spec.default;
   }
   for (const [area, hours] of Object.entries(defaultHours)) starting[`eng_${area}`] = hours;
   writeInputs(form2, starting);
