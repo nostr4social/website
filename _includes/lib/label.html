@@ -1,0 +1,16 @@
+{%- comment -%}
+A label from copy, with any bracketed part rendered as a hint on the same
+line: "Average storage per user (in MB)" becomes the words, then "(in MB)"
+smaller and dimmer. Only the first " (" splits; what follows is the hint.
+
+  text   the label copy (required)
+{%- endcomment -%}
+{%- assign t = include.text | strip -%}
+{%- if t contains " (" -%}
+  {%- assign parts = t | split: " (" -%}
+  {%- assign main = parts[0] -%}
+  {%- assign hint = t | remove_first: main | strip -%}
+  {{- main }} <span class="hint">{{ hint }}</span>
+{%- else -%}
+  {{- t -}}
+{%- endif -%}

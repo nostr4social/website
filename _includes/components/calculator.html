@@ -45,11 +45,12 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
           {%- capture values %}{% for col in field.columns %}{{ col[0] }}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
           {%- capture labels %}{% for col in field.columns %}{{ col[1] }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
           <fieldset class="field field--grid" id="field-{{ key }}">
-            <legend class="field__label">{{ field.label }}</legend>
+            <legend class="field__label">{% include lib/label.html text=field.label %}</legend>
             <div class="sliders">
               {%- for row in field.rows -%}
               <div class="slider-row" id="field-{{ row[0] }}">
-                <label class="slider-row__label" for="f-{{ row[0] }}">{{ row[1] }}</label>
+                {%- assign row_label = row[1] -%}
+                <label class="slider-row__label" for="f-{{ row[0] }}">{% include lib/label.html text=row_label %}</label>
                 <div class="slider-row__control">
                   <input class="slider" type="range" id="f-{{ row[0] }}" name="{{ row[0] }}" min="0" max="{{ field.columns.size | minus: 1 }}" step="1" value="0"
                          data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ field.columns.first[1] }}">
@@ -72,7 +73,7 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
           {%- capture labels %}{% for stop in field.stops %}{{ stop[1] }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
           <div class="field field--slider" id="field-{{ key }}">
             <div class="slider-row slider-row--single">
-              <label class="slider-row__label field__label" for="f-{{ key }}">{{ field.label }}</label>
+              <label class="slider-row__label field__label" for="f-{{ key }}">{% include lib/label.html text=field.label %}</label>
               <div class="slider-row__control">
                 <input class="slider" type="range" id="f-{{ key }}" name="{{ key }}" min="0" max="{{ field.stops.size | minus: 1 }}" step="1" value="0"
                        data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ field.stops.first[1] }}">
@@ -90,12 +91,13 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
           {%- assign multi = false -%}
           {%- if key == "rails" or key == "dist" or key == "jur" or key == "balances" %}{% assign multi = true %}{% endif -%}
           <fieldset class="field field--choices" id="field-{{ key }}">
-            <legend class="field__label">{{ field.label }}</legend>
+            <legend class="field__label">{% include lib/label.html text=field.label %}</legend>
             <div class="choices">
             {%- for opt in field.options -%}
               <label class="choice">
                 <input type="{% if multi %}checkbox{% else %}radio{% endif %}" name="{{ key }}" value="{{ opt[0] }}" id="f-{{ key }}-{{ opt[0] }}">
-                <span class="choice__label">{{ opt[1] }}</span>
+                {%- assign opt_label = opt[1] -%}
+                <span class="choice__label">{% include lib/label.html text=opt_label %}</span>
               </label>
             {%- endfor -%}
             </div>
@@ -103,7 +105,7 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
           </fieldset>
         {%- else -%}
           <label class="field" id="field-{{ key }}">
-            <span class="field__label">{{ field.label }}{% if field.unit %} <span class="field__unit">({{ field.unit }})</span>{% endif %}</span>
+            <span class="field__label">{% include lib/label.html text=field.label %}</span>
             <input class="field__input" id="f-{{ key }}" name="{{ key }}" type="text" inputmode="decimal" autocomplete="off"
                    placeholder="{{ field.placeholder }}">
             {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}

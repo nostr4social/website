@@ -107,56 +107,46 @@
   padding: 0;
 }
 
-.field__unit {
+// The bracketed part of a label, rendered by lib/label.html.
+.hint {
   color: var(--ink-3);
+  font-size: 0.86em;
   font-weight: var(--fw-body);
+  white-space: nowrap;
 }
 
+// A choice is a native checkbox or radio with its words beside it, one per
+// line, so a list of options reads as a list.
 .choices {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--s-2);
 }
 
-// A choice is a pill that is the option: the real checkbox or radio sits
-// under it, off-screen, so it stays a form control for keyboards and
-// assistive tech. Selected is a filled pill.
 .choice {
-  align-items: center;
-  background: var(--bg-0);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-pill);
+  align-items: flex-start;
   color: var(--ink-1);
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   font-size: var(--fs-s);
-  font-weight: var(--fw-ui);
-  padding: var(--s-2) var(--s-4);
-  position: relative;
-  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+  gap: var(--s-3);
+  line-height: var(--lh-card);
 }
 
 .choice input {
-  height: 1px;
-  left: 0;
-  margin: 0;
-  opacity: 0;
-  position: absolute;
-  top: 0;
-  width: 1px;
-}
-
-.choice:hover {
-  border-color: var(--purple-lift);
+  accent-color: var(--purple);
+  flex: none;
+  height: 16px;
+  margin: 2px 0 0;
+  width: 16px;
 }
 
 .choice:has(input:checked) {
-  background: var(--purple);
-  border-color: var(--purple);
-  color: var(--ink-on-accent);
+  color: var(--ink-0);
 }
 
 .choice:has(input:focus-visible) {
+  border-radius: var(--r-hairline);
   outline: var(--focus-ring);
   outline-offset: var(--focus-offset);
 }
@@ -200,7 +190,7 @@
 }
 
 .slider {
-  accent-color: var(--purple-lift);
+  accent-color: var(--purple);
   cursor: pointer;
   height: 24px;
   margin: 0;
