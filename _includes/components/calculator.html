@@ -38,37 +38,29 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
         {%- assign field = f.fields[key] -%}
         {%- if field.grid -%}
           {%- comment -%}
-            A grid: one radio group per row, named by the row's input key, with
-            the column's value. Rendered as a table so the column heads are
-            read with every cell.
+            A grid: one stepped slider per row over the field's bands. The
+            slider's value is the band's index; the script reads the band's
+            value from data-values and names the band in the output beside it.
           {%- endcomment -%}
+          {%- capture values %}{% for col in field.columns %}{{ col[0] }}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
+          {%- capture labels %}{% for col in field.columns %}{{ col[1] }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
           <fieldset class="field field--grid" id="field-{{ key }}">
             <legend class="field__label">{{ field.label }}</legend>
-            <table class="grid-field">
-              <thead>
-                <tr>
-                  <th scope="col"><span class="visually-hidden">{{ field.label }}</span></th>
-                  {%- for col in field.columns -%}
-                  <th scope="col" class="grid-field__col">{{ col[1] }}</th>
-                  {%- endfor -%}
-                </tr>
-              </thead>
-              <tbody>
-                {%- for row in field.rows -%}
-                <tr id="field-{{ row[0] }}">
-                  <th scope="row" class="grid-field__row">{{ row[1] }}</th>
-                  {%- for col in field.columns -%}
-                  <td class="grid-field__cell" data-label="{{ col[1] }}">
-                    <label class="grid-field__choice" aria-label="{{ row[1] }}: {{ col[1] }}">
-                      <input type="radio" name="{{ row[0] }}" value="{{ col[0] }}" id="f-{{ row[0] }}-{{ forloop.index }}">
-                      <span class="grid-field__band">{{ col[1] }}</span>
-                    </label>
-                  </td>
-                  {%- endfor -%}
-                </tr>
-                {%- endfor -%}
-              </tbody>
-            </table>
+            <div class="sliders">
+              {%- for row in field.rows -%}
+              <div class="slider-row" id="field-{{ row[0] }}">
+                <label class="slider-row__label" for="f-{{ row[0] }}">{{ row[1] }}</label>
+                <div class="slider-row__control">
+                  <input class="slider" type="range" id="f-{{ row[0] }}" name="{{ row[0] }}" min="0" max="{{ field.columns.size | minus: 1 }}" step="1" value="0"
+                         data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ field.columns.first[1] }}">
+                  <div class="slider__ticks" aria-hidden="true">
+                    {%- for col in field.columns -%}<span class="slider__tick">{{ col[1] }}</span>{%- endfor -%}
+                  </div>
+                </div>
+                <output class="slider-row__value" for="f-{{ row[0] }}">{{ field.columns.first[1] }}</output>
+              </div>
+              {%- endfor -%}
+            </div>
             {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}
           </fieldset>
         {%- elsif field.options -%}

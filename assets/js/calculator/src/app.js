@@ -18,7 +18,7 @@ import { loadRecipients, pickRecipient } from '../../shared/src/recipients.js'
 import { calculate } from './model.js'
 import { decode, encode } from './codec.js'
 import { GRIDS, InputError } from './inputs.js'
-import { markInvalid, readContact, readInputs, writeDefaults, writeInputs } from './form.js'
+import { markInvalid, readContact, readInputs, wireSliders, writeDefaults, writeInputs } from './form.js'
 import { compact } from './format.js'
 import { composeLead, prepareForm, sendLead, submitResponse } from './submit.js'
 import {
@@ -218,7 +218,14 @@ async function boot() {
   const formEl = $('#calc-form')
   if (!formEl) return
   wire()
-  writeDefaults(formEl)
+  wireSliders(formEl)
+  const A = assumptions.assumptions
+  writeDefaults(formEl, {
+    accounts: A.default_hours_accounts.typical,
+    content: A.default_hours_content.typical,
+    infra: A.default_hours_infra.typical,
+    legal: A.default_hours_legal.typical,
+  })
 
   const opened = decode(location.search)
   test = opened.test

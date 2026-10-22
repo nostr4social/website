@@ -49,7 +49,11 @@ await withBrowser(async (api) => {
     const on = [...document.querySelectorAll('#calc-form input:checked')].map(i => i.name + '=' + i.value).sort().join(' ')
     return on
   })()`) === 'jur=us')
-  check('the three grids are on the page', (await api.eval(`document.querySelectorAll('.grid-field').length`)) === 3)
+  check('the three grids are sliders, one per row', (await api.eval(`document.querySelectorAll('input[type=range]').length`)) === 16)
+  check('engineering sliders start on the band nearest the default hours', (await api.eval(`(() => {
+    const s = document.querySelector('input[name=eng_content]')
+    return s.dataset.values.split(',')[s.value] + ':' + s.closest('.slider-row').querySelector('output').textContent
+  })()`)) === '5:1 to 10')
   check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 64)
 
   // ── a required field left empty ───────────────────────────────────────────
@@ -63,10 +67,8 @@ await withBrowser(async (api) => {
   await api.eval(`(() => {
     const f = document.getElementById('calc-form')
     f.elements.mau.value = '50,000'
-    f.querySelector('input[name=eng_accounts][value="5"]').checked = true
-    f.querySelector('input[name=eng_content][value="25"]').checked = true
-    f.querySelector('input[name=eng_infra][value="25"]').checked = true
-    f.querySelector('input[name=mod_inhouse][value="5"]').checked = true
+    const slide = (name, value) => { const s = f.querySelector('input[name=' + name + ']'); s.value = s.dataset.values.split(',').indexOf(value); s.dispatchEvent(new Event('input', { bubbles: true })) }
+    slide('eng_accounts', '5'); slide('eng_content', '25'); slide('eng_infra', '25'); slide('mod_inhouse', '5')
     f.querySelector('input[name=rails][value=apple]').checked = true
     f.querySelector('input[name=rails][value=google]').checked = true
     f.querySelector('input[name=rails][value=processor]').checked = true
@@ -105,7 +107,8 @@ await withBrowser(async (api) => {
   check('non-custodial bars share that scale', r.barNc > 0 && r.barNc < 100, String(r.barNc))
   check('the results link carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.endsWith('v=1'), r.link)
   check('the page URL is the same link', r.url.includes('mau=50000'), r.url)
-  check('the contact door carries a subject and the inputs', r.contact.startsWith('/contact/?subject=') && r.contact.includes('calc=mau'), r.contact)
+  check('the contact door carries a subject and the inputs', r.contact.startsWith('/contact/?subject=') && r.contact.includes('mau%3D50000'), r.contact)
+  check('sliders standing on "not given" stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('mod_vendor='), r.link)
   check('the version is named', r.version.includes('1'), r.version)
   check('the results heading took focus', r.focused === 'results-title', r.focused)
   check('the error cleared', r.error)
@@ -155,7 +158,7 @@ await withBrowser(async (api) => {
     hidden: document.getElementById('calc-results').hidden,
     status: document.getElementById('r-status').textContent,
     mau: document.getElementById('f-mau').value,
-    ts: document.querySelector('input[name=eng_content]:checked')?.value,
+    ts: (() => { const s = document.querySelector('input[name=eng_content]'); return s.dataset.values.split(',')[s.value] })(),
     egress: document.getElementById('a-egress_gb_per_mau_month').value,
     url: location.search,
   })`)
@@ -203,8 +206,8 @@ await withBrowser(async (api) => {
       await api.eval(`(() => {
         const f = document.getElementById('calc-form')
         f.elements.mau.value = '12000'
-        f.querySelector('input[name=eng_infra][value="25"]').checked = true
-        f.querySelector('input[name=n_media_storage][value="0.5"]').checked = true
+        const slide = (name, value) => { const s = f.querySelector('input[name=' + name + ']'); s.value = s.dataset.values.split(',').indexOf(value); s.dispatchEvent(new Event('input', { bubbles: true })) }
+        slide('eng_infra', '25'); slide('n_media_storage', '0.5')
         f.querySelector('input[name=jur][value=us]').checked = true
         f.elements.email.value = 'founder@example.com'
         f.elements.company.value = 'Example'
@@ -228,7 +231,7 @@ await withBrowser(async (api) => {
         check('the test marker is blank when the URL had none', !('test' in byLabel))
         const eng = JSON.parse(byLabel['Software Engineering (hours per week)'] || '{}')
         const nostr = JSON.parse(byLabel['Our app already uses Nostr:'] || '{}')
-        check('grid answers arrive as row id to column id', Object.keys(eng).length === 1 && Object.keys(nostr).length === 1, `${byLabel['Software Engineering (hours per week)']} ${byLabel['Our app already uses Nostr:']}`)
+        check('grid answers arrive as row id to column id, one per slider', Object.keys(eng).length === 4 && Object.keys(nostr).length === 10, `${byLabel['Software Engineering (hours per week)']} ${byLabel['Our app already uses Nostr:']}`)
       }
       // A lead with contact details also goes to hello's inbox as a gift wrap.
       // It is mined after the save is reported, so give it time.

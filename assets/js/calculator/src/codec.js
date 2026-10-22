@@ -5,8 +5,8 @@
 //    &stores=apple,google&jur=eu,us&nostr=storage&a.blob_gb_month=0.015&v=1
 //
 // Encoding writes every input the model used, so a link is complete on its
-// own; optional inputs left blank are omitted. Decoding ignores anything it
-// does not recognise.
+// own; optional inputs left blank, or standing on the value that means
+// "not given", are omitted. Decoding ignores anything it does not recognise.
 
 import { INPUTS } from './inputs.js'
 
@@ -19,6 +19,7 @@ export function encode(inputs, overrides = {}, version = 1) {
   for (const [key, spec] of Object.entries(INPUTS)) {
     const v = inputs[key]
     if (v == null || v === '') continue
+    if (spec.omit != null && String(v) === spec.omit) continue
     if (spec.type === 'multi') {
       if (v.length) p.set(key, v.join(','))
     } else {

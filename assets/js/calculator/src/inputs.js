@@ -17,20 +17,22 @@ const HOURS = ['0', '5', '25', '60'] // 0 · 1 to 10 · 11 to 40 · over 40 hour
 const HEADS = ['0', '5', '50', '500', '2000'] // 0 · 1 to 10 · 11 to 100 · 101 to 1000 · over 1000 people
 const NOSTR = ['0', '0.5', '1'] // never · somewhat · always
 
-const band = (options) => ({ type: 'option', required: false, default: null, options })
+//   omit      a value that means the same as "not given"; the results link
+//             leaves it out so a link only carries what was said
+const band = (options, omit) => ({ type: 'option', required: false, default: null, options, omit })
 
 export const INPUTS = {
   // Non Custody: "Our app already uses Nostr"
-  n_keys: band(NOSTR), // user accounts are private keys
-  n_raw_keys: band(NOSTR), // app handles raw private keys (the inverse)
-  n_signed_events: band(NOSTR), // user data stored as signed events
-  n_event_storage: band(NOSTR), // user choice for event storage
-  n_media_storage: band(NOSTR), // user choice for media storage
-  n_labels: band(NOSTR), // content tags and labels as signed events
-  n_feeds: band(NOSTR), // user configurable feeds and algos
-  n_algos: band(NOSTR), // user choice for algo processing
-  n_p2p: band(NOSTR), // peer to peer in-app payments
-  n_nips: band(NOSTR), // NIP standards published publicly (read, not priced)
+  n_keys: band(NOSTR, '0'), // user accounts are private keys
+  n_raw_keys: band(NOSTR, '0'), // app handles raw private keys (the inverse)
+  n_signed_events: band(NOSTR, '0'), // user data stored as signed events
+  n_event_storage: band(NOSTR, '0'), // user choice for event storage
+  n_media_storage: band(NOSTR, '0'), // user choice for media storage
+  n_labels: band(NOSTR, '0'), // content tags and labels as signed events
+  n_feeds: band(NOSTR, '0'), // user configurable feeds and algos
+  n_algos: band(NOSTR, '0'), // user choice for algo processing
+  n_p2p: band(NOSTR, '0'), // peer to peer in-app payments
+  n_nips: band(NOSTR, '0'), // NIP standards published publicly (read, not priced)
 
   // Accounts & Storage
   mau: { type: 'integer', required: true, default: 50000, min: 1, max: 2e9 },
@@ -42,8 +44,8 @@ export const INPUTS = {
   eng_content: band(HOURS), // managing user content
   eng_infra: band(HOURS), // managing infrastructure
   eng_legal: band(HOURS), // legal and compliance
-  mod_inhouse: band(HEADS), // content review and moderation: in-house employees
-  mod_vendor: band(HEADS), // outside vendor seats
+  mod_inhouse: band(HEADS, '0'), // content review and moderation: in-house employees
+  mod_vendor: band(HEADS, '0'), // outside vendor seats
   legal_usd: { type: 'number', required: false, default: null, min: 0, max: 1e12 },
 
   // Payment Gateway

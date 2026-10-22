@@ -186,6 +186,8 @@ await test('the results link round-trips inputs and overrides', () => {
   assert.equal(back.test, '1')
   assert.equal(back.present, true)
   assert.equal(decode('?test=1').present, false)
+  const zeros = encode(calculate({ ...base, n_keys: '0', mod_vendor: '0', eng_legal: '0' }, data).inputs, {}, 1)
+  assert.ok(!zeros.includes('n_keys=') && !zeros.includes('mod_vendor=') && zeros.includes('eng_legal=0'), zeros)
 })
 
 await test('validation names the first bad input', () => {

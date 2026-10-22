@@ -554,28 +554,28 @@ function pickRecipient(recipients, wanted) {
 var HOURS = ["0", "5", "25", "60"];
 var HEADS = ["0", "5", "50", "500", "2000"];
 var NOSTR = ["0", "0.5", "1"];
-var band = (options) => ({ type: "option", required: false, default: null, options });
+var band = (options, omit) => ({ type: "option", required: false, default: null, options, omit });
 var INPUTS = {
   // Non Custody: "Our app already uses Nostr"
-  n_keys: band(NOSTR),
+  n_keys: band(NOSTR, "0"),
   // user accounts are private keys
-  n_raw_keys: band(NOSTR),
+  n_raw_keys: band(NOSTR, "0"),
   // app handles raw private keys (the inverse)
-  n_signed_events: band(NOSTR),
+  n_signed_events: band(NOSTR, "0"),
   // user data stored as signed events
-  n_event_storage: band(NOSTR),
+  n_event_storage: band(NOSTR, "0"),
   // user choice for event storage
-  n_media_storage: band(NOSTR),
+  n_media_storage: band(NOSTR, "0"),
   // user choice for media storage
-  n_labels: band(NOSTR),
+  n_labels: band(NOSTR, "0"),
   // content tags and labels as signed events
-  n_feeds: band(NOSTR),
+  n_feeds: band(NOSTR, "0"),
   // user configurable feeds and algos
-  n_algos: band(NOSTR),
+  n_algos: band(NOSTR, "0"),
   // user choice for algo processing
-  n_p2p: band(NOSTR),
+  n_p2p: band(NOSTR, "0"),
   // peer to peer in-app payments
-  n_nips: band(NOSTR),
+  n_nips: band(NOSTR, "0"),
   // NIP standards published publicly (read, not priced)
   // Accounts & Storage
   mau: { type: "integer", required: true, default: 5e4, min: 1, max: 2e9 },
@@ -590,9 +590,9 @@ var INPUTS = {
   // managing infrastructure
   eng_legal: band(HOURS),
   // legal and compliance
-  mod_inhouse: band(HEADS),
+  mod_inhouse: band(HEADS, "0"),
   // content review and moderation: in-house employees
-  mod_vendor: band(HEADS),
+  mod_vendor: band(HEADS, "0"),
   // outside vendor seats
   legal_usd: { type: "number", required: false, default: null, min: 0, max: 1e12 },
   // Payment Gateway
@@ -892,6 +892,7 @@ function encode2(inputs, overrides = {}, version = 1) {
   for (const [key, spec] of Object.entries(INPUTS)) {
     const v = inputs[key];
     if (v == null || v === "") continue;
+    if (spec.omit != null && String(v) === spec.omit) continue;
     if (spec.type === "multi") {
       if (v.length) p.set(key, v.join(","));
     } else {
@@ -922,10 +923,36 @@ function decode(search) {
 
 // assets/js/calculator/src/form.js
 var CONTACT_KEYS = ["name", "company", "email", "npub"];
+function bands(slider) {
+  return { values: slider.dataset.values.split(","), labels: slider.dataset.labels.split("|") };
+}
+function sliderValue(slider) {
+  return bands(slider).values[Number(slider.value)] ?? "";
+}
+function setSlider(slider, value) {
+  const { values } = bands(slider);
+  let at = values.indexOf(String(value));
+  if (at < 0) {
+    const n = Number(value);
+    at = 0;
+    for (let i = 1; i < values.length; i++) if (Math.abs(Number(values[i]) - n) < Math.abs(Number(values[at]) - n)) at = i;
+  }
+  slider.value = String(at);
+  announceSlider(slider);
+}
+function announceSlider(slider) {
+  const label = bands(slider).labels[Number(slider.value)] ?? "";
+  slider.setAttribute("aria-valuetext", label);
+  const out = slider.closest(".slider-row")?.querySelector("output");
+  if (out) out.textContent = label;
+}
 function readInputs(form2) {
   const out = {};
   for (const [key, spec] of Object.entries(INPUTS)) {
-    if (spec.type === "multi") {
+    const slider = $(`input[type="range"][name="${key}"]`, form2);
+    if (slider) {
+      out[key] = sliderValue(slider);
+    } else if (spec.type === "multi") {
       out[key] = $$(`input[name="${key}"]:checked`, form2).map((i) => i.value);
     } else if (spec.type === "option") {
       out[key] = $(`input[name="${key}"]:checked`, form2)?.value ?? "";
@@ -947,7 +974,10 @@ function writeInputs(form2, inputs) {
   for (const [key, spec] of Object.entries(INPUTS)) {
     if (!(key in inputs) || inputs[key] == null) continue;
     const v = inputs[key];
-    if (spec.type === "multi") {
+    const slider = $(`input[type="range"][name="${key}"]`, form2);
+    if (slider) {
+      setSlider(slider, v);
+    } else if (spec.type === "multi") {
       const list = Array.isArray(v) ? v : String(v).split(",");
       for (const box of $$(`input[name="${key}"]`, form2)) box.checked = list.includes(box.value);
     } else if (spec.type === "option") {
@@ -957,12 +987,17 @@ function writeInputs(form2, inputs) {
     }
   }
 }
-function writeDefaults(form2) {
+function writeDefaults(form2, defaultHours = {}) {
   const starting = {};
   for (const [key, spec] of Object.entries(INPUTS)) {
-    if (spec.type === "option" || spec.type === "multi") starting[key] = spec.default;
+    if (spec.type === "multi") starting[key] = spec.default;
   }
+  for (const [area, hours] of Object.entries(defaultHours)) starting[`eng_${area}`] = hours;
   writeInputs(form2, starting);
+  for (const slider of $$('input[type="range"]', form2)) announceSlider(slider);
+}
+function wireSliders(form2) {
+  for (const slider of $$('input[type="range"]', form2)) slider.addEventListener("input", () => announceSlider(slider));
 }
 function markInvalid(form2, key) {
   for (const node of $$(".is-invalid", form2)) node.classList.remove("is-invalid");
@@ -1940,7 +1975,14 @@ async function boot() {
   const formEl = $("#calc-form");
   if (!formEl) return;
   wire();
-  writeDefaults(formEl);
+  wireSliders(formEl);
+  const A = assumptions.assumptions;
+  writeDefaults(formEl, {
+    accounts: A.default_hours_accounts.typical,
+    content: A.default_hours_content.typical,
+    infra: A.default_hours_infra.typical,
+    legal: A.default_hours_legal.typical
+  });
   const opened = decode(location.search);
   test = opened.test;
   if (opened.present) {
