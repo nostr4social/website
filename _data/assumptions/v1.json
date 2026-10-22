@@ -53,40 +53,52 @@
       "line": "shared",
       "group": "people"
     },
-    "share_eng_accounts": {
-      "label": "Share of backend time spent on accounts and personal data",
-      "unit": "ratio",
-      "typical": 0.15,
-      "low": 0.08,
-      "high": 0.25,
+    "default_hours_accounts": {
+      "label": "Engineering hours a week on accounts, when the form row is blank",
+      "unit": "hours per week",
+      "typical": 5,
+      "low": 2,
+      "high": 10,
       "confidence": "unsourced",
       "source": null,
-      "note": "Used only when no engineer hours are given.",
+      "note": "The page's grid gives bands (0, 1 to 10, 11 to 40, over 40) read as 0, 5, 25 and 60 hours. A blank row uses this.",
       "line": "accounts",
       "group": "people"
     },
-    "share_eng_graph": {
-      "label": "Share of backend time spent on the social graph and feeds",
-      "unit": "ratio",
-      "typical": 0.2,
-      "low": 0.1,
-      "high": 0.3,
+    "default_hours_content": {
+      "label": "Engineering hours a week on user content, feeds and the graph, when blank",
+      "unit": "hours per week",
+      "typical": 10,
+      "low": 4,
+      "high": 25,
       "confidence": "unsourced",
       "source": null,
-      "note": "Used only when no engineer hours are given.",
+      "note": "Same bands as above.",
       "line": "graph",
       "group": "people"
     },
-    "share_eng_storage": {
-      "label": "Share of backend time spent on storage and serving",
-      "unit": "ratio",
-      "typical": 0.15,
-      "low": 0.08,
-      "high": 0.25,
+    "default_hours_infra": {
+      "label": "Engineering hours a week on infrastructure and storage, when blank",
+      "unit": "hours per week",
+      "typical": 10,
+      "low": 4,
+      "high": 25,
       "confidence": "unsourced",
       "source": null,
-      "note": "Used only when no engineer hours are given.",
+      "note": "Same bands as above.",
       "line": "storage",
+      "group": "people"
+    },
+    "default_hours_legal": {
+      "label": "Engineering hours a week on legal and compliance work, when blank",
+      "unit": "hours per week",
+      "typical": 2,
+      "low": 0,
+      "high": 5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Deletion flows, export tooling, retention jobs. Same bands as above.",
+      "line": "compliance",
       "group": "people"
     },
     "ts_base_salary": {
@@ -149,7 +161,7 @@
         "url": "https://values.snap.com/privacy/transparency/european-union-h2-2025",
         "date": "2026-04"
       },
-      "note": "From DSA transparency reports: LinkedIn about 3, Pinterest at most 5, Snap about 15 per million EU users. Video and ephemeral messaging sit at the top.",
+      "note": "From DSA transparency reports: LinkedIn about 3, Pinterest at most 5, Snap about 15 per million EU users. Used when the form gives no reviewers at all.",
       "line": "moderation",
       "group": "people"
     },
@@ -817,15 +829,47 @@
       "line": "payments",
       "group": "payments"
     },
+    "reseller_rate": {
+      "label": "Merchant-of-record rate",
+      "unit": "ratio of reseller revenue",
+      "typical": 0.05,
+      "low": 0.05,
+      "high": 0.08,
+      "confidence": "medium",
+      "source": {
+        "title": "Paddle pricing (merchant of record)",
+        "url": "https://www.paddle.com/pricing",
+        "date": "2026"
+      },
+      "note": "Paddle and Lemon Squeezy list 5% plus a fixed fee; the reseller is the seller and carries sales tax and VAT.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "reseller_fixed": {
+      "label": "Merchant-of-record fixed fee",
+      "unit": "USD per transaction",
+      "typical": 0.5,
+      "low": 0.5,
+      "high": 0.5,
+      "confidence": "medium",
+      "source": {
+        "title": "Paddle pricing (merchant of record)",
+        "url": "https://www.paddle.com/pricing",
+        "date": "2026"
+      },
+      "note": "Per checkout.",
+      "line": "payments",
+      "group": "payments"
+    },
     "avg_ticket": {
       "label": "Average transaction size",
       "unit": "USD",
       "typical": 10,
-      "low": 5,
-      "high": 30,
+      "low": 30,
+      "high": 5,
       "confidence": "unsourced",
       "source": null,
-      "note": "Turns revenue into a transaction count for the fixed fee.",
+      "note": "Turns revenue into a transaction count for the fixed fee. A bigger ticket means fewer fees, so low is the larger ticket.",
       "line": "payments",
       "group": "payments"
     },
@@ -853,7 +897,7 @@
       "high": 50000,
       "confidence": "unsourced",
       "source": null,
-      "note": "Counsel and structuring for in-app balances or payouts.",
+      "note": "Counsel and structuring for in-app balances or payouts. Charged only when the app holds user balances, credits or wallets.",
       "line": "payments",
       "group": "payments"
     },

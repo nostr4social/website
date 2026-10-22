@@ -14,7 +14,7 @@ Confidence means:
 - **low**: a vendor page, a self-reported salary site, or a primary figure relayed second-hand
 - **unsourced**: no public figure exists; a stated default, deliberately conservative
 
-18 high, 32 unsourced, 8 low, 3 medium of 61 in all. The unsourced ones are the model's weakest points; treat the range, not the typical value, as the claim.
+18 high, 33 unsourced, 8 low, 5 medium of 64 in all. The unsourced ones are the model's weakest points; treat the range, not the typical value, as the claim.
 
 ## Used by more than one line
 
@@ -34,7 +34,7 @@ Confidence means:
 
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `share_eng_accounts` | Share of backend time spent on accounts and personal data | 15% | 8% | 25% | ratio | unsourced | none |
+| `default_hours_accounts` | Engineering hours a week on accounts, when the form row is blank | 5 | 2 | 10 | hours per week | unsourced | none |
 | `auth_per_mau_month` | Authentication as a service | 0.0046 | 0.0025 | 0.02 | USD per MAU per month | high | [Google Cloud Identity Platform pricing](https://cloud.google.com/identity-platform/pricing) (2026) |
 | `reset_rate_per_mau_year` | Password resets per user | 0.25 | 0.1 | 0.5 | resets per MAU per year | unsourced | none |
 | `reset_cost` | Cost of one password reset | 0.5 | 0.1 | 5 | USD per reset | low | [BleepingComputer, citing Forrester on helpdesk password resets](https://www.bleepingcomputer.com/news/security/the-true-cost-of-password-resets/) (2024-11) |
@@ -45,7 +45,7 @@ Confidence means:
 | `verify_share_other` | Users needing a check per year, other | 2% | 0% | 10% | ratio of MAU | unsourced | none |
 | `key_support_per_mau_year` | Supporting users who manage their own keys | 0.02 | 0.005 | 0.1 | USD per MAU per year | unsourced | none |
 
-- `share_eng_accounts`: Used only when no engineer hours are given.
+- `default_hours_accounts`: The page's grid gives bands (0, 1 to 10, 11 to 40, over 40) read as 0, 5, 25 and 60 hours. A blank row uses this.
 - `auth_per_mau_month`: Identity Platform 100k to 1M tier. Low is its 10M-plus tier; high is Clerk beyond 50k.
 - `reset_rate_per_mau_year`: No consumer-app source. Editable.
 - `reset_cost`: Self-service email or SMS plus a share of support. The 70-dollar figure often cited from Forrester is for enterprise helpdesks and is not used.
@@ -60,7 +60,7 @@ Confidence means:
 
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `share_eng_graph` | Share of backend time spent on the social graph and feeds | 20% | 10% | 30% | ratio | unsourced | none |
+| `default_hours_content` | Engineering hours a week on user content, feeds and the graph, when blank | 10 | 4 | 25 | hours per week | unsourced | none |
 | `db_gb_month` | Database storage | 0.23 | 0.115 | 0.345 | USD per GB-month | high | [AWS Price List API, Amazon RDS PostgreSQL gp3 us-east-1](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/us-east-1/index.csv) (2026-10) |
 | `db_mb_per_mau` | Graph and profile metadata per user | 20 | 5 | 100 | MB per MAU | unsourced | none |
 | `db_kb_per_post` | Metadata per post or message, retained twelve months | 2 | 1 | 5 | KB per post | unsourced | none |
@@ -68,7 +68,7 @@ Confidence means:
 | `ranking_fee_per_mau_year` | A ranking or discovery provider | 0.05 | 0.01 | 0.25 | USD per MAU per year | unsourced | none |
 | `graph_eng_remains_share` | Graph engineering that remains on Nostr | 30% | 20% | 50% | ratio | unsourced | none |
 
-- `share_eng_graph`: Used only when no engineer hours are given.
+- `default_hours_content`: Same bands as above.
 - `db_gb_month`: RDS PostgreSQL gp3 Multi-AZ. Low is single-AZ; high is Multi-AZ with readable standbys. Compute instances are extra and not modelled here.
 - `db_mb_per_mau`: Follows, profile, indexes and counters. Editable.
 - `db_kb_per_post`: Row plus indexes, not the media. Retention of twelve months is a model constant.
@@ -80,7 +80,7 @@ Confidence means:
 
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `share_eng_storage` | Share of backend time spent on storage and serving | 15% | 8% | 25% | ratio | unsourced | none |
+| `default_hours_infra` | Engineering hours a week on infrastructure and storage, when blank | 10 | 4 | 25 | hours per week | unsourced | none |
 | `blob_gb_month` | Object storage | 0.023 | 0.00695 | 0.026 | USD per GB-month | high | [AWS Price List API, Amazon S3 us-east-1](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.csv) (2026-10) |
 | `egress_gb` | Egress to the internet | 0.09 | 0 | 0.12 | USD per GB | high | [AWS Price List API, data transfer out to the internet](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/index.csv) (2026-06) |
 | `egress_gb_per_mau_month` | Egress per active user | 1 | 0.3 | 5 | GB per MAU per month | unsourced | [Ericsson Mobility Report key figures (22 GB per smartphone per month, all apps)](https://www.ericsson.com/en/reports-and-papers/mobility-report/key-figures) (2025) |
@@ -88,7 +88,7 @@ Confidence means:
 | `media_sponsor_share` | Media hosting an app still sponsors after moving to Nostr | 25% | 10% | 50% | ratio | unsourced | none |
 | `cache_per_mau_year` | A thin cache in front of relays | 0.05 | 0.02 | 0.2 | USD per MAU per year | unsourced | none |
 
-- `share_eng_storage`: Used only when no engineer hours are given.
+- `default_hours_infra`: Same bands as above.
 - `blob_gb_month`: S3 Standard first 50 TB. Low is Backblaze B2; high is GCS multi-region.
 - `egress_gb`: AWS first 10 TB. Low is Cloudflare R2 (zero); high is Google Cloud.
 - `egress_gb_per_mau_month`: No platform publishes bytes served per user. The only proxy is 22 GB per smartphone per month across all apps.
@@ -100,6 +100,7 @@ Confidence means:
 
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `default_hours_legal` | Engineering hours a week on legal and compliance work, when blank | 2 | 0 | 5 | hours per week | unsourced | none |
 | `gdpr_program_year` | GDPR program for a small app (EU or UK) | 30,000 | 10,000 | 50,000 | USD per year | low | [Legiscope: GDPR compliance cost ranges for SMEs (vendor estimate)](https://legiscope.com/blog/gdpr-compliance-cost) (2026) |
 | `uk_osa_year` | UK Online Safety Act, small or micro service | 11,000 | 3,000 | 65,000 | USD per year | medium | [DSIT Online Safety Act enactment impact assessment, tables 49 to 52](https://assets.publishing.service.gov.uk/media/6716222b9242eecc6c849b09/Online_Safety_act_enactment_impact_assessment.pdf) (2024-10) |
 | `dsa_year` | EU Digital Services Act, non-VLOP platform | 5,000 | 1,500 | 20,000 | USD per year | unsourced | [ACT position paper citing the Commission's DSA notice-and-action setup floor](https://www.acte.be/) (2021) |
@@ -116,6 +117,7 @@ Confidence means:
 | `insurance_remains_share` | Insurance that remains on Nostr | 50% | 30% | 80% | ratio | unsourced | none |
 | `retained_data_share` | Personal data an app still holds on Nostr | 10% | 5% | 30% | ratio | unsourced | none |
 
+- `default_hours_legal`: Deletion flows, export tooling, retention jobs. Same bands as above.
 - `gdpr_program_year`: Vendor ranges: micro 5k to 15k EUR, small 15k to 50k. Outsourced DPO alone runs 1,500 to 8,000 per month.
 - `uk_osa_year`: Impact assessment, 2019 prices: ongoing 6,040 GBP with moderation and risk assessment, plus 7,460 GBP transition spread over three years; low is the 87 GBP basic case; high is a small high-risk service at 50,800 GBP. Converted at 1.30 USD per GBP.
 - `dsa_year`: Point of contact, legal representative outside the EU, notice-and-action, statements of reasons. The only published floor is the Commission's 1,500 EUR setup estimate.
@@ -147,7 +149,7 @@ Confidence means:
 - `ts_base_salary`: Payscale median 70,480; Glassdoor average 101,409 (small samples, self-reported).
 - `moderator_base_salary`: Payscale median 20.44 per hour over 2,080 hours.
 - `moderator_seat_outsourced`: Offshore list price about 8 per hour over 2,000 hours; US BPO 15 to 25 per hour. List prices, not contracts.
-- `mods_per_million_mau`: From DSA transparency reports: LinkedIn about 3, Pinterest at most 5, Snap about 15 per million EU users. Video and ephemeral messaging sit at the top.
+- `mods_per_million_mau`: From DSA transparency reports: LinkedIn about 3, Pinterest at most 5, Snap about 15 per million EU users. Used when the form gives no reviewers at all.
 - `ts_tooling_per_mau_year`: Classifiers, queues, hash matching. Vendor pricing is per item and unpublished at small scale.
 - `appeals_share`: Editable.
 - `moderation_remains_share`: Illegal-content reports, app-store policy, appeals on what the app hosts. Ranking and discovery move to web of trust.
@@ -163,7 +165,9 @@ Confidence means:
 | `store_small_threshold` | Small-business threshold for store tiers | 1,000,000 | 1,000,000 | 1,000,000 | USD per year | high | [Apple App Store Small Business Program](https://developer.apple.com/app-store/small-business-program/) (2026) |
 | `processor_rate` | Card processor rate | 2.9% | 1.5% | 3.5% | ratio of web revenue | high | [Stripe pricing (US)](https://stripe.com/pricing) (2026) |
 | `processor_fixed` | Card processor fixed fee | 0.3 | 0.2 | 0.49 | USD per transaction | high | [Stripe pricing (US)](https://stripe.com/pricing) (2026) |
-| `avg_ticket` | Average transaction size | 10 | 5 | 30 | USD | unsourced | none |
+| `reseller_rate` | Merchant-of-record rate | 5% | 5% | 8% | ratio of reseller revenue | medium | [Paddle pricing (merchant of record)](https://www.paddle.com/pricing) (2026) |
+| `reseller_fixed` | Merchant-of-record fixed fee | 0.5 | 0.5 | 0.5 | USD per transaction | medium | [Paddle pricing (merchant of record)](https://www.paddle.com/pricing) (2026) |
+| `avg_ticket` | Average transaction size | 10 | 30 | 5 | USD | unsourced | none |
 | `lightning_rate` | Lightning or on-chain processor rate | 1% | 0% | 1% | ratio of revenue | high | [OpenNode pricing and fees](http://help.opennode.com/en/articles/3176293-pricing-and-fees) (2026) |
 | `mt_avoidance_year` | Legal work to stay out of money-transmitter status | 10,000 | 2,000 | 50,000 | USD per year | unsourced | none |
 | `mt_remains_share` | Of that legal work, what remains on Nostr | 20% | 10% | 50% | ratio | unsourced | none |
@@ -175,9 +179,11 @@ Confidence means:
 - `store_small_threshold`: Both stores step at 1M USD a year.
 - `processor_rate`: Stripe US 2.9%; low is Stripe UK domestic cards 1.5%; high is PayPal Checkout 3.49%.
 - `processor_fixed`: Stripe 0.30; UK 20p; PayPal 0.49.
-- `avg_ticket`: Turns revenue into a transaction count for the fixed fee.
+- `reseller_rate`: Paddle and Lemon Squeezy list 5% plus a fixed fee; the reseller is the seller and carries sales tax and VAT.
+- `reseller_fixed`: Per checkout.
+- `avg_ticket`: Turns revenue into a transaction count for the fixed fee. A bigger ticket means fewer fees, so low is the larger ticket.
 - `lightning_rate`: OpenNode about 1%; BTCPay Server 0%.
-- `mt_avoidance_year`: Counsel and structuring for in-app balances or payouts.
+- `mt_avoidance_year`: Counsel and structuring for in-app balances or payouts. Charged only when the app holds user balances, credits or wallets.
 - `mt_remains_share`: An app that never holds funds has far less exposure.
 
 ## Provenance

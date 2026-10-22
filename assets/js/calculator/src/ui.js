@@ -34,6 +34,7 @@ export function renderResults(result) {
     row.classList.toggle('is-already', Boolean(line.already))
     row.classList.toggle('is-none', Boolean(line.none))
     show($('.lt-flag--already', row), Boolean(line.already))
+    show($('.lt-flag--partly', row), Boolean(line.partly))
     show($('.lt-flag--implied', row), Boolean(line.implied))
     show($('.lt-flag--none', row), Boolean(line.none))
 
@@ -78,8 +79,11 @@ function partMeta(p, inputs) {
   if (p.id.startsWith('store_')) return `${fmt(t('details.rate'), { rate: percent(p.rate) })} · ${t(`details.tier_${p.tier}`)}`
   if (p.id === 'processor') return fmt(t('details.rate'), { rate: percent(p.rate) })
   if (p.id === 'verify' && p.rate != null) return fmt(t('details.rate'), { rate: percent(p.rate) })
-  if (p.id === 'privacy_programs' && p.us_tier) return t(`details.us_${p.us_tier}`)
+  if (p.id === 'privacy_programs') return p.reported ? t('details.reported') : p.us_tier ? t(`details.us_${p.us_tier}`) : ''
   if (p.id === 'labour' && p.people != null) return fmt(t('details.people'), { n: number(p.people) })
+  if (p.id === 'money_transmitter' && p.holds) return t('details.holds')
+  if ((p.id === 'engineering' || p.id === 'legal_labour') && p.defaulted) return t('details.defaulted')
+  if ((p.id === 'reseller' || p.id === 'p2p') && p.rate != null) return fmt(t('details.rate'), { rate: percent(p.rate) })
   if (p.id === 'database' && p.gb != null) return fmt(t('details.gb'), { gb: number(p.gb) })
   return ''
 }

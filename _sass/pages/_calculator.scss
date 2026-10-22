@@ -149,6 +149,66 @@
   outline-offset: var(--focus-offset);
 }
 
+// A grid question: rows are the things, columns the bands. Full width in the
+// two-column field grid.
+.field--grid {
+  border: 0;
+  grid-column: 1 / -1;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.grid-field {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.grid-field th,
+.grid-field td {
+  border-top: 1px solid var(--line);
+  padding: var(--s-2) var(--s-2);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.grid-field thead th {
+  border-top: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-ui);
+  padding-top: 0;
+}
+
+.grid-field th.grid-field__row {
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  font-weight: var(--fw-body);
+  padding-left: 0;
+  text-align: left;
+  width: 44%;
+}
+
+.grid-field__choice {
+  cursor: pointer;
+  display: block;
+  padding: var(--s-1);
+}
+
+.grid-field__choice input {
+  accent-color: var(--purple);
+  height: 18px;
+  margin: 0;
+  width: 18px;
+}
+
+// On the desk the column head names the band; the pill's own label shows on phones.
+.grid-field__band {
+  color: var(--ink-1);
+  display: none;
+  font-size: var(--fs-s);
+}
+
 .field.is-invalid .field__input {
   border-color: var(--rust);
 }
@@ -780,6 +840,60 @@ tr.is-changed .assume-input {
 
   .lt-bars {
     max-width: 60%;
+  }
+
+  // A grid on a phone: each row becomes its own block, the bands beneath it.
+  .grid-field thead {
+    display: none;
+  }
+
+  .grid-field,
+  .grid-field tbody,
+  .grid-field tr {
+    display: block;
+    width: auto;
+  }
+
+  .grid-field tr {
+    border-top: 1px solid var(--line);
+    padding: var(--s-2) 0;
+  }
+
+  .grid-field th,
+  .grid-field td {
+    border-top: 0;
+    padding: var(--s-1) 0;
+    text-align: left;
+  }
+
+  // The row's name on its own line, then its bands as pills beneath it.
+  .grid-field th.grid-field__row {
+    display: block;
+    padding-bottom: var(--s-2);
+    width: auto;
+  }
+
+  .grid-field td.grid-field__cell {
+    display: inline-block;
+    margin: 0 var(--s-2) var(--s-2) 0;
+  }
+
+  .grid-field__choice {
+    align-items: center;
+    background: var(--bg-0);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    display: inline-flex;
+    gap: var(--s-2);
+    padding: var(--s-2) var(--s-3);
+  }
+
+  .grid-field__choice:has(input:checked) {
+    border-color: var(--purple-lift);
+  }
+
+  .grid-field__band {
+    display: inline;
   }
 
   .lt-bars::before {

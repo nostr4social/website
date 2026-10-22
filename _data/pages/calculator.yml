@@ -33,123 +33,142 @@ sections:
     id: calculator
 
     # ── the form ─────────────────────────────────────────────────────────────
+    # The same sections and questions as the form published on formstr.app;
+    # _data/forms/map.yml says which question each key is sent as.
     form:
       title: Your numbers
       lede: >-
-        Eight things a founder knows offhand. Blank optional fields use the
+        The same questions as our Nostr form. Blank optional answers use the
         defaults listed under Assumptions.
       groups:
-        - id: users
-          title: Your users
-          fields: [mau, posts, mb]
-        - id: team
-          title: Your team
-          fields: [eng, hrs]
-          # The per-area split, folded away unless wanted.
-          more:
-            label: Split those hours by area instead
-            fields: [hrs_accounts, hrs_graph, hrs_storage]
-        - id: moderation
-          title: Trust and safety
-          fields: [ts, ts_n]
-        - id: payments
-          title: Payments
-          fields: [pay, rev, stores]
-        - id: jurisdictions
-          title: Where your users are
-          fields: [jur]
         - id: nostr
-          title: Already on Nostr
-          fields: [nostr]
+          title: Non Custody
+          note: Which of these already hold for your app?
+          fields: [nostr_grid]
+        - id: users
+          title: Accounts & Storage
+          fields: [mau, posts_per_user, mb]
+        - id: staffing
+          title: Staffing Costs
+          fields: [engineering_grid, moderation_grid, legal_usd]
+        - id: payments
+          title: Payment Gateway
+          fields: [rails, rev, balances]
+        - id: availability
+          title: App Availability
+          fields: [dist, jur]
       fields:
         mau:
-          label: Monthly active users
+          label: Number of Monthly Active Users (MAU)
           placeholder: "50000"
-        posts:
-          label: Posts or messages per month
-          placeholder: "1000000"
-          note: Leave blank for twenty per user.
+        posts_per_user:
+          label: Average number of Posts or Messages per month per user
+          placeholder: "20"
+          note: Leave blank for twenty.
         mb:
-          label: Average storage per user
-          unit: MB
+          label: Average storage per user (in MB)
           placeholder: "50"
           note: Photos, video, attachments. Leave blank for 50 MB.
-        eng:
-          label: Backend or infra engineers
-          placeholder: "3"
-        hrs:
-          label: Engineer hours per week on accounts, graph and storage
-          placeholder: optional
+        engineering_grid:
+          label: Software Engineering (hours per week)
+          grid: true
+          columns:
+            "0": "0"
+            "5": 1 to 10
+            "25": 11 to 40
+            "60": over 40
+          rows:
+            eng_accounts: Managing user accounts
+            eng_content: Managing user content
+            eng_infra: Managing infrastructure
+            eng_legal: Legal and compliance
+          note: A row left blank uses the default hours listed under Assumptions.
+        moderation_grid:
+          label: Content review & moderation (head count)
+          grid: true
+          columns:
+            "0": "0"
+            "5": 1 to 10
+            "50": 11 to 100
+            "500": 101 to 1000
+            "2000": over 1000
+          rows:
+            mod_inhouse: In house (employees)
+            mod_vendor: Outside vendor (seats)
           note: >-
-            Leave blank and the model attributes a share of each engineer's
-            time; see Assumptions.
-        hrs_accounts:
-          label: Hours per week on accounts and personal data
+            With nobody on either row, the moderation line shows what the
+            benchmark says a function for your size costs.
+        legal_usd:
+          label: Legal, privacy and compliance (in USD, approximate per year)
           placeholder: optional
-        hrs_graph:
-          label: Hours per week on the social graph and feeds
-          placeholder: optional
-        hrs_storage:
-          label: Hours per week on storage and serving
-          placeholder: optional
-        ts:
-          label: Trust and safety function
+          note: If given, it replaces our estimate of your compliance programs.
+        rails:
+          label: What in-app payments do you facilitate in your app?
           options:
-            none: None
-            inhouse: In-house
-            outsourced: Outsourced
-          note: >-
-            With none, the moderation line shows what the benchmark says a
-            function for your size costs.
-        ts_n:
-          label: People or seats
-          placeholder: "2"
-        pay:
-          label: In-app payments
-          options:
-            "no": "No"
-            "yes": "Yes"
+            p2p: Peer to Peer (bitcoin, lightning, or other crypto)
+            apple: Apple in-app purchase
+            google: Google Play billing
+            processor: Third party processor (Stripe, PayPal, Adyen)
+            reseller: Third party reseller (Paddle, Lemon Squeezy, FastSpring)
+          note: Tick none if you take no payments. Revenue is split evenly across what you tick.
         rev:
-          label: Gross monthly in-app revenue
-          unit: USD
+          label: What is your approximate in-app revenue (gross monthly USD)
           placeholder: "20000"
-        stores:
-          label: Where you sell
+        balances:
+          label: Do you hold user balances, credits or wallets?
+          options:
+            "yes": "Yes"
+        dist:
+          label: How is your app distributed?
           options:
             apple: Apple App Store
             google: Google Play
             web: Web or direct
-          note: Revenue is split evenly across what you tick.
+          note: Recorded with your answers; not priced.
         jur:
-          label: Primary jurisdictions
+          label: What regions hold primary jurisdiction?
           options:
             eu: EU
             uk: UK
             us: US
             other: Other
-        nostr:
-          label: Parts of your app that are already non-custodial on Nostr
-          options:
-            accounts: Accounts
-            graph: Social graph
-            storage: Storage
-            moderation: Moderation
-            payments: Payments
-          note: A ticked line shows its non-custodial cost in both columns.
+        nostr_grid:
+          label: "Our app already uses Nostr:"
+          grid: true
+          columns:
+            "0": Never
+            "0.5": Somewhat
+            "1": Always
+          rows:
+            n_keys: User accounts are private keys
+            n_raw_keys: App handles raw private keys
+            n_signed_events: User data stored as signed events
+            n_event_storage: User choice for event storage
+            n_media_storage: User choice for media storage
+            n_labels: Content tags and labels as signed events
+            n_feeds: User configurable feeds & algos
+            n_algos: User choice for algo processing
+            n_p2p: Peer to peer in app payments
+            n_nips: NIP standards published publicly
+          note: >-
+            Each row moves a cost line toward its non-custodial figure, all
+            the way for Always and halfway for Somewhat. Handling raw private
+            keys cancels the credit for user-held keys. The last row is
+            recorded, not priced.
       contact:
-        title: Who is asking
+        title: Personal Info
         note: >-
           Optional. If you leave your details, we can follow up on your
           numbers. They travel encrypted and never appear in the results link.
         fields:
           name:
-            label: Name
+            label: Your Name
             placeholder: optional
           company:
-            label: Company
+            label: Company Name
             placeholder: optional
           email:
-            label: Email
+            label: Email Address
             placeholder: optional
           npub:
             label: Nostr npub
@@ -230,7 +249,8 @@ sections:
             revenue can move to peer-to-peer rails at about 1% instead of
             3% plus 15 to 30%.
       already: Already on Nostr
-      implied: Benchmark-implied; no function was given
+      partly: Partly on Nostr
+      implied: Benchmark-implied; nobody was given
       no_payments: No in-app payments
       actions:
         share:
@@ -303,6 +323,9 @@ sections:
         people: "{n} people"
         rate: "{rate} applied"
         gb: "{gb} GB"
+        defaulted: default hours
+        reported: as reported
+        holds: holds balances
       parts:
         auth: Authentication service
         resets: Password resets
@@ -316,8 +339,8 @@ sections:
         egress: Egress
         serving: Serving compute
         relay: A relay of your own
-        privacy_programs: Privacy programs
-        content_law: Platform-content law
+        privacy_programs: Compliance programs
+        legal_labour: Engineering time on compliance
         dsar: Access requests
         insurance: Cyber insurance
         breach: Expected breach loss
@@ -327,6 +350,8 @@ sections:
         store_apple: Apple App Store commission
         store_google: Google Play commission
         processor: Payment processing
+        reseller: Merchant of record
+        p2p: Peer-to-peer rail
         money_transmitter: Money-transmitter avoidance
       status:
         saving: Saving your inputs as a Nostr form response

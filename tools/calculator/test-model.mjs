@@ -24,7 +24,7 @@ const test = async (name, fn) => {
   }
 }
 
-const base = { mau: 50000, posts: 1000000, eng: 3, ts: 'inhouse', ts_n: 2, pay: 'yes', rev: 20000, stores: ['apple', 'google', 'web'], jur: ['eu', 'uk', 'us'] }
+const base = { mau: 50000, posts_per_user: 20, eng_accounts: '5', eng_content: '25', eng_infra: '25', mod_inhouse: '5', rails: ['apple', 'google', 'processor'], rev: 20000, jur: ['eu', 'uk', 'us'] }
 const finite = (r) => {
   for (const s of SCENARIOS) {
     for (const l of LINES) {
@@ -64,7 +64,7 @@ await test('the non-custodial column is never zero where an obligation remains',
 })
 
 await test('payments are zero in both columns only when there are no in-app payments', () => {
-  const r = calculate({ ...base, pay: 'no', rev: 0 }, data)
+  const r = calculate({ ...base, rails: [], rev: 0 }, data)
   assert.equal(r.typical.lines.payments.custodial, 0)
   assert.equal(r.typical.lines.payments.noncustodial, 0)
   assert.equal(r.typical.lines.payments.none, true)
@@ -79,7 +79,7 @@ await test('compliance stays non-zero with only "other" as jurisdiction', () => 
 await test('custodial cost is monotonic in MAU', () => {
   let last = -1
   for (const mau of [1000, 10000, 100000, 1000000, 10000000]) {
-    const r = calculate({ ...base, mau, posts: mau * 20 }, data)
+    const r = calculate({ ...base, mau }, data)
     assert.ok(r.typical.totals.custodial > last, `mau ${mau}`)
     last = r.typical.totals.custodial
   }
@@ -92,41 +92,72 @@ await test('custodial exceeds non-custodial for the baseline', () => {
 })
 
 await test('store tiers step at the small-business threshold', () => {
-  const small = calculate({ ...base, rev: 50000, stores: ['apple'] }, data).typical.lines.payments
-  const big = calculate({ ...base, rev: 200000, stores: ['apple'] }, data).typical.lines.payments
+  const small = calculate({ ...base, rev: 50000, rails: ['apple'] }, data).typical.lines.payments
+  const big = calculate({ ...base, rev: 200000, rails: ['apple'] }, data).typical.lines.payments
   assert.equal(small.parts.find((p) => p.id === 'store_apple').rate, data.assumptions.apple_rate_small.typical)
   assert.equal(big.parts.find((p) => p.id === 'store_apple').rate, data.assumptions.apple_rate_standard.typical)
 })
 
-await test('store commission is identical in both columns; processor fees are not', () => {
-  const r = calculate({ ...base, stores: ['apple', 'web'] }, data).typical.lines.payments
+await test('store commission is identical in both columns; processor and reseller fees are not', () => {
+  const r = calculate({ ...base, rails: ['apple', 'processor', 'reseller', 'p2p'] }, data).typical.lines.payments
   const apple = r.parts.find((p) => p.id === 'store_apple')
   const web = r.parts.find((p) => p.id === 'processor')
+  const mor = r.parts.find((p) => p.id === 'reseller')
+  const p2p = r.parts.find((p) => p.id === 'p2p')
   assert.equal(apple.custodial, apple.noncustodial)
   assert.ok(web.noncustodial < web.custodial)
+  assert.ok(mor.custodial > web.custodial && mor.noncustodial === web.noncustodial)
+  assert.equal(p2p.custodial, p2p.noncustodial)
 })
 
-await test('"already on Nostr" makes that line\'s custodial column equal its non-custodial estimate', () => {
-  const r = calculate({ ...base, nostr: ['storage', 'payments'] }, data).typical
-  assert.equal(r.lines.storage.custodial, r.lines.storage.noncustodial)
-  assert.equal(r.lines.payments.custodial, r.lines.payments.noncustodial)
+await test('the money-transmitter allowance applies only when balances are held', () => {
+  const no = calculate(base, data).typical.lines.payments.parts.find((p) => p.id === 'money_transmitter')
+  const yes = calculate({ ...base, balances: ['yes'] }, data).typical.lines.payments.parts.find((p) => p.id === 'money_transmitter')
+  assert.equal(no.custodial, 0)
+  assert.ok(yes.custodial > 0 && yes.noncustodial > 0 && yes.noncustodial < yes.custodial)
+})
+
+await test('"already uses Nostr": Always equals the non-custodial figure, Somewhat is halfway, raw keys cancel the credit', () => {
+  const r = calculate({ ...base, n_event_storage: '1', n_media_storage: '1', n_p2p: '1' }, data).typical
+  assert.ok(Math.abs(r.lines.storage.custodial - r.lines.storage.noncustodial) < 1e-6)
+  assert.ok(Math.abs(r.lines.payments.custodial - r.lines.payments.noncustodial) < 1e-6)
+  assert.equal(r.lines.storage.already, true)
   assert.ok(r.lines.accounts.custodial > r.lines.accounts.noncustodial)
-  const all = calculate({ ...base, nostr: ['accounts', 'storage'] }, data).typical
-  assert.equal(all.lines.compliance.custodial, all.lines.compliance.noncustodial)
+  const half = calculate({ ...base, n_keys: '0.5', n_raw_keys: '0' }, data).typical.lines.accounts
+  assert.ok(Math.abs(half.custodial - (half.full + half.noncustodial) / 2) < 1e-6)
+  assert.equal(half.partly, true)
+  const raw = calculate({ ...base, n_keys: '1', n_raw_keys: '1' }, data).typical.lines.accounts
+  assert.equal(raw.custodial, raw.full)
+  const all = calculate({ ...base, n_keys: '1', n_event_storage: '1', n_media_storage: '1' }, data).typical
+  assert.ok(Math.abs(all.lines.compliance.custodial - all.lines.compliance.noncustodial) < 1e-6)
+  const nips = calculate({ ...base, n_nips: '1' }, data).typical
+  assert.equal(nips.totals.custodial, calculate(base, data).typical.totals.custodial)
 })
 
-await test('no trust-and-safety function yields an implied, non-zero moderation cost', () => {
-  const r = calculate({ ...base, ts: 'none', ts_n: 0 }, data).typical.lines.moderation
+await test('nobody reviewing content yields an implied, non-zero moderation cost; people and seats add up', () => {
+  const r = calculate({ ...base, mod_inhouse: null, mod_vendor: null }, data).typical.lines.moderation
   assert.equal(r.implied, true)
   assert.ok(r.custodial > 0)
+  const both = calculate({ ...base, mod_inhouse: '5', mod_vendor: '50' }, data).typical.lines.moderation
+  const inhouse = calculate({ ...base, mod_inhouse: '5', mod_vendor: '0' }, data).typical.lines.moderation
+  assert.ok(both.custodial > inhouse.custodial && both.implied === false)
 })
 
-await test('engineer hours override headcount attribution', () => {
-  const byCount = calculate(base, data).typical.lines.accounts.parts.find((p) => p.id === 'engineering').custodial
-  const byHours = calculate({ ...base, hrs_accounts: 80 }, data).typical.lines.accounts.parts.find((p) => p.id === 'engineering').custodial
-  const byTotal = calculate({ ...base, hrs: 10 }, data).typical.lines.accounts.parts.find((p) => p.id === 'engineering').custodial
-  assert.ok(byHours > byCount)
-  assert.ok(byTotal < byCount)
+await test('a blank engineering row uses the default hours; a band overrides it', () => {
+  const v = resolveAssumptions(data, 'typical')
+  const blank = calculate({ ...base, eng_accounts: null }, data).typical.lines.accounts.parts.find((p) => p.id === 'engineering')
+  const band = calculate({ ...base, eng_accounts: '60' }, data).typical.lines.accounts.parts.find((p) => p.id === 'engineering')
+  assert.equal(blank.defaulted, true)
+  assert.ok(Math.abs(blank.custodial / band.custodial - v.default_hours_accounts / 60) < 1e-9)
+})
+
+await test('reported legal spend replaces the program estimates and keeps the content-law floor', () => {
+  const est = calculate(base, data).typical.lines.compliance.parts.find((p) => p.id === 'privacy_programs')
+  const rep = calculate({ ...base, legal_usd: 5000 }, data).typical.lines.compliance.parts.find((p) => p.id === 'privacy_programs')
+  assert.equal(rep.reported, true)
+  assert.equal(rep.custodial, 5000)
+  assert.ok(rep.custodial < est.custodial)
+  assert.ok(rep.noncustodial > 0 && rep.noncustodial <= rep.custodial)
 })
 
 await test('the strictest selected jurisdiction sets the verification share', () => {
@@ -145,7 +176,7 @@ await test('an override applies to every scenario and an unknown or negative one
 })
 
 await test('the results link round-trips inputs and overrides', () => {
-  const r = calculate({ ...base, nostr: ['graph'], mb: 120 }, data, { db_gb_month: 0.2 })
+  const r = calculate({ ...base, n_feeds: '0.5', mb: 120, balances: ['yes'] }, data, { db_gb_month: 0.2 })
   const q = encode(r.inputs, r.overrides, r.version)
   const back = decode('?' + q + '&test=1&junk=2')
   const again = calculate(back.inputs, data, back.overrides)
@@ -162,13 +193,13 @@ await test('validation names the first bad input', () => {
   assert.throws(() => normalizeInputs({ ...base, mau: 0 }), (e) => e.key === 'mau' && e.code === 'too_small')
   assert.throws(() => normalizeInputs({ ...base, jur: [] }), (e) => e.key === 'jur' && e.code === 'required')
   assert.throws(() => normalizeInputs({ ...base, mau: '' }), (e) => e.key === 'mau' && e.code === 'required')
-  assert.throws(() => normalizeInputs({ ...base, ts: undefined }), (e) => e.key === 'ts' && e.code === 'required')
-  assert.throws(() => normalizeInputs({ ...base, ts: 'inhouse', ts_n: 0 }), (e) => e.key === 'ts_n' && e.code === 'required')
-  assert.throws(() => normalizeInputs({ ...base, pay: 'yes', rev: 0 }), (e) => e.key === 'rev' && e.code === 'required')
-  assert.throws(() => normalizeInputs({ ...base, stores: 'apple,steam' }), (e) => e.key === 'stores' && e.code === 'invalid')
-  const ok = normalizeInputs({ mau: '1,000', posts: '', eng: '2', ts: 'none', pay: 'no', jur: 'us,eu' })
+  assert.throws(() => normalizeInputs({ ...base, rails: ['apple'], rev: 0 }), (e) => e.key === 'rev' && e.code === 'required')
+  assert.throws(() => normalizeInputs({ ...base, rails: 'apple,steam' }), (e) => e.key === 'rails' && e.code === 'invalid')
+  assert.throws(() => normalizeInputs({ ...base, eng_accounts: '7' }), (e) => e.key === 'eng_accounts' && e.code === 'invalid')
+  const ok = normalizeInputs({ mau: '1,000', posts_per_user: '', jur: 'us,eu' })
   assert.equal(ok.mau, 1000)
-  assert.equal(ok.posts, 20000)
+  assert.equal(ok.posts_per_user, 20)
+  assert.equal(ok.eng_accounts, null)
   assert.deepEqual(ok.jur, ['eu', 'us'])
   assert.equal(Object.keys(ok).length, Object.keys(INPUTS).length)
 })

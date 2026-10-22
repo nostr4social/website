@@ -17,7 +17,7 @@ import { createSignIn } from '../../shared/src/signin.js'
 import { loadRecipients, pickRecipient } from '../../shared/src/recipients.js'
 import { calculate } from './model.js'
 import { decode, encode } from './codec.js'
-import { InputError } from './inputs.js'
+import { GRIDS, InputError } from './inputs.js'
 import { markInvalid, readContact, readInputs, writeDefaults, writeInputs } from './form.js'
 import { compact } from './format.js'
 import { composeLead, prepareForm, sendLead, submitResponse } from './submit.js'
@@ -87,10 +87,28 @@ function withhold(formEl) {
   return null
 }
 
+/** The submission's values, keyed like the id map: grids fold their rows into one answer. */
 function valuesFor(result, contact) {
   const T = result.typical.totals
+  const i = result.inputs
+  const grid = (name, prefix) => {
+    const cells = {}
+    for (const key of GRIDS[name]) if (i[key] != null) cells[key.slice(prefix.length)] = i[key]
+    return cells
+  }
   return {
-    ...result.inputs,
+    mau: i.mau,
+    posts_per_user: i.posts_per_user,
+    mb: i.mb,
+    engineering: grid('engineering', 'eng_'),
+    moderation: grid('moderation', 'mod_'),
+    legal_usd: i.legal_usd ?? '',
+    rails: i.rails,
+    rev: i.rev,
+    balances: i.balances,
+    distribution: i.dist,
+    jur: i.jur,
+    nostr: grid('nostr', 'n_'),
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
     link: result.link,

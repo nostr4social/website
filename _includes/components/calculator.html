@@ -32,13 +32,49 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
     {%- for group in f.groups -%}
     <fieldset class="group" id="group-{{ group.id }}">
       <legend class="group__legend">{{ group.title }}</legend>
+      {%- if group.note %}<p class="group__note">{{ group.note }}</p>{% endif -%}
       <div class="group__fields">
       {%- for key in group.fields -%}
         {%- assign field = f.fields[key] -%}
-        {%- if field.options -%}
+        {%- if field.grid -%}
+          {%- comment -%}
+            A grid: one radio group per row, named by the row's input key, with
+            the column's value. Rendered as a table so the column heads are
+            read with every cell.
+          {%- endcomment -%}
+          <fieldset class="field field--grid" id="field-{{ key }}">
+            <legend class="field__label">{{ field.label }}</legend>
+            <table class="grid-field">
+              <thead>
+                <tr>
+                  <th scope="col"><span class="visually-hidden">{{ field.label }}</span></th>
+                  {%- for col in field.columns -%}
+                  <th scope="col" class="grid-field__col">{{ col[1] }}</th>
+                  {%- endfor -%}
+                </tr>
+              </thead>
+              <tbody>
+                {%- for row in field.rows -%}
+                <tr id="field-{{ row[0] }}">
+                  <th scope="row" class="grid-field__row">{{ row[1] }}</th>
+                  {%- for col in field.columns -%}
+                  <td class="grid-field__cell" data-label="{{ col[1] }}">
+                    <label class="grid-field__choice" aria-label="{{ row[1] }}: {{ col[1] }}">
+                      <input type="radio" name="{{ row[0] }}" value="{{ col[0] }}" id="f-{{ row[0] }}-{{ forloop.index }}">
+                      <span class="grid-field__band">{{ col[1] }}</span>
+                    </label>
+                  </td>
+                  {%- endfor -%}
+                </tr>
+                {%- endfor -%}
+              </tbody>
+            </table>
+            {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}
+          </fieldset>
+        {%- elsif field.options -%}
           {%- comment -%} a choice group: radios for one answer, checkboxes for several {%- endcomment -%}
           {%- assign multi = false -%}
-          {%- if key == "stores" or key == "jur" or key == "nostr" %}{% assign multi = true %}{% endif -%}
+          {%- if key == "rails" or key == "dist" or key == "jur" or key == "balances" %}{% assign multi = true %}{% endif -%}
           <fieldset class="field field--choices" id="field-{{ key }}">
             <legend class="field__label">{{ field.label }}</legend>
             <div class="choices">
@@ -61,20 +97,6 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
         {%- endif -%}
       {%- endfor -%}
       </div>
-      {%- if group.more -%}
-      <details class="group__more">
-        <summary class="group__more-label">{{ group.more.label }}</summary>
-        <div class="group__fields">
-        {%- for key in group.more.fields -%}
-          {%- assign field = f.fields[key] -%}
-          <label class="field" id="field-{{ key }}">
-            <span class="field__label">{{ field.label }}</span>
-            <input class="field__input" id="f-{{ key }}" name="{{ key }}" type="text" inputmode="decimal" autocomplete="off" placeholder="{{ field.placeholder }}">
-          </label>
-        {%- endfor -%}
-        </div>
-      </details>
-      {%- endif -%}
     </fieldset>
     {%- endfor -%}
 
@@ -182,6 +204,7 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
             <span class="lt-title">{% include lib/icon.html name=line.icon class="lt-icon" %}<span>{{ line.title }}</span></span>
             <span class="lt-flags">
               <span class="badge badge--live lt-flag lt-flag--already" hidden>{{ r.already }}</span>
+              <span class="badge badge--soon lt-flag lt-flag--partly" hidden>{{ r.partly }}</span>
               <span class="badge badge--soon lt-flag lt-flag--implied" hidden>{{ r.implied }}</span>
               <span class="badge badge--soon lt-flag lt-flag--none" hidden>{{ r.no_payments }}</span>
             </span>

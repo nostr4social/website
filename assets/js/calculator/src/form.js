@@ -45,9 +45,6 @@ export function writeInputs(form, inputs) {
       form.elements[key].value = String(v)
     }
   }
-  // Per-area hours live in a disclosure; open it if any were given.
-  const more = $('.group__more', form)
-  if (more && ['hrs_accounts', 'hrs_graph', 'hrs_storage'].some((k) => inputs[k] != null && inputs[k] !== '')) more.open = true
 }
 
 /** The form's starting values: the required inputs' defaults, nothing else. */

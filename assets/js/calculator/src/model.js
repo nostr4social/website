@@ -10,6 +10,9 @@
 // and non-custodial, and the parts they add up from, so the page can show
 // the applied rates beside the result.
 //
+// "Our app already uses Nostr" gives each line a share between 0 and 1; the
+// custodial figure then moves that far toward the non-custodial one.
+//
 // Units: USD per year unless a name says otherwise.
 
 import { INPUTS, normalizeInputs } from './inputs.js'
@@ -50,25 +53,41 @@ export function cleanOverrides(data, overrides = {}) {
 
 const loadedHourly = (v) => (v.eng_base_salary * v.loaded_multiplier * v.overhead_multiplier) / HOURS_PER_YEAR
 const loadedYear = (base, v) => base * v.loaded_multiplier * v.overhead_multiplier
+const num = (x) => (x == null || x === '' ? null : Number(x))
 
-/**
- * Engineering hours a year attributed to one area. Per-area hours win; then a
- * total split by the three shares; then headcount times the area's share.
- */
+/** Engineering hours a year on one area: the band given, else the default for that area. */
 function engHoursYear(area, inputs, v) {
-  const own = inputs[`hrs_${area}`]
-  if (own != null) return own * WEEKS_PER_YEAR
-  const shares = { accounts: v.share_eng_accounts, graph: v.share_eng_graph, storage: v.share_eng_storage }
-  if (inputs.hrs != null) {
-    const total = shares.accounts + shares.graph + shares.storage
-    return inputs.hrs * WEEKS_PER_YEAR * (total > 0 ? shares[area] / total : 1 / 3)
+  const given = num(inputs[`eng_${area}`])
+  const defaults = {
+    accounts: v.default_hours_accounts,
+    content: v.default_hours_content,
+    infra: v.default_hours_infra,
+    legal: v.default_hours_legal,
   }
-  return inputs.eng * HOURS_PER_YEAR * shares[area]
+  const weekly = given != null ? given : defaults[area]
+  return weekly * WEEKS_PER_YEAR
+}
+
+/** 0 to 1: how far a line is already non-custodial, from the Nostr grid. */
+export function nostrShares(inputs) {
+  const g = (k) => num(inputs[k]) ?? 0
+  const avg = (...xs) => xs.reduce((a, b) => a + b, 0) / xs.length
+  const accounts = g('n_keys') * (1 - g('n_raw_keys'))
+  const storage = avg(g('n_event_storage'), g('n_media_storage'))
+  return {
+    accounts,
+    graph: avg(g('n_signed_events'), g('n_feeds')),
+    storage,
+    compliance: avg(accounts, storage),
+    moderation: avg(g('n_labels'), g('n_algos')),
+    payments: g('n_p2p'),
+  }
 }
 
 const part = (id, custodial, noncustodial, extra = {}) => ({ id, custodial, noncustodial, ...extra })
 const sum = (parts, side) => parts.reduce((acc, p) => acc + p[side], 0)
 const has = (inputs, j) => inputs.jur.includes(j)
+const posts = (inputs) => inputs.mau * inputs.posts_per_user
 
 // ── the six lines ───────────────────────────────────────────────────────────
 
@@ -86,20 +105,20 @@ function accounts(inputs, v) {
     part('auth', mau * v.auth_per_mau_month * 12, 0),
     part('resets', mau * v.reset_rate_per_mau_year * v.reset_cost, 0),
     part('verify', verify, verify, { rate: verifyShare }),
-    part('engineering', eng, 0),
+    part('engineering', eng, 0, { defaulted: num(inputs.eng_accounts) == null }),
     part('key_support', 0, mau * v.key_support_per_mau_year),
   ]
   return { parts }
 }
 
 function graph(inputs, v) {
-  const { mau, posts } = inputs
-  const dbGb = (mau * v.db_mb_per_mau) / 1024 + (posts * RETENTION_MONTHS * v.db_kb_per_post) / 1024 / 1024
-  const eng = engHoursYear('graph', inputs, v) * loadedHourly(v)
+  const { mau } = inputs
+  const dbGb = (mau * v.db_mb_per_mau) / 1024 + (posts(inputs) * RETENTION_MONTHS * v.db_kb_per_post) / 1024 / 1024
+  const eng = engHoursYear('content', inputs, v) * loadedHourly(v)
   const parts = [
     part('database', dbGb * v.db_gb_month * 12, 0, { gb: dbGb }),
     part('feed_compute', mau * v.compute_per_mau_year * v.feed_compute_share, 0),
-    part('engineering', eng, eng * v.graph_eng_remains_share),
+    part('engineering', eng, eng * v.graph_eng_remains_share, { defaulted: num(inputs.eng_content) == null }),
     part('ranking', 0, mau * v.ranking_fee_per_mau_year),
   ]
   return { parts }
@@ -109,12 +128,12 @@ function storage(inputs, v) {
   const { mau, mb } = inputs
   const blob = (mau * mb) / 1024 * v.blob_gb_month * 12
   const egress = mau * v.egress_gb_per_mau_month * v.egress_gb * 12
-  const eng = engHoursYear('storage', inputs, v) * loadedHourly(v)
+  const eng = engHoursYear('infra', inputs, v) * loadedHourly(v)
   const parts = [
     part('blob', blob, blob * v.media_sponsor_share),
     part('egress', egress, egress * v.media_sponsor_share),
     part('serving', mau * v.compute_per_mau_year * (1 - v.feed_compute_share), mau * v.cache_per_mau_year),
-    part('engineering', eng, 0),
+    part('engineering', eng, 0, { defaulted: num(inputs.eng_infra) == null }),
     part('relay', 0, v.relay_cost_year),
   ]
   return { parts }
@@ -128,13 +147,29 @@ function compliance(inputs, v) {
   const gdpr = eu || uk ? v.gdpr_program_year : 0
   const osa = uk ? v.uk_osa_year : 0
   const dsa = eu ? v.dsa_year : 0
-  const usp = us ? (mau >= v.ccpa_consumer_threshold ? v.us_privacy_year_large : v.us_privacy_year_small) : 0
+  const usTier = us ? (mau >= v.ccpa_consumer_threshold ? 'large' : 'small') : null
+  const usp = us ? (usTier === 'large' ? v.us_privacy_year_large : v.us_privacy_year_small) : 0
+  const contentLaw = osa + dsa
+
+  // Reported legal spend replaces the program estimates; the content-law
+  // floor still applies to what remains.
+  const reported = num(inputs.legal_usd)
+  let programs
+  let programsRemain
+  if (reported != null && reported > 0) {
+    programs = reported
+    programsRemain = Math.min(reported, contentLaw) + Math.max(0, reported - contentLaw) * v.privacy_remains_share
+  } else {
+    programs = gdpr + usp + contentLaw
+    programsRemain = contentLaw + (gdpr + usp) * v.privacy_remains_share
+  }
+  const legal = engHoursYear('legal', inputs, v) * loadedHourly(v)
   const dsar = eu || uk || us ? mau * v.dsar_rate_per_mau_year * v.dsar_cost : 0
   const breach = v.breach_prob_year * Math.min(v.breach_cost_cap, mau * v.breach_cost_per_user)
   const breachRemains = v.breach_prob_year * Math.min(v.breach_cost_cap, mau * v.retained_data_share * v.breach_cost_per_user)
   const parts = [
-    part('privacy_programs', gdpr + usp, (gdpr + usp) * v.privacy_remains_share, { us_tier: us ? (mau >= v.ccpa_consumer_threshold ? 'large' : 'small') : null }),
-    part('content_law', osa + dsa, osa + dsa),
+    part('privacy_programs', programs, programsRemain, { us_tier: usTier, reported: reported != null && reported > 0 }),
+    part('legal_labour', legal, legal * v.privacy_remains_share, { defaulted: num(inputs.eng_legal) == null }),
     part('dsar', dsar, 0),
     part('insurance', v.cyber_insurance_year, v.cyber_insurance_year * v.insurance_remains_share),
     part('breach', breach, breachRemains),
@@ -143,19 +178,24 @@ function compliance(inputs, v) {
 }
 
 function moderation(inputs, v) {
-  const { mau, ts, ts_n } = inputs
+  const { mau } = inputs
+  const inhouse = num(inputs.mod_inhouse) ?? 0
+  const vendor = num(inputs.mod_vendor) ?? 0
   let labour
+  let people
   let implied = false
-  if (ts === 'inhouse') labour = ts_n * loadedYear(v.ts_base_salary, v)
-  else if (ts === 'outsourced') labour = ts_n * v.moderator_seat_outsourced
-  else {
-    labour = (mau / 1e6) * v.mods_per_million_mau * loadedYear(v.moderator_base_salary, v)
+  if (inhouse > 0 || vendor > 0) {
+    labour = inhouse * loadedYear(v.ts_base_salary, v) + vendor * v.moderator_seat_outsourced
+    people = inhouse + vendor
+  } else {
+    people = (mau / 1e6) * v.mods_per_million_mau
+    labour = people * loadedYear(v.moderator_base_salary, v)
     implied = true
   }
   const appeals = labour * v.appeals_share
   const tooling = mau * v.ts_tooling_per_mau_year
   const parts = [
-    part('labour', labour, labour * v.moderation_remains_share, { implied, people: ts === 'none' ? (mau / 1e6) * v.mods_per_million_mau : ts_n }),
+    part('labour', labour, labour * v.moderation_remains_share, { implied, people }),
     part('appeals', appeals, appeals * v.moderation_remains_share),
     part('tooling', tooling, tooling),
   ]
@@ -163,54 +203,55 @@ function moderation(inputs, v) {
 }
 
 function payments(inputs, v) {
-  if (inputs.pay !== 'yes') return { parts: [], none: true }
+  const rails = inputs.rails
+  if (!rails.length || !(inputs.rev > 0)) return { parts: [], none: true }
   const annual = inputs.rev * 12
-  const stores = inputs.stores.length ? inputs.stores : ['web']
-  const share = 1 / stores.length
+  const share = 1 / rails.length
   const small = annual < v.store_small_threshold
   const parts = []
-  for (const store of stores) {
+  for (const rail of rails) {
     const rev = annual * share
-    if (store === 'apple' || store === 'google') {
-      const rate = store === 'apple' ? (small ? v.apple_rate_small : v.apple_rate_standard) : small ? v.google_rate_small : v.google_rate_standard
-      parts.push(part(`store_${store}`, rev * rate, rev * rate, { rate, tier: small ? 'small' : 'standard', revenue: rev }))
+    if (rail === 'apple' || rail === 'google') {
+      const rate = rail === 'apple' ? (small ? v.apple_rate_small : v.apple_rate_standard) : small ? v.google_rate_small : v.google_rate_standard
+      parts.push(part(`store_${rail}`, rev * rate, rev * rate, { rate, tier: small ? 'small' : 'standard', revenue: rev }))
+    } else if (rail === 'processor') {
+      const fee = rev * v.processor_rate + (rev / v.avg_ticket) * v.processor_fixed
+      parts.push(part('processor', fee, rev * v.lightning_rate, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev }))
+    } else if (rail === 'reseller') {
+      const fee = rev * v.reseller_rate + (rev / v.avg_ticket) * v.reseller_fixed
+      parts.push(part('reseller', fee, rev * v.lightning_rate, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev }))
     } else {
-      const processor = rev * v.processor_rate + (rev / v.avg_ticket) * v.processor_fixed
-      parts.push(part('processor', processor, rev * v.lightning_rate, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev }))
+      const fee = rev * v.lightning_rate
+      parts.push(part('p2p', fee, fee, { rate: v.lightning_rate, revenue: rev }))
     }
   }
-  parts.push(part('money_transmitter', v.mt_avoidance_year, v.mt_avoidance_year * v.mt_remains_share))
+  const holds = inputs.balances.includes('yes')
+  parts.push(part('money_transmitter', holds ? v.mt_avoidance_year : 0, holds ? v.mt_avoidance_year * v.mt_remains_share : 0, { holds }))
   return { parts, tier: small ? 'small' : 'standard' }
 }
 
 const LINE_FN = { accounts, graph, storage, compliance, moderation, payments }
 
-// Which "already on Nostr" ticks make a line already non-custodial. Compliance
-// follows accounts and storage together: the data has to be gone for the
-// obligations on it to go.
-function alreadyOn(line, inputs) {
-  const on = inputs.nostr
-  if (line === 'compliance') return on.includes('accounts') && on.includes('storage')
-  return on.includes(line)
-}
-
 /** Evaluate every line for one set of assumption values. */
 export function evaluate(inputs, v) {
+  const shares = nostrShares(inputs)
   const lines = {}
   let custodial = 0
   let noncustodial = 0
   for (const name of LINES) {
     const r = LINE_FN[name](inputs, v)
-    const already = alreadyOn(name, inputs)
     const nc = sum(r.parts, 'noncustodial')
-    const c = already ? nc : sum(r.parts, 'custodial')
-    lines[name] = { ...r, custodial: c, noncustodial: nc, already }
+    const full = sum(r.parts, 'custodial')
+    const share = Math.min(1, Math.max(0, shares[name]))
+    const c = full - share * (full - nc)
+    lines[name] = { ...r, custodial: c, noncustodial: nc, full, share, already: share >= 0.999, partly: share > 0 && share < 0.999 }
     custodial += c
     noncustodial += nc
   }
   const { mau } = inputs
   return {
     lines,
+    shares,
     totals: {
       custodial,
       noncustodial,

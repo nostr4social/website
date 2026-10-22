@@ -48,26 +48,29 @@ await withBrowser(async (api) => {
   check('the required choices start with their defaults', await api.eval(`(() => {
     const on = [...document.querySelectorAll('#calc-form input:checked')].map(i => i.name + '=' + i.value).sort().join(' ')
     return on
-  })()`) === 'jur=us pay=no stores=apple stores=google ts=none')
-  check('61 assumptions are on the page, each with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 61)
+  })()`) === 'jur=us')
+  check('the three grids are on the page', (await api.eval(`document.querySelectorAll('.grid-field').length`)) === 3)
+  check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 64)
 
   // ── a required field left empty ───────────────────────────────────────────
   await api.eval(`document.getElementById('calc-form').requestSubmit()`)
   await sleep(200)
   const err = await api.eval(`({ text: document.getElementById('calc-error').textContent, hidden: document.getElementById('calc-error').hidden, invalid: document.querySelector('.is-invalid')?.id })`)
-  check('an empty required field is refused and named', !err.hidden && err.text.includes('Monthly active users') && err.invalid === 'field-mau', JSON.stringify(err))
+  check('an empty required field is refused and named', !err.hidden && err.text.includes('Monthly Active Users') && err.invalid === 'field-mau', JSON.stringify(err))
   check('…and the results stay hidden', await api.eval(`document.getElementById('calc-results').hidden`))
 
   // ── a full calculation ────────────────────────────────────────────────────
   await api.eval(`(() => {
     const f = document.getElementById('calc-form')
     f.elements.mau.value = '50,000'
-    f.elements.eng.value = '3'
-    f.querySelector('input[name=ts][value=inhouse]').checked = true
-    f.elements.ts_n.value = '2'
-    f.querySelector('input[name=pay][value=yes]').checked = true
+    f.querySelector('input[name=eng_accounts][value="5"]').checked = true
+    f.querySelector('input[name=eng_content][value="25"]').checked = true
+    f.querySelector('input[name=eng_infra][value="25"]').checked = true
+    f.querySelector('input[name=mod_inhouse][value="5"]').checked = true
+    f.querySelector('input[name=rails][value=apple]').checked = true
+    f.querySelector('input[name=rails][value=google]').checked = true
+    f.querySelector('input[name=rails][value=processor]').checked = true
     f.elements.rev.value = '20000'
-    f.querySelector('input[name=stores][value=web]').checked = true
     f.querySelector('input[name=jur][value=eu]').checked = true
     f.querySelector('input[name=jur][value=uk]').checked = true
     f.requestSubmit()
@@ -93,14 +96,14 @@ await withBrowser(async (api) => {
       focused: document.activeElement?.id,
     }
   })()`)
-  check('the hero figure is the typical custodial cost, compact', /^\$\d+(\.\d+)?k$/.test(r.hero), r.hero)
+  check('the hero figure is the typical custodial cost, compact', /^\$\d+(\.\d+)?[kM]$/.test(r.hero), r.hero)
   check('the hero carries its range', /^Range \$.+ to \$.+$/.test(r.heroRange), r.heroRange)
   check('the tiles are filled', r.nc.startsWith('$') && r.permau.startsWith('$') && r.saving.startsWith('$'), `${r.nc} ${r.permau} ${r.saving}`)
   check('the table shows full figures', /^\$[\d,]+$/.test(r.accountsC) && /^\$[\d,]+$/.test(r.accountsNC), `${r.accountsC} ${r.accountsNC}`)
   check('no non-custodial line is zero', r.zeros === 0, `${r.zeros} zero lines`)
   check('the widest custodial bar is the full scale', Math.abs(r.barMax - 100) < 0.01, String(r.barMax))
   check('non-custodial bars share that scale', r.barNc > 0 && r.barNc < 100, String(r.barNc))
-  check('the results link carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.endsWith('v=1'), r.link)
+  check('the results link carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.endsWith('v=1'), r.link)
   check('the page URL is the same link', r.url.includes('mau=50000'), r.url)
   check('the contact door carries a subject and the inputs', r.contact.startsWith('/contact/?subject=') && r.contact.includes('calc=mau'), r.contact)
   check('the version is named', r.version.includes('1'), r.version)
@@ -152,13 +155,13 @@ await withBrowser(async (api) => {
     hidden: document.getElementById('calc-results').hidden,
     status: document.getElementById('r-status').textContent,
     mau: document.getElementById('f-mau').value,
-    ts: document.querySelector('input[name=ts]:checked')?.value,
+    ts: document.querySelector('input[name=eng_content]:checked')?.value,
     egress: document.getElementById('a-egress_gb_per_mau_month').value,
     url: location.search,
   })`)
   check('a results link opens straight to the results', !shared.hidden)
   check('…says nothing was submitted', shared.status.includes('Nothing was submitted'), shared.status)
-  check('…fills the form from the link', shared.mau === '50000' && shared.ts === 'inhouse', `${shared.mau} ${shared.ts}`)
+  check('…fills the form from the link', shared.mau === '50000' && shared.ts === '25', `${shared.mau} ${shared.ts}`)
   check('…and the assumption override', shared.egress === '5', shared.egress)
   check('the test marker survives in the page URL', shared.url.includes('test=1'), shared.url)
 
@@ -200,9 +203,8 @@ await withBrowser(async (api) => {
       await api.eval(`(() => {
         const f = document.getElementById('calc-form')
         f.elements.mau.value = '12000'
-        f.elements.eng.value = '2'
-        f.querySelector('input[name=ts][value=none]').checked = true
-        f.querySelector('input[name=pay][value=no]').checked = true
+        f.querySelector('input[name=eng_infra][value="25"]').checked = true
+        f.querySelector('input[name=n_media_storage][value="0.5"]').checked = true
         f.querySelector('input[name=jur][value=us]').checked = true
         f.elements.email.value = 'founder@example.com'
         f.elements.company.value = 'Example'
@@ -224,6 +226,9 @@ await withBrowser(async (api) => {
         check('the form secret decrypts the page\'s answers', byLabel['Number of Monthly Active Users (MAU)'] === '12000' && byLabel['Email Address'] === 'founder@example.com' && byLabel['Company Name'] === 'Example', JSON.stringify(byLabel))
         check('the computed figures and the link travel with the inputs', /^\d+$/.test(byLabel['Annual custodial cost (USD, typical)'] || '') && (byLabel['Results link'] || '').includes('mau=12000'), byLabel['Results link'])
         check('the test marker is blank when the URL had none', !('test' in byLabel))
+        const eng = JSON.parse(byLabel['Software Engineering (hours per week)'] || '{}')
+        const nostr = JSON.parse(byLabel['Our app already uses Nostr:'] || '{}')
+        check('grid answers arrive as row id to column id', Object.keys(eng).length === 1 && Object.keys(nostr).length === 1, `${byLabel['Software Engineering (hours per week)']} ${byLabel['Our app already uses Nostr:']}`)
       }
       // A lead with contact details also goes to hello's inbox as a gift wrap.
       // It is mined after the save is reported, so give it time.

@@ -1,38 +1,71 @@
-// What the founder tells us. One spec drives the form, the permalink and the
-// model, so a field cannot exist in one and not the others.
+// What the founder tells us: the published form's questions, one key per
+// answer. One spec drives the page's form, the results link and the model,
+// so a field cannot exist in one and not the others. The id map in
+// _data/forms/map.yml says which form question each key is sent as.
 //
 //   key       the input's name everywhere: form field, URL parameter, model
 //   type      integer | number | option | multi
 //   required  the model refuses to run without it; `default` is then only
 //             the form's starting value, never a fallback
-//   default   what an empty optional input means
-//   options   for option and multi: the allowed values, in display order
-//   min, max  bounds; anything outside is a validation error, not a clamp
+//   default   what an empty optional input means; null where the model
+//             treats "not given" differently
+//   options   for option and multi: the allowed values, in display order.
+//             A grid row is an option whose values are the band midpoints
+//             the model reads, so "1 to 10 hours" arrives as "5".
+
+const HOURS = ['0', '5', '25', '60'] // 0 · 1 to 10 · 11 to 40 · over 40 hours a week
+const HEADS = ['0', '5', '50', '500', '2000'] // 0 · 1 to 10 · 11 to 100 · 101 to 1000 · over 1000 people
+const NOSTR = ['0', '0.5', '1'] // never · somewhat · always
+
+const band = (options) => ({ type: 'option', required: false, default: null, options })
 
 export const INPUTS = {
+  // Non Custody: "Our app already uses Nostr"
+  n_keys: band(NOSTR), // user accounts are private keys
+  n_raw_keys: band(NOSTR), // app handles raw private keys (the inverse)
+  n_signed_events: band(NOSTR), // user data stored as signed events
+  n_event_storage: band(NOSTR), // user choice for event storage
+  n_media_storage: band(NOSTR), // user choice for media storage
+  n_labels: band(NOSTR), // content tags and labels as signed events
+  n_feeds: band(NOSTR), // user configurable feeds and algos
+  n_algos: band(NOSTR), // user choice for algo processing
+  n_p2p: band(NOSTR), // peer to peer in-app payments
+  n_nips: band(NOSTR), // NIP standards published publicly (read, not priced)
+
+  // Accounts & Storage
   mau: { type: 'integer', required: true, default: 50000, min: 1, max: 2e9 },
-  posts: { type: 'integer', required: false, default: null, min: 0, max: 1e12 }, // blank → 20 × mau, see defaultsFor
+  posts_per_user: { type: 'number', required: false, default: 20, min: 0, max: 1e6 },
   mb: { type: 'number', required: false, default: 50, min: 0, max: 1e6 },
-  eng: { type: 'integer', required: true, default: 3, min: 0, max: 100000 },
-  hrs: { type: 'number', required: false, default: null, min: 0, max: 1e6 },
-  hrs_accounts: { type: 'number', required: false, default: null, min: 0, max: 1e6 },
-  hrs_graph: { type: 'number', required: false, default: null, min: 0, max: 1e6 },
-  hrs_storage: { type: 'number', required: false, default: null, min: 0, max: 1e6 },
-  ts: { type: 'option', required: true, default: 'none', options: ['none', 'inhouse', 'outsourced'] },
-  ts_n: { type: 'integer', required: false, default: 0, min: 0, max: 100000 },
-  pay: { type: 'option', required: true, default: 'no', options: ['no', 'yes'] },
+
+  // Staffing Costs
+  eng_accounts: band(HOURS), // engineering hours a week: managing user accounts
+  eng_content: band(HOURS), // managing user content
+  eng_infra: band(HOURS), // managing infrastructure
+  eng_legal: band(HOURS), // legal and compliance
+  mod_inhouse: band(HEADS), // content review and moderation: in-house employees
+  mod_vendor: band(HEADS), // outside vendor seats
+  legal_usd: { type: 'number', required: false, default: null, min: 0, max: 1e12 },
+
+  // Payment Gateway
+  rails: { type: 'multi', required: false, default: [], options: ['p2p', 'apple', 'google', 'processor', 'reseller'] },
   rev: { type: 'number', required: false, default: 0, min: 0, max: 1e12 },
-  stores: { type: 'multi', required: false, default: ['apple', 'google'], options: ['apple', 'google', 'web'] },
+  balances: { type: 'multi', required: false, default: [], options: ['yes'] },
+
+  // App Availability
+  dist: { type: 'multi', required: false, default: [], options: ['apple', 'google', 'web'] },
   jur: { type: 'multi', required: true, default: ['us'], options: ['eu', 'uk', 'us', 'other'] },
-  nostr: { type: 'multi', required: false, default: [], options: ['accounts', 'graph', 'storage', 'moderation', 'payments'] },
 }
 
-/** Defaults that depend on another input. */
-export function defaultsFor(partial) {
+/** The keys that are grid rows, by grid, for the submission and the form. */
+export const GRIDS = {
+  nostr: ['n_keys', 'n_raw_keys', 'n_signed_events', 'n_event_storage', 'n_media_storage', 'n_labels', 'n_feeds', 'n_algos', 'n_p2p', 'n_nips'],
+  engineering: ['eng_accounts', 'eng_content', 'eng_infra', 'eng_legal'],
+  moderation: ['mod_inhouse', 'mod_vendor'],
+}
+
+export function defaultsFor() {
   const out = {}
   for (const [key, spec] of Object.entries(INPUTS)) out[key] = Array.isArray(spec.default) ? [...spec.default] : spec.default
-  const mau = toNumber(partial?.mau)
-  out.posts = mau > 0 ? mau * 20 : 1000000
   return out
 }
 
@@ -53,8 +86,7 @@ function toNumber(v) {
 /**
  * Validate and complete a set of raw inputs (strings from a form or a URL are
  * fine). Returns a clean object with every key present, or throws InputError
- * naming the first offending key. Optional numeric inputs left blank become
- * their default, or null where the model treats "not given" differently.
+ * naming the first offending key.
  */
 export function normalizeInputs(raw = {}) {
   const defaults = defaultsFor(raw)
@@ -85,8 +117,6 @@ export function normalizeInputs(raw = {}) {
       out[key] = n
     }
   }
-  // Dependent requirements.
-  if (out.ts !== 'none' && !(out.ts_n > 0)) throw new InputError('ts_n', 'required')
-  if (out.pay === 'yes' && !(out.rev > 0)) throw new InputError('rev', 'required')
+  if (out.rails.length && !(out.rev > 0)) throw new InputError('rev', 'required')
   return out
 }
