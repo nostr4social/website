@@ -100,13 +100,53 @@ export function wireToggles() {
   }
 }
 
+// ── the tabs ─────────────────────────────────────────────────────────────────
+
+export const TABS = ['app', 'assumptions', 'cost']
+
+export function activateTab(name, { focus = false } = {}) {
+  for (const tab of TABS) {
+    const button = $(`#tab-${tab}`)
+    const panel = $(`#panel-${tab}`)
+    const on = tab === name
+    if (button) {
+      button.setAttribute('aria-selected', String(on))
+      button.tabIndex = on ? 0 : -1
+    }
+    if (panel) panel.hidden = !on
+  }
+  if (focus) {
+    $('.tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    $(`#tab-${name}`)?.focus({ preventScroll: true })
+  }
+}
+
+export function wireTabs(onSelect) {
+  const buttons = TABS.map((t) => $(`#tab-${t}`)).filter(Boolean)
+  for (const button of buttons) {
+    const name = button.id.replace('tab-', '')
+    button.addEventListener('click', () => onSelect(name))
+    // Arrow keys move between tabs, as a tablist should.
+    button.addEventListener('keydown', (e) => {
+      const at = TABS.indexOf(name)
+      if (e.key === 'ArrowRight') onSelect(TABS[(at + 1) % TABS.length], { focus: true })
+      else if (e.key === 'ArrowLeft') onSelect(TABS[(at + TABS.length - 1) % TABS.length], { focus: true })
+    })
+  }
+}
+
 export function showResults(visible, { focus = false } = {}) {
   const panel = $('#calc-results')
   if (!panel) return
   panel.hidden = !visible
-  if (visible && focus) {
-    panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    $('#results-title')?.focus({ preventScroll: true })
+  const empty = $('#r-empty')
+  if (empty) empty.hidden = visible
+  if (visible) {
+    activateTab('cost')
+    if (focus) {
+      $('.tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      $('#results-title')?.focus({ preventScroll: true })
+    }
   }
 }
 

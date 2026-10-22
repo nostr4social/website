@@ -116,12 +116,20 @@ export function snapshotYaml(snapshot, naddr) {
     `pubkey: ${snapshot.pubkey}`,
     `d: ${snapshot.d}`,
     `name: ${JSON.stringify(snapshot.name)}`,
+    `description: ${JSON.stringify(snapshot.description || '')}`,
     `encrypted: ${snapshot.encrypted}`,
     `anonymous_allowed: ${snapshot.anonymous_allowed}`,
     'relays:',
     ...snapshot.relays.map((r) => `  - ${r}`),
-    'fields:',
+    'sections:',
   ]
+  for (const sec of snapshot.sections || []) {
+    lines.push(`  - id: ${sec.id}`)
+    lines.push(`    title: ${JSON.stringify(sec.title)}`)
+    lines.push(`    description: ${JSON.stringify(sec.description || '')}`)
+    lines.push(`    questions: [${sec.questions.join(', ')}]`)
+  }
+  lines.push('fields:')
   for (const f of snapshot.fields) {
     lines.push(`  - id: ${f.id}`)
     lines.push(`    type: ${f.type}`)

@@ -7,6 +7,7 @@ naddr: naddr1qvzqqqr4mqpzp85tguhd488hwe52qaf4xnk39fa3ua8fwu65tvwdqtl8wm0ssz2eqy2
 pubkey: 9e8b472eda9cf77668a0753534ed12a7b1e74e9773545b1cd02fe776df080959
 d: custody-calculator
 name: "Nostr4 : Calculate The Cost of Custody"
+description: "calculator available online at https://nostr4.social/calculator"
 encrypted: false
 anonymous_allowed: true
 relays:
@@ -19,6 +20,35 @@ relays:
   - wss://relay.snort.social
   - wss://relay.nostr.band
   - wss://nostr21.com
+sections:
+  - id: hr87rqI9
+    title: "Non Custody"
+    description: ""
+    questions: [8H7dN3]
+  - id: eRvRZFir
+    title: "Accounts & Storage"
+    description: ""
+    questions: [OKIJzE, mSsJdP, BwgQbZ]
+  - id: QWFEpsyB
+    title: "Staffing Costs"
+    description: ""
+    questions: [koRqow, fIVb03, 05IgYp]
+  - id: HdCZeRq0
+    title: "Payment Gateway"
+    description: ""
+    questions: [YdT6dC, 88UlKt, 5VlKkm]
+  - id: otjtEBA3
+    title: "App Availability"
+    description: ""
+    questions: [ePAdxW, 4F44bp]
+  - id: ccwHtpN8
+    title: "Calculated Results"
+    description: ""
+    questions: [qPZrNj, C93CmL, iHHHuZ, LxmN8x, OHi8fq, XU5x6e]
+  - id: 2vnN8v0y
+    title: "Personal Info"
+    description: ""
+    questions: [t3pia5, 5UFMyH, BBZoy9, PgP68U]
 fields:
   - id: OKIJzE
     type: number

@@ -45,6 +45,15 @@ await withBrowser(async (api) => {
   await api.goto(`${BASE}/calculator/`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
   check('results are hidden until a calculation', await api.eval(`document.getElementById('calc-results').hidden`))
+  check('three tabs, with Your App open', (await api.eval(`[...document.querySelectorAll('[role=tab]')].map(t => t.id + ':' + t.getAttribute('aria-selected')).join(' ')`)) === 'tab-app:true tab-assumptions:false tab-cost:false')
+  check('the other two panels are hidden', await api.eval(`document.getElementById('panel-assumptions').hidden && document.getElementById('panel-cost').hidden && !document.getElementById('panel-app').hidden`))
+  check('the form carries the published form\'s own words', (await api.eval(`(() => {
+    const legends = [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim())
+    const title = document.querySelector('.calc-form__title').textContent.trim()
+    const q = document.querySelector('label[for=f-mau]').textContent.replace(/\\s+/g, ' ').trim()
+    return title + ' | ' + legends.join(', ') + ' | ' + q
+  })()`)) === 'Nostr4 : Calculate The Cost of Custody | Non Custody, Accounts & Storage, Staffing Costs, Payment Gateway, App Availability, Personal Info | Number of Monthly Active Users (MAU)')
+  check('the questions the page fills are not drawn', await api.eval(`!document.querySelector('[name=link], [name=test], [name=result_custodial], [name=version]')`))
   check('the required choices start with their defaults', await api.eval(`(() => {
     const on = [...document.querySelectorAll('#calc-form input:checked')].map(i => i.name + '=' + i.value).sort().join(' ')
     return on
@@ -53,19 +62,19 @@ await withBrowser(async (api) => {
   check('engineering sliders start on the band nearest the default hours', (await api.eval(`(() => {
     const s = document.querySelector('input[name=eng_content]')
     return s.dataset.values.split(',')[s.value] + ':' + s.closest('.slider-row').querySelector('output').textContent
-  })()`)) === '5:1 to 10')
+  })()`)) === '5:1 - 10')
   check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 64)
 
   check('number sliders start on their defaults', (await api.eval(`(() => {
     const v = (n) => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.values.split(',')[s.value] + '=' + s.closest('.slider-row').querySelector('output').textContent }
     return [v('mau'), v('posts_per_user'), v('mb'), v('rev'), v('legal_usd')].join(' ')
-  })()`)) === '50000=50k 20=20 50=50 MB 0=none 0=not given')
+  })()`)) === '50000=50k 20=20 50=50 MB 0=0 0=0')
 
   // ── a bad value in a link ─────────────────────────────────────────────────
   await api.goto(`${BASE}/calculator/?mau=abc&jur=us`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
   const err = await api.eval(`({ text: document.getElementById('calc-error').textContent, hidden: document.getElementById('calc-error').hidden, invalid: document.querySelector('.is-invalid')?.id })`)
-  check('a bad value in a link is refused and named', !err.hidden && err.text.includes('Monthly Active Users') && err.invalid === 'field-mau', JSON.stringify(err))
+  check('a bad value in a link is refused and named with the form\'s own words', !err.hidden && err.text.includes('Number of Monthly Active Users') && err.invalid === 'field-mau', JSON.stringify(err))
   check('…and the results stay hidden', await api.eval(`document.getElementById('calc-results').hidden`))
   await api.goto(`${BASE}/calculator/`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
@@ -117,6 +126,7 @@ await withBrowser(async (api) => {
   check('sliders standing on "not given" stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('mod_vendor='), r.link)
   check('the version is named', r.version.includes('1'), r.version)
   check('the results heading took focus', r.focused === 'results-title', r.focused)
+  check('Calculate opened the Your Cost tab', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected') + ':' + document.getElementById('panel-cost').hidden + ':' + document.getElementById('panel-app').hidden`)) === 'true:false:true')
   check('the error cleared', r.error)
 
   // ── the parts ─────────────────────────────────────────────────────────────
@@ -128,25 +138,36 @@ await withBrowser(async (api) => {
   check('the parts open under the line', !parts.hidden && parts.items.length === 4, parts.items.join(' | '))
   check('a store part names its applied rate and tier', parts.items.some(t => /Apple App Store commission.*15%.*small-business tier/.test(t)), parts.items[0])
 
-  // ── an assumption edit ────────────────────────────────────────────────────
+  // ── an assumption edit, then Recalculate ─────────────────────────────────
   const before = await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent`)
+  await api.eval(`document.getElementById('tab-assumptions').click()`)
+  check('the Our Assumptions tab opens', (await api.eval(`document.getElementById('panel-assumptions').hidden`)) === false)
   await api.eval(`(() => {
     const i = document.getElementById('a-egress_gb_per_mau_month')
     i.value = '5'
     i.dispatchEvent(new Event('change', { bubbles: true }))
   })()`)
-  await sleep(150)
+  await sleep(100)
+  check('the changed row is marked, and nothing recomputes yet', (await api.eval(`document.querySelector('tr[data-key="egress_gb_per_mau_month"]').classList.contains('is-changed') + ':' + document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent`)) === `true:${before}`)
+  await api.eval(`document.getElementById('a-recalc').click()`)
+  await sleep(200)
   const after = await api.eval(`({
     storage: document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent,
-    changed: document.querySelector('tr[data-key="egress_gb_per_mau_month"]').classList.contains('is-changed'),
     link: document.getElementById('r-link').value,
+    tab: document.getElementById('tab-cost').getAttribute('aria-selected'),
+    status: document.getElementById('r-status').textContent,
   })`)
-  check('changing an assumption recomputes the line', after.storage !== before, `${before} → ${after.storage}`)
-  check('the changed row is marked', after.changed)
+  check('Recalculate recomputes the line and opens Your Cost', after.storage !== before && after.tab === 'true', `${before} → ${after.storage}`)
   check('the override travels in the link', after.link.includes('a.egress_gb_per_mau_month=5'), after.link)
-  await api.eval(`document.getElementById('a-reset').click()`)
-  await sleep(150)
-  check('reset restores the typical value', (await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent`)) === before)
+  await api.eval(`document.getElementById('tab-assumptions').click(); document.getElementById('a-reset').click(); document.getElementById('a-recalc').click()`)
+  await sleep(200)
+  check('reset then Recalculate restores the typical value', (await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent`)) === before)
+  await api.eval(`document.getElementById('r-edit').click()`)
+  check('Edit inputs returns to Your App', (await api.eval(`document.getElementById('tab-app').getAttribute('aria-selected')`)) === 'true')
+  // leave the override in place for the shared-link check below
+  await api.eval(`document.getElementById('tab-assumptions').click(); const i = document.getElementById('a-egress_gb_per_mau_month'); i.value = '5'; i.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('a-recalc').click()`)
+  await sleep(200)
+  after.link = await api.eval(`document.getElementById('r-link').value`)
 
   if (SHOTS) {
     await snap(api, join(SHOTS, 'calculator-1440.png'))
@@ -169,6 +190,7 @@ await withBrowser(async (api) => {
     url: location.search,
   })`)
   check('a results link opens straight to the results', !shared.hidden)
+  check('…on the Your Cost tab', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected')`)) === 'true')
   check('…says nothing was submitted', shared.status.includes('Nothing was submitted'), shared.status)
   check('…fills the form from the link', shared.mau === '50000' && shared.ts === '25', `${shared.mau} ${shared.ts}`)
   check('…and the assumption override', shared.egress === '5', shared.egress)

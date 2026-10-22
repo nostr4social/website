@@ -54,7 +54,7 @@ export const INPUTS = {
   balances: { type: 'multi', required: false, default: [], options: ['yes'] },
 
   // App Availability
-  dist: { type: 'multi', required: false, default: [], options: ['apple', 'google', 'web'] },
+  distribution: { type: 'multi', required: false, default: [], options: ['apple', 'google', 'web'] },
   jur: { type: 'multi', required: true, default: ['us'], options: ['eu', 'uk', 'us', 'other'] },
 }
 

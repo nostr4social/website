@@ -1,133 +1,151 @@
 {%- comment -%}
-The Cost of Custody Calculator. Every word here comes from
-_data/pages/calculator.yml; every number from _data/assumptions/v<N>.json.
-The script (assets/js/calculator/) fills the slots this markup leaves open
-and never writes copy of its own.
+The Cost of Custody Calculator, in three tabs.
 
-Three parts, top to bottom:
-  form        the inputs, built from `form.groups` and `form.fields`
-  results     hidden until a calculation: a hero figure, three tiles, the
-              six-line table with paired bars, the actions, a status line
-  assumptions a disclosure holding every assumption as an editable row,
-              rendered by Jekyll so it also stands without JavaScript
+  Your App          the form, rendered from the published form event
+                    (_data/forms/calculator.yml) and nothing else: section
+                    titles, questions, options, grid rows and columns are
+                    the form's own words. _data/forms/map.yml says which
+                    question carries which value; `form.sliders` in the
+                    page's file says which numbers are drawn as sliders and
+                    over which stops. The questions the page fills itself
+                    (results, link, version, test) are not drawn.
+  Our Assumptions   every assumption as an editable row, rendered by Jekyll
+                    from _data/assumptions/v<N>.json, with Recalculate.
+  Your Cost         the results: a hero figure, three tiles, the six-line
+                    table with paired bars, the parts, the link, the doors.
 
-Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
+Page chrome (tab names, buttons, the empty state, the sign-in row) is the
+page's copy in _data/pages/calculator.yml. Field ids are f-<key>, assumption
+inputs a-<key>, result slots r-<name>. Without the script the three panels
+simply stack.
 {%- endcomment -%}
 {%- assign s = include.section -%}
 {%- assign f = s.form -%}
 {%- assign r = s.results -%}
 {%- assign asm = s.assumptions -%}
 {%- assign data = site.data.assumptions.v1 -%}
+{%- assign form = site.data.forms.calculator -%}
+{%- assign map = site.data.forms.map -%}
 {%- assign shared = site.data.assets.shared -%}
 {%- assign a = site.data.assets.calculator -%}
+{%- assign filled = "result_custodial,result_noncustodial,link,overrides,version,test" | split: "," -%}
 <div class="calc" id="calc">
 
-  {%- comment -%} ── the form ───────────────────────────────────────────── {%- endcomment -%}
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab" role="tab" id="tab-app" aria-controls="panel-app" aria-selected="true">{{ s.tabs.app }}</button>
+    <button type="button" class="tab" role="tab" id="tab-assumptions" aria-controls="panel-assumptions" aria-selected="false" tabindex="-1">{{ s.tabs.assumptions }}</button>
+    <button type="button" class="tab" role="tab" id="tab-cost" aria-controls="panel-cost" aria-selected="false" tabindex="-1">{{ s.tabs.cost }}</button>
+  </div>
+
+  {%- comment -%} ── Your App ───────────────────────────────────────────── {%- endcomment -%}
+  <section class="panel" id="panel-app" role="tabpanel" aria-labelledby="tab-app">
+  {%- if form -%}
   <form class="calc-form" id="calc-form" novalidate>
     <div class="calc-form__head">
-      <h2 class="calc-form__title">{{ f.title }}</h2>
-      {% include lib/text.html text=f.lede class="calc-form__lede" %}
+      <h2 class="calc-form__title">{{ form.name }}</h2>
+      {%- if form.description != "" %}<p class="calc-form__lede">{{ form.description }}</p>{% endif -%}
     </div>
 
-    {%- for group in f.groups -%}
-    <fieldset class="group" id="group-{{ group.id }}">
-      <legend class="group__legend">{{ group.title }}</legend>
-      {%- if group.note %}<p class="group__note">{{ group.note }}</p>{% endif -%}
+    {%- for sec in form.sections -%}
+    {%- comment -%} A section whose questions are all filled by the page (the results) is not drawn. {%- endcomment -%}
+    {%- assign drawable = "" -%}
+    {%- for qid in sec.questions -%}
+      {%- for m in map.fields -%}{%- if m[1].id == qid -%}{%- unless filled contains m[0] -%}{%- assign drawable = drawable | append: "x" -%}{%- endunless -%}{%- endif -%}{%- endfor -%}
+    {%- endfor -%}
+    {%- if drawable != "" -%}
+    <fieldset class="group" id="group-{{ sec.id }}">
+      {%- if sec.title != "" %}<legend class="group__legend">{{ sec.title }}</legend>{% endif -%}
+      {%- if sec.description != "" %}<p class="group__note">{{ sec.description }}</p>{% endif -%}
       <div class="group__fields">
-      {%- for key in group.fields -%}
-        {%- assign field = f.fields[key] -%}
-        {%- if field.grid -%}
-          {%- comment -%}
-            A grid: one stepped slider per row over the field's bands. The
-            slider's value is the band's index; the script reads the band's
-            value from data-values and names the band in the output beside it.
-          {%- endcomment -%}
-          {%- capture values %}{% for col in field.columns %}{{ col[0] }}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
-          {%- capture labels %}{% for col in field.columns %}{{ col[1] }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
+      {%- for qid in sec.questions -%}
+        {%- assign key = nil -%}
+        {%- for m in map.fields -%}{%- if m[1].id == qid -%}{%- assign key = m[0] -%}{%- assign mapping = m[1] -%}{%- endif -%}{%- endfor -%}
+        {%- unless key == nil or filled contains key -%}
+        {%- for q in form.fields -%}{%- if q.id == qid -%}{%- assign field = q -%}{%- endif -%}{%- endfor -%}
+        {%- assign stops = f.sliders[key] -%}
+
+        {%- if field.type == "grid" -%}
+          {%- comment -%} one stepped slider per row; the band values come from the map, in the form's column order {%- endcomment -%}
+          {%- capture values %}{% for col in field.columns %}{% for c in mapping.columns %}{% if c[1] == col.id %}{{ c[0] }}{% endif %}{% endfor %}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
+          {%- capture labels %}{% for col in field.columns %}{{ col.label }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
           <fieldset class="field field--grid" id="field-{{ key }}">
             <legend class="field__label">{% include lib/label.html text=field.label %}</legend>
             <div class="sliders">
               {%- for row in field.rows -%}
-              <div class="slider-row" id="field-{{ row[0] }}">
-                {%- assign row_label = row[1] -%}
-                <label class="slider-row__label" for="f-{{ row[0] }}">{% include lib/label.html text=row_label %}</label>
+              {%- assign rowkey = nil -%}
+              {%- for rk in mapping.rows -%}{%- if rk[1] == row.id -%}{%- assign rowkey = rk[0] -%}{%- endif -%}{%- endfor -%}
+              {%- if rowkey -%}
+              {%- assign name = key | append: "_" | append: rowkey -%}
+              {%- if key == "nostr" %}{% assign name = "n_" | append: rowkey %}{% endif -%}
+              {%- if key == "engineering" %}{% assign name = "eng_" | append: rowkey %}{% endif -%}
+              {%- if key == "moderation" %}{% assign name = "mod_" | append: rowkey %}{% endif -%}
+              {%- assign row_label = row.label -%}
+              <div class="slider-row" id="field-{{ name }}">
+                <label class="slider-row__label" for="f-{{ name }}">{% include lib/label.html text=row_label %}</label>
                 <div class="slider-row__control">
-                  <input class="slider" type="range" id="f-{{ row[0] }}" name="{{ row[0] }}" min="0" max="{{ field.columns.size | minus: 1 }}" step="1" value="0"
-                         data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ field.columns.first[1] }}">
+                  <input class="slider" type="range" id="f-{{ name }}" name="{{ name }}" min="0" max="{{ field.columns.size | minus: 1 }}" step="1" value="0"
+                         data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ field.columns.first.label }}">
                   <div class="slider__ticks" aria-hidden="true">
-                    {%- for col in field.columns -%}<span class="slider__tick">{{ col[1] }}</span>{%- endfor -%}
+                    {%- for col in field.columns -%}<span class="slider__tick">{{ col.label }}</span>{%- endfor -%}
                   </div>
                 </div>
-                <output class="slider-row__value" for="f-{{ row[0] }}">{{ field.columns.first[1] }}</output>
+                <output class="slider-row__value" for="f-{{ name }}">{{ field.columns.first.label }}</output>
               </div>
+              {%- endif -%}
               {%- endfor -%}
             </div>
-            {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}
           </fieldset>
-        {%- elsif field.slider -%}
-          {%- comment -%}
-            A number as a stepped slider over the field's stops. Only the ends
-            are labelled; the chosen stop is named beside the track.
-          {%- endcomment -%}
-          {%- capture values %}{% for stop in field.stops %}{{ stop[0] }}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
-          {%- capture labels %}{% for stop in field.stops %}{{ stop[1] }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
-          <div class="field field--slider" id="field-{{ key }}">
-            <div class="slider-row slider-row--single">
-              <label class="slider-row__label field__label" for="f-{{ key }}">{% include lib/label.html text=field.label %}</label>
-              <div class="slider-row__control">
-                <input class="slider" type="range" id="f-{{ key }}" name="{{ key }}" min="0" max="{{ field.stops.size | minus: 1 }}" step="1" value="0"
-                       data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ field.stops.first[1] }}">
-                <div class="slider__ticks slider__ticks--ends" aria-hidden="true">
-                  <span class="slider__tick">{{ field.stops.first[1] }}</span>
-                  <span class="slider__tick">{% for stop in field.stops %}{% if forloop.last %}{{ stop[1] }}{% endif %}{% endfor %}</span>
-                </div>
-              </div>
-              <output class="slider-row__value" for="f-{{ key }}">{{ field.stops.first[1] }}</output>
-            </div>
-            {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}
-          </div>
-        {%- elsif field.options -%}
-          {%- comment -%} a choice group: radios for one answer, checkboxes for several {%- endcomment -%}
-          {%- assign multi = false -%}
-          {%- if key == "rails" or key == "dist" or key == "jur" or key == "balances" %}{% assign multi = true %}{% endif -%}
+
+        {%- elsif field.type == "option" -%}
+          {%- assign multi = true -%}
+          {%- if field.render == "radioButton" or field.render == "dropdown" %}{% assign multi = false %}{% endif -%}
           <fieldset class="field field--choices" id="field-{{ key }}">
             <legend class="field__label">{% include lib/label.html text=field.label %}</legend>
             <div class="choices">
             {%- for opt in field.options -%}
+              {%- assign value = nil -%}
+              {%- for o in mapping.options -%}{%- if o[1] == opt.id -%}{%- assign value = o[0] -%}{%- endif -%}{%- endfor -%}
+              {%- if value -%}
+              {%- assign opt_label = opt.label -%}
               <label class="choice">
-                <input type="{% if multi %}checkbox{% else %}radio{% endif %}" name="{{ key }}" value="{{ opt[0] }}" id="f-{{ key }}-{{ opt[0] }}">
-                {%- assign opt_label = opt[1] -%}
+                <input type="{% if multi %}checkbox{% else %}radio{% endif %}" name="{{ key }}" value="{{ value }}" id="f-{{ key }}-{{ value }}">
                 <span class="choice__label">{% include lib/label.html text=opt_label %}</span>
               </label>
+              {%- endif -%}
             {%- endfor -%}
             </div>
-            {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}
           </fieldset>
+
+        {%- elsif stops -%}
+          {%- capture values %}{% for stop in stops %}{{ stop[0] }}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
+          {%- capture labels %}{% for stop in stops %}{{ stop[1] }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
+          <div class="field field--slider" id="field-{{ key }}">
+            <div class="slider-row slider-row--single">
+              <label class="slider-row__label field__label" for="f-{{ key }}">{% include lib/label.html text=field.label %}</label>
+              <div class="slider-row__control">
+                <input class="slider" type="range" id="f-{{ key }}" name="{{ key }}" min="0" max="{{ stops.size | minus: 1 }}" step="1" value="0"
+                       data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ stops.first[1] }}">
+                <div class="slider__ticks slider__ticks--ends" aria-hidden="true">
+                  <span class="slider__tick">{{ stops.first[1] }}</span>
+                  <span class="slider__tick">{% for stop in stops %}{% if forloop.last %}{{ stop[1] }}{% endif %}{% endfor %}</span>
+                </div>
+              </div>
+              <output class="slider-row__value" for="f-{{ key }}">{{ stops.first[1] }}</output>
+            </div>
+          </div>
+
         {%- else -%}
           <label class="field" id="field-{{ key }}">
             <span class="field__label">{% include lib/label.html text=field.label %}</span>
-            <input class="field__input" id="f-{{ key }}" name="{{ key }}" type="text" inputmode="decimal" autocomplete="off"
-                   placeholder="{{ field.placeholder }}">
-            {%- if field.note %}<span class="field__note">{{ field.note }}</span>{% endif -%}
+            <input class="field__input" id="f-{{ key }}" name="{{ key }}" type="text" autocomplete="off"{% if field.type == "number" %} inputmode="decimal"{% endif %}>
           </label>
         {%- endif -%}
+        {%- endunless -%}
       {%- endfor -%}
       </div>
     </fieldset>
+    {%- endif -%}
     {%- endfor -%}
-
-    <fieldset class="group group--contact" id="group-contact">
-      <legend class="group__legend">{{ f.contact.title }}</legend>
-      <p class="group__note">{{ f.contact.note }}</p>
-      <div class="group__fields">
-      {%- for item in f.contact.fields -%}
-        <label class="field" id="field-{{ item[0] }}">
-          <span class="field__label">{{ item[1].label }}</span>
-          <input class="field__input" id="f-{{ item[0] }}" name="{{ item[0] }}" type="text" autocomplete="off" placeholder="{{ item[1].placeholder }}">
-        </label>
-      {%- endfor -%}
-      </div>
-    </fieldset>
 
     {%- comment -%} Off-screen, not hidden: a bot fills it, a person never sees it. {%- endcomment -%}
     <label class="field field--trap" aria-hidden="true">
@@ -138,14 +156,9 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
     <p class="form-error" id="calc-error" hidden role="alert"></p>
     <div class="calc-form__submit">
       <button type="submit" class="btn btn--primary btn--lg" id="calc-submit">{{ f.submit.label }}</button>
-      <p class="calc-form__note">{{ f.submit.note }}</p>
     </div>
 
-    {%- comment -%}
-      How the response is signed. Hidden unless the form exists on Nostr; the
-      script shows it once it has the snapshot. Same ids as on /contact/, so
-      the shared sign-in flow wires both.
-    {%- endcomment -%}
+    {%- comment -%} How the response is signed. Same ids as on /contact/, so the shared sign-in flow wires both. {%- endcomment -%}
     <div class="signrow" id="sign-row" hidden>
       <div class="sendrow__alt" id="sign-guest">
         <p class="keyline">{% include lib/icon.html name="key" class="keyline__icon" %}<span>{{ f.sign.guest_note }}</span></p>
@@ -165,8 +178,65 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
   </form>
 
   {% include lib/bunker-modal.html %}
+  {%- endif -%}
+  </section>
 
-  {%- comment -%} ── the results ────────────────────────────────────────── {%- endcomment -%}
+  {%- comment -%} ── Our Assumptions ────────────────────────────────────── {%- endcomment -%}
+  <section class="panel" id="panel-assumptions" role="tabpanel" aria-labelledby="tab-assumptions">
+    <div class="assume" id="calc-assume">
+      <h2 class="assume__title">{{ asm.title }}</h2>
+      <p class="assume__intro">{{ asm.intro }}</p>
+      <noscript><p class="notice notice--inline">{{ asm.noscript }}</p></noscript>
+      {%- for group in asm.lines -%}
+      {%- assign gid = group[0] -%}
+      <h3 class="assume__group">{{ group[1] }}</h3>
+      <table class="assume-table">
+        <thead>
+          <tr>
+            <th scope="col">{{ asm.columns.what }}</th>
+            <th scope="col" class="assume-num">{{ asm.columns.typical }}</th>
+            <th scope="col" class="assume-num">{{ asm.columns.low }}</th>
+            <th scope="col" class="assume-num">{{ asm.columns.high }}</th>
+            <th scope="col">{{ asm.columns.unit }}</th>
+            <th scope="col">{{ asm.columns.confidence }}</th>
+            <th scope="col">{{ asm.columns.source }}</th>
+          </tr>
+        </thead>
+        <tbody>
+        {%- for entry in data.assumptions -%}
+          {%- assign key = entry[0] -%}
+          {%- assign v = entry[1] -%}
+          {%- if v.line == gid -%}
+          <tr data-key="{{ key }}">
+            <th scope="row" class="assume-what"><label for="a-{{ key }}">{{ v.label }}</label>{% if v.note %}<span class="assume-note">{{ v.note }}</span>{% endif %}</th>
+            <td class="assume-num" data-label="{{ asm.columns.typical }}"><input class="field__input field__input--small assume-input" id="a-{{ key }}" type="number" inputmode="decimal" step="any" min="0" value="{{ v.typical }}" data-key="{{ key }}" data-typical="{{ v.typical }}"></td>
+            <td class="assume-num" data-label="{{ asm.columns.low }}">{{ v.low }}</td>
+            <td class="assume-num" data-label="{{ asm.columns.high }}">{{ v.high }}</td>
+            <td data-label="{{ asm.columns.unit }}">{{ v.unit }}</td>
+            <td data-label="{{ asm.columns.confidence }}"><span class="conf conf--{{ v.confidence }}">{{ asm.confidence[v.confidence] }}</span></td>
+            <td class="assume-source" data-label="{{ asm.columns.source }}">{% if v.source %}<a href="{{ v.source.url }}" rel="noopener" target="_blank">{{ v.source.title }}</a> <span class="assume-date">{{ v.source.date }}</span>{% endif %}</td>
+          </tr>
+          {%- endif -%}
+        {%- endfor -%}
+        </tbody>
+      </table>
+      {%- endfor -%}
+      <div class="assume__foot">
+        <button type="button" class="btn btn--primary" id="a-recalc">{{ asm.recalculate }}</button>
+        <button type="button" class="btn btn--secondary btn--compact" id="a-reset">{{ asm.reset }}</button>
+        <span class="eyebrow">{{ asm.files_label }}</span>
+        <div class="chip-row">
+        {%- for file in asm.files -%}
+          <a class="chip" href="{{ file.href | relative_url }}">{{ file.label }}</a>
+        {%- endfor -%}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {%- comment -%} ── Your Cost ──────────────────────────────────────────── {%- endcomment -%}
+  <section class="panel" id="panel-cost" role="tabpanel" aria-labelledby="tab-cost">
+  <p class="panel__empty" id="r-empty">{{ s.tabs.empty }}</p>
   <section class="results" id="calc-results" hidden aria-labelledby="results-title">
     <div class="results__head">
       <span class="eyebrow eyebrow--gold">{{ r.eyebrow }}</span>
@@ -258,72 +328,17 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
     <p class="results__status" id="r-status" role="status"></p>
     <p class="results__version" id="r-version"></p>
   </section>
-
-  {%- comment -%} ── the assumptions ────────────────────────────────────── {%- endcomment -%}
-  <details class="assume" id="calc-assume">
-    <summary class="assume__summary">
-      <span class="assume__title">{{ asm.title }}</span>
-      <span class="assume__hint">{{ asm.summary }}</span>
-    </summary>
-    <div class="assume__body">
-      <p class="assume__intro">{{ asm.intro }}</p>
-      <noscript><p class="notice notice--inline">{{ asm.noscript }}</p></noscript>
-      {%- for group in asm.lines -%}
-      {%- assign gid = group[0] -%}
-      <h3 class="assume__group">{{ group[1] }}</h3>
-      <table class="assume-table">
-        <thead>
-          <tr>
-            <th scope="col">{{ asm.columns.what }}</th>
-            <th scope="col" class="assume-num">{{ asm.columns.typical }}</th>
-            <th scope="col" class="assume-num">{{ asm.columns.low }}</th>
-            <th scope="col" class="assume-num">{{ asm.columns.high }}</th>
-            <th scope="col">{{ asm.columns.unit }}</th>
-            <th scope="col">{{ asm.columns.confidence }}</th>
-            <th scope="col">{{ asm.columns.source }}</th>
-          </tr>
-        </thead>
-        <tbody>
-        {%- for entry in data.assumptions -%}
-          {%- assign key = entry[0] -%}
-          {%- assign v = entry[1] -%}
-          {%- if v.line == gid -%}
-          <tr data-key="{{ key }}">
-            <th scope="row" class="assume-what"><label for="a-{{ key }}">{{ v.label }}</label>{% if v.note %}<span class="assume-note">{{ v.note }}</span>{% endif %}</th>
-            <td class="assume-num" data-label="{{ asm.columns.typical }}"><input class="field__input field__input--small assume-input" id="a-{{ key }}" type="number" inputmode="decimal" step="any" min="0" value="{{ v.typical }}" data-key="{{ key }}" data-typical="{{ v.typical }}"></td>
-            <td class="assume-num" data-label="{{ asm.columns.low }}">{{ v.low }}</td>
-            <td class="assume-num" data-label="{{ asm.columns.high }}">{{ v.high }}</td>
-            <td data-label="{{ asm.columns.unit }}">{{ v.unit }}</td>
-            <td data-label="{{ asm.columns.confidence }}"><span class="conf conf--{{ v.confidence }}">{{ asm.confidence[v.confidence] }}</span></td>
-            <td class="assume-source" data-label="{{ asm.columns.source }}">{% if v.source %}<a href="{{ v.source.url }}" rel="noopener" target="_blank">{{ v.source.title }}</a> <span class="assume-date">{{ v.source.date }}</span>{% endif %}</td>
-          </tr>
-          {%- endif -%}
-        {%- endfor -%}
-        </tbody>
-      </table>
-      {%- endfor -%}
-      <div class="assume__foot">
-        <button type="button" class="btn btn--secondary btn--compact" id="a-reset">{{ asm.reset }}</button>
-        <span class="eyebrow">{{ asm.files_label }}</span>
-        <div class="chip-row">
-        {%- for file in asm.files -%}
-          <a class="chip" href="{{ file.href | relative_url }}">{{ file.label }}</a>
-        {%- endfor -%}
-        </div>
-      </div>
-    </div>
-  </details>
+  </section>
 
   {%- comment -%} Inert data, not executable. {%- endcomment -%}
   <script type="application/json" id="page-shared-strings">{{ site.data.blocks.signin_strings | jsonify }}</script>
   <script type="application/json" id="page-shared-config">{{ site.data.blocks.nostr_config | jsonify }}</script>
   <script type="application/json" id="page-strings">{{ s.strings | jsonify }}</script>
   <script type="application/json" id="page-config">{{ s.config | jsonify }}</script>
-  <script type="application/json" id="page-fields">{{ f.fields | jsonify }}</script>
   <script type="application/json" id="page-assumptions">{{ data | jsonify }}</script>
-  {%- comment -%} The form on Nostr, as snapshotted; `null` until one exists. {%- endcomment -%}
-  <script type="application/json" id="page-form">{{ site.data.forms.calculator | jsonify }}</script>
-  <script type="application/json" id="page-map">{{ site.data.forms.map | jsonify }}</script>
+  {%- comment -%} The form on Nostr, as snapshotted, and the id map onto it. {%- endcomment -%}
+  <script type="application/json" id="page-form">{{ form | jsonify }}</script>
+  <script type="application/json" id="page-map">{{ map | jsonify }}</script>
 </div>
 <link rel="modulepreload" href="{{ shared.nostr_tools.path }}" integrity="{{ shared.nostr_tools.integrity }}" crossorigin>
 <link rel="modulepreload" href="{{ shared.uqr.path }}" integrity="{{ shared.uqr.integrity }}" crossorigin>

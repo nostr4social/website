@@ -601,7 +601,7 @@ var INPUTS = {
   rev: { type: "number", required: false, default: 0, min: 0, max: 1e12 },
   balances: { type: "multi", required: false, default: [], options: ["yes"] },
   // App Availability
-  dist: { type: "multi", required: false, default: [], options: ["apple", "google", "web"] },
+  distribution: { type: "multi", required: false, default: [], options: ["apple", "google", "web"] },
   jur: { type: "multi", required: true, default: ["us"], options: ["eu", "uk", "us", "other"] }
 };
 var GRIDS = {
@@ -1460,10 +1460,10 @@ function minePow(event, difficulty, { onProgress, signal } = {}) {
 // assets/js/shared/src/forms.js
 var KIND_FORM = 30168;
 var KIND_RESPONSE = 1069;
-function checkMap(snapshot, map) {
-  const byId = new Map(snapshot.fields.map((f) => [f.id, f]));
+function checkMap(snapshot2, map2) {
+  const byId = new Map(snapshot2.fields.map((f) => [f.id, f]));
   const missing = [];
-  for (const [key, m] of Object.entries(map.fields)) {
+  for (const [key, m] of Object.entries(map2.fields)) {
     const f = byId.get(m.id);
     if (!f) {
       missing.push(`${key}: no question with id ${m.id}`);
@@ -1483,10 +1483,10 @@ function checkMap(snapshot, map) {
   }
   return missing;
 }
-function buildResponses(map, values) {
+function buildResponses(map2, values) {
   const out = [];
   for (const [key, v] of Object.entries(values)) {
-    const f = map.fields[key];
+    const f = map2.fields[key];
     if (!f) continue;
     if (v == null || v === "" || Array.isArray(v) && v.length === 0) continue;
     let value;
@@ -1510,7 +1510,7 @@ function buildResponses(map, values) {
   }
   return out;
 }
-var formAddress = (snapshot) => `${KIND_FORM}:${snapshot.pubkey}:${snapshot.d}`;
+var formAddress = (snapshot2) => `${KIND_FORM}:${snapshot2.pubkey}:${snapshot2.d}`;
 
 // assets/js/shared/src/nip17.js
 var KIND_CHAT = 14;
@@ -1612,18 +1612,18 @@ async function inboxRelaysFor(pool, pubkey) {
 
 // assets/js/calculator/src/submit.js
 var now2 = () => Math.floor(Date.now() / 1e3);
-function prepareForm(snapshot, map) {
-  if (!snapshot || !snapshot.pubkey || !snapshot.d || !map?.fields) return null;
-  const missing = checkMap(snapshot, map);
+function prepareForm(snapshot2, map2) {
+  if (!snapshot2 || !snapshot2.pubkey || !snapshot2.d || !map2?.fields) return null;
+  const missing = checkMap(snapshot2, map2);
   if (missing.length) {
     console.warn("calculator form: the id map does not fit the snapshot", missing);
     return null;
   }
-  return { snapshot, mapping: map };
+  return { snapshot: snapshot2, mapping: map2 };
 }
-function responseRelays(snapshot) {
+function responseRelays(snapshot2) {
   if (dev.local && dev.relays.length) return dev.relays.map(normalizeRelay).filter(Boolean);
-  const relays = snapshot.relays.map(normalizeRelay).filter(Boolean);
+  const relays = snapshot2.relays.map(normalizeRelay).filter(Boolean);
   return relays.length ? relays : config.relays.fallback_dm.map(normalizeRelay).filter(Boolean);
 }
 async function submitResponse(form2, { signer, values, pow = 0, onProgress }) {
@@ -1762,13 +1762,47 @@ function wireToggles() {
     });
   }
 }
+var TABS = ["app", "assumptions", "cost"];
+function activateTab(name, { focus = false } = {}) {
+  for (const tab of TABS) {
+    const button = $(`#tab-${tab}`);
+    const panel = $(`#panel-${tab}`);
+    const on = tab === name;
+    if (button) {
+      button.setAttribute("aria-selected", String(on));
+      button.tabIndex = on ? 0 : -1;
+    }
+    if (panel) panel.hidden = !on;
+  }
+  if (focus) {
+    $(".tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    $(`#tab-${name}`)?.focus({ preventScroll: true });
+  }
+}
+function wireTabs(onSelect) {
+  const buttons = TABS.map((t2) => $(`#tab-${t2}`)).filter(Boolean);
+  for (const button of buttons) {
+    const name = button.id.replace("tab-", "");
+    button.addEventListener("click", () => onSelect(name));
+    button.addEventListener("keydown", (e) => {
+      const at = TABS.indexOf(name);
+      if (e.key === "ArrowRight") onSelect(TABS[(at + 1) % TABS.length], { focus: true });
+      else if (e.key === "ArrowLeft") onSelect(TABS[(at + TABS.length - 1) % TABS.length], { focus: true });
+    });
+  }
+}
 function showResults(visible, { focus = false } = {}) {
   const panel = $("#calc-results");
   if (!panel) return;
   panel.hidden = !visible;
-  if (visible && focus) {
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
-    $("#results-title")?.focus({ preventScroll: true });
+  const empty = $("#r-empty");
+  if (empty) empty.hidden = visible;
+  if (visible) {
+    activateTab("cost");
+    if (focus) {
+      $(".tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      $("#results-title")?.focus({ preventScroll: true });
+    }
   }
 }
 function setLink(url) {
@@ -1818,8 +1852,13 @@ function text(sel, value) {
 
 // assets/js/calculator/src/app.js
 var assumptions = readJson("page-assumptions");
-var fields = readJson("page-fields");
-var form = prepareForm(readJson("page-form"), readJson("page-map"));
+var snapshot = readJson("page-form");
+var map = readJson("page-map");
+var form = prepareForm(snapshot, map);
+function labelFor(key) {
+  const node = document.querySelector(`#field-${key} .field__label, label[for="f-${key}"]`);
+  return node ? node.textContent.replace(/\s+/g, " ").trim() : key;
+}
 var current = null;
 var test = null;
 var openedAt = Date.now();
@@ -1831,8 +1870,9 @@ function run(raw, overrides, { focus = true } = {}) {
     result = calculate(raw, assumptions, overrides);
   } catch (err) {
     if (err instanceof InputError) {
+      activateTab("app");
       markInvalid($("#calc-form"), err.key);
-      setError2(err.code, fields[err.key]?.label || err.key);
+      setError2(err.code, labelFor(err.key));
       return null;
     }
     setError2("unknown");
@@ -1877,7 +1917,7 @@ function valuesFor(result, contact) {
     rails: i.rails,
     rev: i.rev,
     balances: i.balances,
-    distribution: i.dist,
+    distribution: i.distribution,
     jur: i.jur,
     nostr: grid("nostr", "n_"),
     result_custodial: Math.round(T.custodial),
@@ -1925,7 +1965,7 @@ async function tell(signer, result, contact) {
     result: { custodial: compact(result.typical.totals.custodial), noncustodial: compact(result.typical.totals.noncustodial) },
     link: result.link,
     contact,
-    fieldLabels: fields
+    fieldLabels: Object.fromEntries(Object.keys(result.inputs).map((k) => [k, { label: labelFor(k) }]))
   });
   try {
     await sendLead({ signer, recipient, subject: t("compose.subject"), content, pow: dev.noPow ? 0 : signer.kind === "guest" ? config.pow.anonymous : config.pow.signed });
@@ -1941,14 +1981,13 @@ function onSubmit(event) {
   if (withhold(formEl)) return;
   void save(result, readContact(formEl));
 }
-function onAssumptionChange() {
+function onRecalculate() {
   markChanged();
-  if (!current) return;
-  run(readInputs($("#calc-form")), readOverrides(), { focus: false });
+  run(readInputs($("#calc-form")), readOverrides(), { focus: true });
 }
 function onReset() {
   writeOverrides({});
-  onAssumptionChange();
+  markChanged();
 }
 async function onShare() {
   const link = $("#r-link");
@@ -1961,21 +2000,23 @@ async function onShare() {
   }
 }
 function onEdit() {
-  $("#calc-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  $("#f-mau")?.focus({ preventScroll: true });
+  activateTab("app", { focus: true });
 }
 function wire() {
   $("#calc-form")?.addEventListener("submit", onSubmit);
   $("#r-share")?.addEventListener("click", onShare);
   $("#r-edit")?.addEventListener("click", onEdit);
   $("#a-reset")?.addEventListener("click", onReset);
-  for (const input of document.querySelectorAll(".assume-input")) input.addEventListener("change", onAssumptionChange);
+  $("#a-recalc")?.addEventListener("click", onRecalculate);
+  for (const input of document.querySelectorAll(".assume-input")) input.addEventListener("change", markChanged);
+  wireTabs((name, opts) => activateTab(name, opts));
   wireToggles();
 }
 async function boot() {
   const formEl = $("#calc-form");
   if (!formEl) return;
   wire();
+  activateTab("app");
   wireSliders(formEl);
   const A = assumptions.assumptions;
   writeDefaults(formEl, {

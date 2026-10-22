@@ -34,7 +34,7 @@ Confidence means:
 
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `default_hours_accounts` | Engineering hours a week on accounts, when the form row is blank | 5 | 2 | 10 | hours per week | unsourced | none |
+| `default_hours_accounts` | Engineering hours a week on accounts, where the sliders start | 5 | 2 | 10 | hours per week | unsourced | none |
 | `auth_per_mau_month` | Authentication as a service | 0.0046 | 0.0025 | 0.02 | USD per MAU per month | high | [Google Cloud Identity Platform pricing](https://cloud.google.com/identity-platform/pricing) (2026) |
 | `reset_rate_per_mau_year` | Password resets per user | 0.25 | 0.1 | 0.5 | resets per MAU per year | unsourced | none |
 | `reset_cost` | Cost of one password reset | 0.5 | 0.1 | 5 | USD per reset | low | [BleepingComputer, citing Forrester on helpdesk password resets](https://www.bleepingcomputer.com/news/security/the-true-cost-of-password-resets/) (2024-11) |
@@ -45,7 +45,7 @@ Confidence means:
 | `verify_share_other` | Users needing a check per year, other | 2% | 0% | 10% | ratio of MAU | unsourced | none |
 | `key_support_per_mau_year` | Supporting users who manage their own keys | 0.02 | 0.005 | 0.1 | USD per MAU per year | unsourced | none |
 
-- `default_hours_accounts`: The page's grid gives bands (0, 1 to 10, 11 to 40, over 40) read as 0, 5, 25 and 60 hours. A blank row uses this.
+- `default_hours_accounts`: The form's bands (0, 1 to 10, 11 to 40, over 40) are read as 0, 5, 25 and 60 hours a week. The slider starts on the band nearest this; a results link that gives no band uses it directly.
 - `auth_per_mau_month`: Identity Platform 100k to 1M tier. Low is its 10M-plus tier; high is Clerk beyond 50k.
 - `reset_rate_per_mau_year`: No consumer-app source. Editable.
 - `reset_cost`: Self-service email or SMS plus a share of support. The 70-dollar figure often cited from Forrester is for enterprise helpdesks and is not used.
@@ -60,7 +60,7 @@ Confidence means:
 
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `default_hours_content` | Engineering hours a week on user content, feeds and the graph, when blank | 10 | 4 | 25 | hours per week | unsourced | none |
+| `default_hours_content` | Engineering hours a week on user content, feeds and the graph, where the sliders start | 10 | 4 | 25 | hours per week | unsourced | none |
 | `db_gb_month` | Database storage | 0.23 | 0.115 | 0.345 | USD per GB-month | high | [AWS Price List API, Amazon RDS PostgreSQL gp3 us-east-1](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/us-east-1/index.csv) (2026-10) |
 | `db_mb_per_mau` | Graph and profile metadata per user | 20 | 5 | 100 | MB per MAU | unsourced | none |
 | `db_kb_per_post` | Metadata per post or message, retained twelve months | 2 | 1 | 5 | KB per post | unsourced | none |
@@ -80,7 +80,7 @@ Confidence means:
 
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `default_hours_infra` | Engineering hours a week on infrastructure and storage, when blank | 10 | 4 | 25 | hours per week | unsourced | none |
+| `default_hours_infra` | Engineering hours a week on infrastructure and storage, where the sliders start | 10 | 4 | 25 | hours per week | unsourced | none |
 | `blob_gb_month` | Object storage | 0.023 | 0.00695 | 0.026 | USD per GB-month | high | [AWS Price List API, Amazon S3 us-east-1](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.csv) (2026-10) |
 | `egress_gb` | Egress to the internet | 0.09 | 0 | 0.12 | USD per GB | high | [AWS Price List API, data transfer out to the internet](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSDataTransfer/current/index.csv) (2026-06) |
 | `egress_gb_per_mau_month` | Egress per active user | 1 | 0.3 | 5 | GB per MAU per month | unsourced | [Ericsson Mobility Report key figures (22 GB per smartphone per month, all apps)](https://www.ericsson.com/en/reports-and-papers/mobility-report/key-figures) (2025) |
@@ -100,7 +100,7 @@ Confidence means:
 
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `default_hours_legal` | Engineering hours a week on legal and compliance work, when blank | 2 | 0 | 5 | hours per week | unsourced | none |
+| `default_hours_legal` | Engineering hours a week on legal and compliance work, where the sliders start | 2 | 0 | 5 | hours per week | unsourced | none |
 | `gdpr_program_year` | GDPR program for a small app (EU or UK) | 30,000 | 10,000 | 50,000 | USD per year | low | [Legiscope: GDPR compliance cost ranges for SMEs (vendor estimate)](https://legiscope.com/blog/gdpr-compliance-cost) (2026) |
 | `uk_osa_year` | UK Online Safety Act, small or micro service | 11,000 | 3,000 | 65,000 | USD per year | medium | [DSIT Online Safety Act enactment impact assessment, tables 49 to 52](https://assets.publishing.service.gov.uk/media/6716222b9242eecc6c849b09/Online_Safety_act_enactment_impact_assessment.pdf) (2024-10) |
 | `dsa_year` | EU Digital Services Act, non-VLOP platform | 5,000 | 1,500 | 20,000 | USD per year | unsourced | [ACT position paper citing the Commission's DSA notice-and-action setup floor](https://www.acte.be/) (2021) |

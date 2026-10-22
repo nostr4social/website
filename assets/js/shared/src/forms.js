@@ -71,13 +71,22 @@ export function parseTemplate(event) {
     fields.push(field)
   }
   const settings = parseJson(tag('settings'), {})
+  // The builder's placeholder for a description nobody wrote.
+  const PLACEHOLDER = /^click to edit/i
+  const clean = (text) => (text && !PLACEHOLDER.test(stripHtml(text)) ? stripHtml(text) : '')
+  const sections = (Array.isArray(settings.sections) ? settings.sections : [])
+    .slice()
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((sec) => ({ id: sec.id, title: clean(sec.title), description: clean(sec.description), questions: Array.isArray(sec.questionIds) ? sec.questionIds.slice() : [] }))
   return {
     pubkey: event.pubkey,
     d,
     name: stripHtml(tag('name') || ''),
+    description: clean(settings.description),
     relays: event.tags.filter((t) => t[0] === 'relay').map((t) => t[1]),
     encrypted: event.content !== '',
     anonymous_allowed: !settings.disallowAnonymous,
+    sections,
     fields,
   }
 }

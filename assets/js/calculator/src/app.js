@@ -22,6 +22,7 @@ import { markInvalid, readContact, readInputs, wireSliders, writeDefaults, write
 import { compact } from './format.js'
 import { composeLead, prepareForm, sendLead, submitResponse } from './submit.js'
 import {
+  activateTab,
   markChanged,
   readOverrides,
   renderResults,
@@ -29,13 +30,21 @@ import {
   setLink,
   setStatus,
   showResults,
+  wireTabs,
   wireToggles,
   writeOverrides,
 } from './ui.js'
 
 const assumptions = readJson('page-assumptions')
-const fields = readJson('page-fields')
-const form = prepareForm(readJson('page-form'), readJson('page-map'))
+const snapshot = readJson('page-form')
+const map = readJson('page-map')
+const form = prepareForm(snapshot, map)
+
+/** A question's words, from the form itself, for an error that names it. */
+function labelFor(key) {
+  const node = document.querySelector(`#field-${key} .field__label, label[for="f-${key}"]`)
+  return node ? node.textContent.replace(/\s+/g, ' ').trim() : key
+}
 
 let current = null // the last result shown
 let test = null // the hidden test marker, from the URL only
@@ -51,8 +60,9 @@ function run(raw, overrides, { focus = true } = {}) {
     result = calculate(raw, assumptions, overrides)
   } catch (err) {
     if (err instanceof InputError) {
+      activateTab('app')
       markInvalid($('#calc-form'), err.key)
-      setError(err.code, fields[err.key]?.label || err.key)
+      setError(err.code, labelFor(err.key))
       return null
     }
     setError('unknown')
@@ -106,7 +116,7 @@ function valuesFor(result, contact) {
     rails: i.rails,
     rev: i.rev,
     balances: i.balances,
-    distribution: i.dist,
+    distribution: i.distribution,
     jur: i.jur,
     nostr: grid('nostr', 'n_'),
     result_custodial: Math.round(T.custodial),
@@ -157,7 +167,7 @@ async function tell(signer, result, contact) {
     result: { custodial: compact(result.typical.totals.custodial), noncustodial: compact(result.typical.totals.noncustodial) },
     link: result.link,
     contact,
-    fieldLabels: fields,
+    fieldLabels: Object.fromEntries(Object.keys(result.inputs).map((k) => [k, { label: labelFor(k) }])),
   })
   try {
     await sendLead({ signer, recipient, subject: t('compose.subject'), content, pow: dev.noPow ? 0 : signer.kind === 'guest' ? config.pow.anonymous : config.pow.signed })
@@ -175,16 +185,15 @@ function onSubmit(event) {
   void save(result, readContact(formEl))
 }
 
-/** An assumption edit recomputes what is on screen; it never submits. */
-function onAssumptionChange() {
+/** Recalculate: the form's answers with the edited assumptions; never submits. */
+function onRecalculate() {
   markChanged()
-  if (!current) return
-  run(readInputs($('#calc-form')), readOverrides(), { focus: false })
+  run(readInputs($('#calc-form')), readOverrides(), { focus: true })
 }
 
 function onReset() {
   writeOverrides({})
-  onAssumptionChange()
+  markChanged()
 }
 
 async function onShare() {
@@ -199,8 +208,7 @@ async function onShare() {
 }
 
 function onEdit() {
-  $('#calc-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  $('#f-mau')?.focus({ preventScroll: true })
+  activateTab('app', { focus: true })
 }
 
 // ── boot ─────────────────────────────────────────────────────────────────────
@@ -210,7 +218,9 @@ function wire() {
   $('#r-share')?.addEventListener('click', onShare)
   $('#r-edit')?.addEventListener('click', onEdit)
   $('#a-reset')?.addEventListener('click', onReset)
-  for (const input of document.querySelectorAll('.assume-input')) input.addEventListener('change', onAssumptionChange)
+  $('#a-recalc')?.addEventListener('click', onRecalculate)
+  for (const input of document.querySelectorAll('.assume-input')) input.addEventListener('change', markChanged)
+  wireTabs((name, opts) => activateTab(name, opts))
   wireToggles()
 }
 
@@ -218,6 +228,7 @@ async function boot() {
   const formEl = $('#calc-form')
   if (!formEl) return
   wire()
+  activateTab('app')
   wireSliders(formEl)
   const A = assumptions.assumptions
   writeDefaults(formEl, {

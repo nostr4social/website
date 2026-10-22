@@ -11,7 +11,10 @@ export function fixtureTemplate(snapshot, relay) {
   const tags = [
     ['d', snapshot.d],
     ['name', `<p>${snapshot.name}</p>`],
-    ['settings', JSON.stringify({ description: 'test' })],
+    ['settings', JSON.stringify({
+      description: snapshot.description || '',
+      sections: (snapshot.sections || []).map((sec, i) => ({ id: sec.id, title: sec.title, description: sec.description || '', questionIds: sec.questions, order: i })),
+    })],
     ['relay', relay],
     ['t', 'public'],
   ]

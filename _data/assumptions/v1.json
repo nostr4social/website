@@ -54,19 +54,19 @@
       "group": "people"
     },
     "default_hours_accounts": {
-      "label": "Engineering hours a week on accounts, when the form row is blank",
+      "label": "Engineering hours a week on accounts, where the sliders start",
       "unit": "hours per week",
       "typical": 5,
       "low": 2,
       "high": 10,
       "confidence": "unsourced",
       "source": null,
-      "note": "The page's grid gives bands (0, 1 to 10, 11 to 40, over 40) read as 0, 5, 25 and 60 hours. A blank row uses this.",
+      "note": "The form's bands (0, 1 to 10, 11 to 40, over 40) are read as 0, 5, 25 and 60 hours a week. The slider starts on the band nearest this; a results link that gives no band uses it directly.",
       "line": "accounts",
       "group": "people"
     },
     "default_hours_content": {
-      "label": "Engineering hours a week on user content, feeds and the graph, when blank",
+      "label": "Engineering hours a week on user content, feeds and the graph, where the sliders start",
       "unit": "hours per week",
       "typical": 10,
       "low": 4,
@@ -78,7 +78,7 @@
       "group": "people"
     },
     "default_hours_infra": {
-      "label": "Engineering hours a week on infrastructure and storage, when blank",
+      "label": "Engineering hours a week on infrastructure and storage, where the sliders start",
       "unit": "hours per week",
       "typical": 10,
       "low": 4,
@@ -90,7 +90,7 @@
       "group": "people"
     },
     "default_hours_legal": {
-      "label": "Engineering hours a week on legal and compliance work, when blank",
+      "label": "Engineering hours a week on legal and compliance work, where the sliders start",
       "unit": "hours per week",
       "typical": 2,
       "low": 0,
