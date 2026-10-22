@@ -2,13 +2,13 @@
 //
 //   npm run snapshot:form -- naddr1...
 //
-// Fetches the kind 30168 template the naddr points at, checks it against the
-// recipe (every question the page sends must exist, by label), and writes the
-// snapshot the page submits against. Re-run after editing the form in the
-// builder; check:form fails the build until you do.
+// Fetches the kind 30168 template the naddr points at and writes the
+// snapshot the page submits against. Then check the id map beside it still
+// fits (`npm run check:form`); edit _data/forms/map.yml if a question was
+// added or replaced. Re-run after editing the form in the builder.
 
 import { writeFile } from 'node:fs/promises'
-import { fetchTemplate, mapRecipe, parseTemplate, pointerFrom, readRecipe, SNAPSHOT, snapshotYaml } from './lib.mjs'
+import { checkMap, fetchTemplate, parseTemplate, pointerFrom, readMap, SNAPSHOT, snapshotYaml } from './lib.mjs'
 
 const naddr = process.argv[2]
 if (!naddr) {
@@ -22,12 +22,16 @@ if (!event) {
   process.exit(1)
 }
 const snapshot = parseTemplate(event)
-const recipe = await readRecipe()
-const { missing } = mapRecipe(snapshot, recipe)
 console.log(`form "${snapshot.name}" by ${snapshot.pubkey.slice(0, 8)}… d=${snapshot.d}: ${snapshot.fields.length} questions, ${snapshot.relays.length} relays`)
 if (snapshot.encrypted) console.error('WARN the template is encrypted; the page cannot read an encrypted form')
 if (!snapshot.anonymous_allowed) console.error('WARN the form disallows anonymous responses; the page submits anonymously')
-for (const m of missing) console.error('MISSING ' + m)
 await writeFile(SNAPSHOT, snapshotYaml(snapshot, naddr))
-console.log(`wrote ${SNAPSHOT}${missing.length ? ` with ${missing.length} question(s) missing — fix the form and run again` : ''}`)
+console.log(`wrote ${SNAPSHOT}`)
+let missing = []
+try {
+  missing = checkMap(snapshot, await readMap())
+} catch {
+  console.log('--   no _data/forms/map.yml yet; write one from the snapshot')
+}
+for (const m of missing) console.error('MISSING ' + m)
 process.exit(missing.length ? 1 : 0)

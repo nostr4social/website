@@ -284,7 +284,7 @@ Field ids are f-<key>, assumption inputs a-<key>, result slots r-<name>.
   <script type="application/json" id="page-assumptions">{{ data | jsonify }}</script>
   {%- comment -%} The form on Nostr, as snapshotted; `null` until one exists. {%- endcomment -%}
   <script type="application/json" id="page-form">{{ site.data.forms.calculator | jsonify }}</script>
-  <script type="application/json" id="page-recipe">{{ site.data.forms.recipe | jsonify }}</script>
+  <script type="application/json" id="page-map">{{ site.data.forms.map | jsonify }}</script>
 </div>
 <link rel="modulepreload" href="{{ shared.nostr_tools.path }}" integrity="{{ shared.nostr_tools.integrity }}" crossorigin>
 <link rel="modulepreload" href="{{ shared.uqr.path }}" integrity="{{ shared.uqr.integrity }}" crossorigin>

@@ -14,7 +14,7 @@ import { decode } from 'nostr-tools/nip19'
 import { getConversationKey, decrypt } from 'nostr-tools/nip44'
 import { getPow } from 'nostr-tools/nip13'
 import { hexToBytes } from '@noble/hashes/utils.js'
-import { formAddress, KIND_RESPONSE, mapRecipe, readRecipe, readSnapshot, DEFAULT_RELAYS } from './lib.mjs'
+import { formAddress, KIND_RESPONSE, readMap, readSnapshot, DEFAULT_RELAYS } from './lib.mjs'
 
 useWebSocketImplementation(WebSocket)
 
@@ -29,10 +29,10 @@ const since = (() => {
 const includeTest = args.includes('--test')
 
 const snapshot = await readSnapshot()
-const recipe = await readRecipe()
-const { fields } = mapRecipe(snapshot, recipe)
+const map = await readMap()
 const labelFor = Object.fromEntries(snapshot.fields.map((f) => [f.id, f.label]))
-const optionLabel = Object.fromEntries(snapshot.fields.flatMap((f) => f.options.map((o) => [o.id, o.label])))
+const optionLabel = Object.fromEntries(snapshot.fields.flatMap((f) => [...f.options, ...(f.grid?.rows || []), ...(f.grid?.columns || [])].map((o) => [o.id, o.label])))
+const testId = map.fields.test?.id
 
 let secret = null
 if (process.env.FORM_SECRET) {
@@ -59,9 +59,15 @@ for (const e of seen.values()) {
       row.answers = {}
       for (const [, id, value] of list) {
         const label = labelFor[id] || id
+        if (value.startsWith('{')) {
+          try {
+            row.answers[label] = Object.entries(JSON.parse(value)).map(([r, c]) => `${optionLabel[r] || r}: ${optionLabel[c] || c}`).join('; ')
+            continue
+          } catch { /* fall through */ }
+        }
         row.answers[label] = value.split(';').map((v) => optionLabel[v] || v).join(', ')
+        if (id === testId) row.test = value
       }
-      row.test = row.answers[recipe.fields.test.label] || ''
     } catch {
       row.answers = 'undecryptable'
     }
@@ -76,4 +82,3 @@ for (const r of rows) {
   if (r.answers && typeof r.answers === 'object') for (const [k, v] of Object.entries(r.answers)) console.log(`    ${k}: ${v}`)
   else if (r.answers) console.log(`    ${r.answers}`)
 }
-void fields

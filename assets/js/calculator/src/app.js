@@ -35,7 +35,7 @@ import {
 
 const assumptions = readJson('page-assumptions')
 const fields = readJson('page-fields')
-const form = prepareForm(readJson('page-form'), readJson('page-recipe'))
+const form = prepareForm(readJson('page-form'), readJson('page-map'))
 
 let current = null // the last result shown
 let test = null // the hidden test marker, from the URL only

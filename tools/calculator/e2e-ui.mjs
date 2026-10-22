@@ -8,14 +8,14 @@
 // SHOTS=dir writes screenshots of the results at 1440 and 390 wide into dir.
 
 import { spawn } from 'node:child_process'
-import { access, readFile, rm, writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { SimplePool, useWebSocketImplementation } from 'nostr-tools/pool'
 import { verifyEvent } from 'nostr-tools/pure'
 import { getConversationKey, decrypt } from 'nostr-tools/nip44'
 import { getPow } from 'nostr-tools/nip13'
 import { withBrowser } from '../contact-bundle/cdp.mjs'
-import { formAddress, KIND_RESPONSE, parseTemplate, readRecipe, SNAPSHOT, snapshotYaml } from '../forms/lib.mjs'
+import { formAddress, KIND_RESPONSE, parseTemplate, readSnapshot, SNAPSHOT, snapshotYaml } from '../forms/lib.mjs'
 import { fixtureTemplate, localRelay } from '../forms/fixture.mjs'
 
 useWebSocketImplementation(WebSocket)
@@ -163,35 +163,37 @@ await withBrowser(async (api) => {
   check('the test marker survives in the page URL', shared.url.includes('test=1'), shared.url)
 
   // ── saving: a fixture form on a local relay ───────────────────────────────
-  // Only when no real snapshot is committed: the test writes one for a form it
-  // publishes to `nak serve`, waits for the dev server to rebuild the page,
-  // submits through the page itself, and reads the response back as the form
-  // holder would. The snapshot is removed afterwards.
-  let hasSnapshot = true
+  // The committed snapshot's questions are republished to `nak serve` under a
+  // throwaway key, the snapshot is swapped for that fixture while the test
+  // runs (so the page encrypts to a key the test holds), the page submits,
+  // and the response is read back as the form holder would. The committed
+  // snapshot is restored afterwards.
+  let committed = null
   try {
-    await access(SNAPSHOT)
+    committed = await readFile(SNAPSHOT, 'utf8')
   } catch {
-    hasSnapshot = false
+    committed = null
   }
-  if (hasSnapshot) {
-    console.log('--   a real form snapshot is committed; the saving path is not exercised against it here')
+  if (!committed) {
+    console.log('--   no form snapshot is committed; the saving path is not exercised')
   } else {
     const stopRelay = await localRelay(PORT, { spawn })
     const pool = new SimplePool()
     try {
-      const recipe = await readRecipe()
-      const fixture = fixtureTemplate(recipe, RELAY)
+      const base = await readSnapshot()
+      const fixture = fixtureTemplate(base, RELAY)
       await Promise.allSettled(pool.publish([RELAY], fixture.event))
       const snapshot = parseTemplate(fixture.event)
-      await writeFile(SNAPSHOT, snapshotYaml(snapshot, 'naddr1test'))
-      // The dev server rebuilds; the page then carries the form.
+      await writeFile(SNAPSHOT, snapshotYaml(snapshot, base.naddr))
+      // The dev server rebuilds; the page then carries the fixture form.
       for (let i = 0; i < 60; i++) {
         await api.goto(`${BASE}/calculator/?relay=${encodeURIComponent(RELAY)}`)
         await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
-        if ((await api.eval(`document.documentElement.dataset.calculatorForm`)) === 'ready') break
+        const pk = await api.eval(`JSON.parse(document.getElementById('page-form').textContent)?.pubkey`)
+        if (pk === fixture.pubkey && (await api.eval(`document.documentElement.dataset.calculatorForm`)) === 'ready') break
         await sleep(1000)
       }
-      check('the page carries the form once a snapshot exists', (await api.eval(`document.documentElement.dataset.calculatorForm`)) === 'ready')
+      check('the page carries the form', (await api.eval(`document.documentElement.dataset.calculatorForm`)) === 'ready')
       check('the sign row is shown', !(await api.eval(`document.getElementById('sign-row').hidden`)))
 
       await sleep(3200) // past the too-fast guard
@@ -219,21 +221,26 @@ await withBrowser(async (api) => {
         const answers = JSON.parse(decrypt(ev.content, getConversationKey(fixture.secret, ev.pubkey)))
         const byId = Object.fromEntries(snapshot.fields.map((f) => [f.id, f.label]))
         const byLabel = Object.fromEntries(answers.map(([, id, v]) => [byId[id], v]))
-        check('the form secret decrypts the page\'s answers', byLabel['Monthly active users'] === '12000' && byLabel['Email'] === 'founder@example.com' && byLabel['Company'] === 'Example', JSON.stringify(byLabel))
+        check('the form secret decrypts the page\'s answers', byLabel['Number of Monthly Active Users (MAU)'] === '12000' && byLabel['Email Address'] === 'founder@example.com' && byLabel['Company Name'] === 'Example', JSON.stringify(byLabel))
         check('the computed figures and the link travel with the inputs', /^\d+$/.test(byLabel['Annual custodial cost (USD, typical)'] || '') && (byLabel['Results link'] || '').includes('mau=12000'), byLabel['Results link'])
         check('the test marker is blank when the URL had none', !('test' in byLabel))
       }
       // A lead with contact details also goes to hello's inbox as a gift wrap.
-      const wraps = await pool.querySync([RELAY], { kinds: [1059] }, { maxWait: 3000 })
+      // It is mined after the save is reported, so give it time.
+      let wraps = []
+      for (let i = 0; i < 30 && wraps.length === 0; i++) {
+        wraps = await pool.querySync([RELAY], { kinds: [1059] }, { maxWait: 2000 })
+        if (!wraps.length) await sleep(1000)
+      }
       check('a lead message was gift-wrapped to the inbox', wraps.length === 1 && getPow(wraps[0].id) >= 18, `${wraps.length} wraps`)
     } finally {
       pool.destroy()
       stopRelay()
-      await rm(SNAPSHOT, { force: true })
-      // Wait for the dev server to drop the form again, so later runs start clean.
+      await writeFile(SNAPSHOT, committed)
+      // Wait for the dev server to carry the real form again, so later runs start clean.
       for (let i = 0; i < 60; i++) {
         const html = await (await fetch(`${BASE}/calculator/`)).text().catch(() => '')
-        if (html.includes('id="page-form">null<')) break
+        if (html.includes('9e8b472eda9cf77668a0753534ed12a7b1e74e9773545b1cd02fe776df080959')) break
         await sleep(1000)
       }
     }

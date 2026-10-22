@@ -14,22 +14,22 @@
 import { config, dev, fmt, t } from '../../shared/src/config.js'
 import { SimplePool } from '../../shared/src/vendor.js'
 import { minePow } from '../../shared/src/pow.js'
-import { buildResponses, formAddress, KIND_RESPONSE, mapRecipe } from '../../shared/src/forms.js'
+import { buildResponses, checkMap, formAddress, KIND_RESPONSE } from '../../shared/src/forms.js'
 import { buildRumor, publishWrap, sealFor, wrapFor } from '../../shared/src/nip17.js'
 import { inboxRelaysFor } from '../../shared/src/relays.js'
 import { normalizeRelay } from '../../shared/src/relays.js'
 
 const now = () => Math.floor(Date.now() / 1000)
 
-/** The form as the page was built against it, matched to the recipe once. */
-export function prepareForm(snapshot, recipe) {
-  if (!snapshot || !snapshot.pubkey || !snapshot.d) return null
-  const { fields, missing } = mapRecipe(snapshot, recipe)
+/** The form as the page was built against it, with the id map checked against it once. */
+export function prepareForm(snapshot, map) {
+  if (!snapshot || !snapshot.pubkey || !snapshot.d || !map?.fields) return null
+  const missing = checkMap(snapshot, map)
   if (missing.length) {
-    console.warn('calculator form: recipe does not match the snapshot', missing)
+    console.warn('calculator form: the id map does not fit the snapshot', missing)
     return null
   }
-  return { snapshot, mapping: { fields } }
+  return { snapshot, mapping: map }
 }
 
 /** Relays a response goes to: the form's, unless localhost overrides them. */
@@ -41,7 +41,7 @@ export function responseRelays(snapshot) {
 
 /**
  * Build, encrypt, mine, sign and publish one response.
- * values: { key: value } keyed like the recipe. Returns the per-relay verdict.
+ * values: { key: value } keyed like the id map. Returns the per-relay verdict.
  */
 export async function submitResponse(form, { signer, values, pow = 0, onProgress }) {
   const responses = buildResponses(form.mapping, values)

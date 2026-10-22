@@ -52,14 +52,23 @@ export function parseTemplate(event) {
     const [, id, primitive, label, optionsJson, settingsJson] = t
     const settings = parseJson(settingsJson, {})
     const options = parseJson(optionsJson, [])
-    fields.push({
+    const field = {
       id,
       type: primitive,
       label: stripHtml(label),
       render: settings.renderElement || primitive,
       required: Boolean(settings.required),
       options: Array.isArray(options) ? options.map((o) => ({ id: o[0], label: stripHtml(o[1]) })) : [],
-    })
+    }
+    // A grid's "options" are {columns, rows}; an answer is {rowId: columnId}.
+    if (primitive === 'grid' && options && !Array.isArray(options)) {
+      field.options = []
+      field.grid = {
+        rows: (options.rows || []).map((r) => ({ id: r[0], label: stripHtml(r[1]) })),
+        columns: (options.columns || []).map((c) => ({ id: c[0], label: stripHtml(c[1]) })),
+      }
+    }
+    fields.push(field)
   }
   const settings = parseJson(tag('settings'), {})
   return {
@@ -74,44 +83,64 @@ export function parseTemplate(event) {
 }
 
 /**
- * Match a snapshot to a recipe: { fields: { key: { label, options?: { value: label } } } }.
- * Returns { fields: { key: { id, type, options?: { value: optionId } } }, missing: [...] }.
+ * The map names, by id, which question carries what. It is written once, by
+ * hand, from the published template, and checked against it on every build:
+ *
+ *   fields:
+ *     mau: { id: OKIJzE }
+ *     pay: { id: 88UlKt, options: { p2p: Q9rNXl, apple: sO56FE } }
+ *     eng_hours: { id: fIVb03, rows: { accounts: r4poWN }, columns: { "0": CW1BOL, "5": ark9hI } }
+ *
+ * Returns the ids in the map that the snapshot does not have.
  */
-export function mapRecipe(snapshot, recipe) {
-  const byLabel = new Map()
-  for (const f of snapshot.fields) byLabel.set(normalizeLabel(f.label), f)
-  const fields = {}
+export function checkMap(snapshot, map) {
+  const byId = new Map(snapshot.fields.map((f) => [f.id, f]))
   const missing = []
-  for (const [key, want] of Object.entries(recipe.fields)) {
-    const f = byLabel.get(normalizeLabel(want.label))
+  for (const [key, m] of Object.entries(map.fields)) {
+    const f = byId.get(m.id)
     if (!f) {
-      missing.push(`${key}: no question labelled "${want.label}"`)
+      missing.push(`${key}: no question with id ${m.id}`)
       continue
     }
-    const entry = { id: f.id, type: f.type }
-    if (want.options) {
-      entry.options = {}
-      const optByLabel = new Map(f.options.map((o) => [normalizeLabel(o.label), o.id]))
-      for (const [value, label] of Object.entries(want.options)) {
-        const id = optByLabel.get(normalizeLabel(label))
-        if (!id) missing.push(`${key}: no option labelled "${label}"`)
-        else entry.options[value] = id
-      }
+    // A parsed template keeps a grid under `grid`; the snapshot file writes
+    // `rows` and `columns` beside `options`. Accept either.
+    const rows = f.grid?.rows || f.rows || []
+    const columns = f.grid?.columns || f.columns || []
+    for (const [value, oid] of Object.entries(m.options || {})) {
+      if (!(f.options || []).some((o) => o.id === oid)) missing.push(`${key}.${value}: no option ${oid}`)
     }
-    fields[key] = entry
+    for (const [value, rid] of Object.entries(m.rows || {})) {
+      if (!rows.some((r) => r.id === rid)) missing.push(`${key}.${value}: no row ${rid}`)
+    }
+    for (const [value, cid] of Object.entries(m.columns || {})) {
+      if (!columns.some((c) => c.id === cid)) missing.push(`${key}.${value}: no column ${cid}`)
+    }
   }
-  return { fields, missing }
+  return missing
 }
 
-/** The response tags for a set of values keyed like the recipe. Blank values are left out. */
-export function buildResponses(mapping, values) {
+/**
+ * The response tags for a set of values keyed like the map. Blank values are
+ * left out. An option answer is the option id, several joined by ";"; a grid
+ * answer is { rowKey: columnKey } and becomes JSON of { rowId: columnId }.
+ */
+export function buildResponses(map, values) {
   const out = []
   for (const [key, v] of Object.entries(values)) {
-    const f = mapping.fields[key]
+    const f = map.fields[key]
     if (!f) continue
     if (v == null || v === '' || (Array.isArray(v) && v.length === 0)) continue
     let value
-    if (f.options) {
+    if (f.rows) {
+      const cells = {}
+      for (const [rowKey, colKey] of Object.entries(v)) {
+        const rid = f.rows[rowKey]
+        const cid = f.columns?.[String(colKey)]
+        if (rid && cid) cells[rid] = cid
+      }
+      if (!Object.keys(cells).length) continue
+      value = JSON.stringify(cells)
+    } else if (f.options) {
       const list = Array.isArray(v) ? v : [v]
       value = list.map((x) => f.options[String(x)]).filter(Boolean).join(';')
       if (!value) continue

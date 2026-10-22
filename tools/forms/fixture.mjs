@@ -1,28 +1,28 @@
-// A test form for the local relay: the calculator's recipe as formstr.app
-// would publish it, under a key that exists for one test run. Used by the
-// browser and pipeline tests so they never touch a real form.
+// A test form for the local relay: the published form's own questions, ids
+// and all, re-signed under a key that exists for one test run. The tests
+// then exercise exactly the ids the map names, without touching the real
+// form.
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure'
 import { KIND_FORM } from './lib.mjs'
 
-export function fixtureTemplate(recipe, relay) {
+export function fixtureTemplate(snapshot, relay) {
   const secret = generateSecretKey()
   const pubkey = getPublicKey(secret)
-  const rid = () => Math.random().toString(36).slice(2, 8)
-  const TEXT = ['name', 'company', 'email', 'npub', 'link', 'overrides', 'version', 'test']
-  const MULTI = ['stores', 'jur', 'nostr']
   const tags = [
-    ['d', 'cost-of-custody-test'],
-    ['name', '<p>Cost of Custody <b>test</b></p>'],
+    ['d', snapshot.d],
+    ['name', `<p>${snapshot.name}</p>`],
     ['settings', JSON.stringify({ description: 'test' })],
     ['relay', relay],
     ['t', 'public'],
   ]
-  for (const [key, want] of Object.entries(recipe.fields)) {
-    const isOption = Boolean(want.options)
-    const primitive = isOption ? 'option' : TEXT.includes(key) ? 'text' : 'number'
-    const render = isOption ? (MULTI.includes(key) ? 'checkboxes' : 'radioButton') : primitive === 'number' ? 'number' : key === 'overrides' ? 'paragraph' : 'shortText'
-    const options = isOption ? Object.values(want.options).map((label) => [rid(), `<p>${label}</p>`]) : []
-    tags.push(['field', rid(), primitive, `<p>${want.label}</p>`, JSON.stringify(options), JSON.stringify({ renderElement: render, required: false })])
+  for (const f of snapshot.fields) {
+    // A parsed template keeps a grid under `grid`; the snapshot file writes
+    // `rows` and `columns` beside `options`. Accept either.
+    const grid = f.grid || (f.rows ? { rows: f.rows, columns: f.columns } : null)
+    const options = grid
+      ? JSON.stringify({ columns: grid.columns.map((c) => [c.id, c.label, '{}']), rows: grid.rows.map((r) => [r.id, r.label, '{}']) })
+      : JSON.stringify((f.options || []).map((o) => [o.id, `<p>${o.label}</p>`]))
+    tags.push(['field', f.id, f.type, `<p>${f.label}</p>`, options, JSON.stringify({ renderElement: f.render, required: f.required })])
   }
   const event = finalizeEvent({ kind: KIND_FORM, created_at: Math.floor(Date.now() / 1000), tags, content: '' }, secret)
   return { event, secret, pubkey }

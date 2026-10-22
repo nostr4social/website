@@ -17,7 +17,7 @@ import { generateSecretKey, verifyEvent } from 'nostr-tools/pure'
 import { SimplePool, useWebSocketImplementation } from 'nostr-tools/pool'
 import { getConversationKey, decrypt } from 'nostr-tools/nip44'
 import { getPow } from 'nostr-tools/nip13'
-import { root, readRecipe, parseTemplate, formAddress, KIND_FORM, KIND_RESPONSE } from './lib.mjs'
+import { root, readMap, readSnapshot, parseTemplate, formAddress, KIND_FORM, KIND_RESPONSE, checkMap } from './lib.mjs'
 import { fixtureTemplate, localRelay } from './fixture.mjs'
 
 useWebSocketImplementation(WebSocket)
@@ -34,15 +34,17 @@ const stopRelay = await localRelay(PORT, { spawn })
 
 try {
   // ── the form, as formstr.app would publish it ─────────────────────────────
-  const recipe = await readRecipe()
-  const { event: template, secret: formSecret, pubkey: formPubkey } = fixtureTemplate(recipe, RELAY)
+  const map = await readMap()
+  const committed = await readSnapshot()
+  const { event: template, secret: formSecret, pubkey: formPubkey } = fixtureTemplate(committed, RELAY)
   const pool = new SimplePool()
   await Promise.allSettled(pool.publish([RELAY], template))
 
-  const fetched = await pool.get([RELAY], { kinds: [KIND_FORM], authors: [formPubkey], '#d': ['cost-of-custody-test'] })
+  const fetched = await pool.get([RELAY], { kinds: [KIND_FORM], authors: [formPubkey], '#d': [committed.d] })
   check('the template is on the relay', Boolean(fetched))
   const snapshot = parseTemplate(fetched)
-  check('labels are read with their HTML stripped', snapshot.name === 'Cost of Custody test' && snapshot.fields[0].label === 'Monthly active users', snapshot.fields[0].label)
+  check('labels are read with their HTML stripped', snapshot.name === committed.name && snapshot.fields[0].label === committed.fields[0].label, snapshot.fields[0].label)
+  check('grids are read with their rows and columns', snapshot.fields.some((f) => f.grid && f.grid.rows.length && f.grid.columns.length))
   check('the snapshot carries the relay list', snapshot.relays.join() === RELAY)
 
   // ── the page's submit module, bundled for node ────────────────────────────
@@ -87,12 +89,13 @@ try {
   })
   const m = await import(`file://${out}`)
 
-  const form = m.prepareForm(snapshot, recipe)
-  check('the recipe maps onto the template', Boolean(form) && Object.keys(form.mapping.fields).length === Object.keys(recipe.fields).length)
-  const bad = m.prepareForm({ ...snapshot, fields: snapshot.fields.slice(1) }, recipe)
-  check('a template missing a question is refused', bad === null)
+  check('every id in the map is in the template', checkMap(snapshot, map).length === 0, checkMap(snapshot, map).join(' | '))
+  const form = m.prepareForm(snapshot, map)
+  check('the page accepts the form', Boolean(form))
+  const bad = m.prepareForm({ ...snapshot, fields: snapshot.fields.slice(1) }, map)
+  check('a template missing a mapped question is refused', bad === null)
 
-  const values = { mau: 50000, posts: 1000000, eng: 3, ts: 'inhouse', ts_n: 2, pay: 'yes', rev: 20000, stores: ['apple', 'web'], jur: ['eu', 'us'], nostr: [], hrs: null, result_custodial: 967914, result_noncustodial: 266254, link: 'https://nostr4.social/calculator/?mau=50000', overrides: '', version: '1', email: 'founder@example.com', test: '' }
+  const values = { mau: 50000, posts_per_user: 20, rails: ['apple', 'processor'], rev: 20000, jur: ['eu', 'us'], balances: [], engineering: { accounts: 5, infra: 25 }, moderation: { inhouse: 5 }, nostr: { keys: 1, media_storage: 0.5 }, legal_usd: '', result_custodial: 967914, result_noncustodial: 266254, link: 'https://nostr4.social/calculator/?mau=50000', overrides: '', version: '1', email: 'founder@example.com', test: '' }
   const signer = m.createGuestSigner()
   const started = Date.now()
   const { event, relays, ok } = await m.submitResponse(form, { signer, values, pow: 12 })
@@ -111,12 +114,15 @@ try {
   const byLabel = {}
   for (const [, id, value] of answers) byLabel[byId[id].label] = value
   check('the form secret decrypts the answers', answers.length > 0 && answers.every((a) => a[0] === 'response' && a[3] === '{}'))
-  check('numbers come back as given', byLabel['Monthly active users'] === '50000' && byLabel['Annual custodial cost (USD, typical)'] === '967914', JSON.stringify(byLabel))
-  const stores = byId[form.mapping.fields.stores.id]
-  const storeIds = byLabel['App stores'].split(';')
-  check('a multi-choice answer is option ids joined by ;', storeIds.length === 2 && storeIds.every((id) => stores.options.some((o) => o.id === id)))
-  check('a single choice is one option id', stores.options.length === 3 && byLabel['Trust and safety function'] === byId[form.mapping.fields.ts.id].options.find((o) => o.label === 'In-house').id)
-  check('blank values are left out', !('Name' in byLabel) && !('test' in byLabel) && !('Engineer hours per week on custody work' in byLabel))
+  const label = (key) => byId[map.fields[key].id].label
+  check('numbers come back as given', byLabel[label('mau')] === '50000' && byLabel[label('result_custodial')] === '967914', JSON.stringify(byLabel))
+  const railIds = byLabel[label('rails')].split(';')
+  check('a multi-choice answer is option ids joined by ;', railIds.join(';') === `${map.fields.rails.options.apple};${map.fields.rails.options.processor}`)
+  const eng = JSON.parse(byLabel[label('engineering')])
+  check('a grid answer is JSON of row id to column id', eng[map.fields.engineering.rows.accounts] === map.fields.engineering.columns['5'] && eng[map.fields.engineering.rows.infra] === map.fields.engineering.columns['25'] && Object.keys(eng).length === 2, byLabel[label('engineering')])
+  const nostr = JSON.parse(byLabel[label('nostr')])
+  check('a half answer maps to the Somewhat column', nostr[map.fields.nostr.rows.media_storage] === map.fields.nostr.columns['0.5'])
+  check('blank values are left out', !(label('name') in byLabel) && !(label('test') in byLabel) && !(label('legal_usd') in byLabel) && !(label('balances') in byLabel))
   check('a stranger cannot decrypt it', (() => { try { decrypt(got.content, getConversationKey(generateSecretKey(), got.pubkey)); return false } catch { return true } })())
 
   // ── the lead message ──────────────────────────────────────────────────────

@@ -1,0 +1,204 @@
+# A snapshot of the calculator form as published on Nostr (kind 30168).
+# Written by `npm run snapshot:form -- <naddr>`; `npm run check:form` fails
+# the build when the live template no longer matches it. The page submits
+# responses against the ids here and never fetches the template itself.
+
+naddr: naddr1qvzqqqr4mqpzp85tguhd488hwe52qaf4xnk39fa3ua8fwu65tvwdqtl8wm0ssz2eqy2hwumn8ghj7un9d3shjtnyv9kh2uewd9hj7qgwwaehxw309ahx7uewd3hkctcpr9mhxue69uhhyetvv9ujuumwdae8gtnnda3kjctv9uq3wamnwvaz7tmjv4kxz7fwwpexjmtpdshxuet59uq3uamnwvaz7tmjv4kxz7fwdehhxarj9emkjun9v3hx2apwdfcz7qgawaehxw309ahx7um5wgknqvfw09skk6tgdahxuefwvdhk6tcprpmhxue69uhhyetvv9ujuen0wfkhxarj9eshqup0qqfxxatnw3hkg7fdvdskccm4d3shgmmjyrz3t4
+pubkey: 9e8b472eda9cf77668a0753534ed12a7b1e74e9773545b1cd02fe776df080959
+d: custody-calculator
+name: "Nostr4 : Calculate The Cost of Custody"
+encrypted: false
+anonymous_allowed: true
+relays:
+  - wss://relay.formstr.app
+  - wss://relay.damus.io/
+  - wss://relay.primal.net/
+  - wss://nos.lol
+  - wss://relay.nostr.wirednet.jp/
+  - wss://nostr-01.yakihonne.com
+  - wss://relay.snort.social
+  - wss://relay.nostr.band
+  - wss://nostr21.com
+fields:
+  - id: OKIJzE
+    type: number
+    render: number
+    required: true
+    label: "Number of Monthly Active Users (MAU)"
+    options: []
+  - id: mSsJdP
+    type: number
+    render: number
+    required: true
+    label: "Average number of Posts or Messages per month per user"
+    options: []
+  - id: BwgQbZ
+    type: number
+    render: number
+    required: false
+    label: "Average storage per user (in MB)"
+    options: []
+  - id: koRqow
+    type: grid
+    render: multipleChoiceGrid
+    required: false
+    label: "Content review & moderation (head count)"
+    options: []
+    rows:
+      - { id: 8PeqEx, label: "In house (employees)" }
+      - { id: nC71IR, label: "Outside Vendor (seats)" }
+    columns:
+      - { id: 8VtN8o, label: "0" }
+      - { id: 3Lgs1E, label: "1 - 10" }
+      - { id: CiCpnA, label: "11 - 100" }
+      - { id: v1ZTFU, label: "101 - 1000" }
+      - { id: 9ujHYA, label: "> 1000" }
+  - id: 88UlKt
+    type: option
+    render: checkboxes
+    required: true
+    label: "What in-app payments do you facilitate in your app?"
+    options:
+      - { id: Q9rNXl, label: "Peer to Peer (bitcoin, lightning, or other crypto)" }
+      - { id: sO56FE, label: "Apple in-app purchase" }
+      - { id: pQBEbj, label: "Google Play billing" }
+      - { id: vp18O4, label: "Third party processor (Stripe, PayPal, Adyen)" }
+      - { id: mlhsBh, label: "Third party reseller (Paddle, Lemon Squeezy, FastSpring)" }
+  - id: YdT6dC
+    type: number
+    render: number
+    required: false
+    label: "What is your approximate in-app revenue (gross monthly USD)"
+    options: []
+  - id: 4F44bp
+    type: option
+    render: checkboxes
+    required: true
+    label: "How is your app distributed?"
+    options:
+      - { id: dZHVfs, label: "Apple App Store" }
+      - { id: rq31GJ, label: "Google Play" }
+      - { id: QwlqB5, label: "Web or direct" }
+  - id: fIVb03
+    type: grid
+    render: multipleChoiceGrid
+    required: false
+    label: "Software Engineering (hours per week)"
+    options: []
+    rows:
+      - { id: r4poWN, label: "Managing user accounts" }
+      - { id: kRSm6z, label: "Managing user content" }
+      - { id: VAbmsc, label: "Managing Infrastructure" }
+      - { id: Bf2zG1, label: "Legal and compliance" }
+    columns:
+      - { id: CW1BOL, label: "0" }
+      - { id: ark9hI, label: "1 - 10" }
+      - { id: Zp1lRi, label: "11 - 40" }
+      - { id: 82oxXo, label: "> 40" }
+  - id: 05IgYp
+    type: number
+    render: number
+    required: false
+    label: "Legal, privacy and compliance (in USD, approximate per year)"
+    options:
+      - { id: 5dsrFl, label: "0" }
+      - { id: rQ6Pqi, label: "Add option" }
+  - id: ePAdxW
+    type: option
+    render: checkboxes
+    required: true
+    label: "What regions hold primary jurisdiction?"
+    options:
+      - { id: 3YfIJX, label: "EU" }
+      - { id: pq8Wgs, label: "UK" }
+      - { id: gVmoP3, label: "US" }
+      - { id: 1667Tr, label: "Other" }
+  - id: 8H7dN3
+    type: grid
+    render: multipleChoiceGrid
+    required: false
+    label: "Our app already uses Nostr:"
+    options: []
+    rows:
+      - { id: 8BpUSF, label: "User accounts are private keys" }
+      - { id: RNrSLI, label: "App handles raw private keys" }
+      - { id: q1SIRT, label: "User data stored as signed events" }
+      - { id: 2SxIwT, label: "User choice for event storage" }
+      - { id: k7iBf9, label: "User choice for media storage" }
+      - { id: fJVpOZ, label: "Content tags and labels as signed events" }
+      - { id: 0L5VFM, label: "User configurable feeds & algos" }
+      - { id: bVCrfA, label: "User choice for algo processing" }
+      - { id: AdjiqB, label: "Peer to peer in app payments" }
+      - { id: CK5CCl, label: "NIP standards published publicly" }
+    columns:
+      - { id: CzJFM6, label: "Never" }
+      - { id: WUHYyN, label: "Somewhat" }
+      - { id: jF8mep, label: "Always" }
+  - id: 5VlKkm
+    type: option
+    render: checkboxes
+    required: false
+    label: "Do you hold user balances, credits or wallets?"
+    options:
+      - { id: eh05HT, label: "Yes" }
+  - id: qPZrNj
+    type: number
+    render: number
+    required: false
+    label: "Annual custodial cost (USD, typical)"
+    options: []
+  - id: C93CmL
+    type: number
+    render: number
+    required: false
+    label: "Annual non-custodial cost (USD, typical)"
+    options: []
+  - id: iHHHuZ
+    type: text
+    render: shortText
+    required: false
+    label: "Results link"
+    options: []
+  - id: LxmN8x
+    type: text
+    render: paragraph
+    required: false
+    label: "Assumption overrides (JSON)"
+    options: []
+  - id: OHi8fq
+    type: text
+    render: shortText
+    required: false
+    label: "Assumptions version"
+    options: []
+  - id: t3pia5
+    type: text
+    render: shortText
+    required: false
+    label: "Your Name"
+    options: []
+  - id: 5UFMyH
+    type: text
+    render: shortText
+    required: false
+    label: "Company Name"
+    options: []
+  - id: BBZoy9
+    type: text
+    render: shortText
+    required: false
+    label: "Email Address"
+    options: []
+  - id: PgP68U
+    type: text
+    render: shortText
+    required: false
+    label: "Nostr npub"
+    options: []
+  - id: XU5x6e
+    type: text
+    render: shortText
+    required: false
+    label: "test"
+    options:
+      - { id: d5fQLL, label: "Add option" }
