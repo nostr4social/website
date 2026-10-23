@@ -45,10 +45,47 @@ await withBrowser(async (api) => {
   // ── a fresh page ──────────────────────────────────────────────────────────
   await api.goto(`${BASE}/calculator/`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
-  check('a fresh page opens on Estimated Cost with the defaults\' result', (await api.eval(`[...document.querySelectorAll('[role=tab]')].map(t => t.id + ':' + t.getAttribute('aria-selected')).join(' ') + ' ' + document.getElementById('calc-results').hidden + ' ' + document.getElementById('r-hero').textContent`)).startsWith('tab-cost:true tab-app:false tab-assumptions:false false $'))
+  check('a fresh page opens on Estimated Cost with the defaults\' result', (await api.eval(`[...document.querySelectorAll('[role=tab]')].map(t => t.id + ':' + t.getAttribute('aria-selected')).join(' ') + ' ' + document.getElementById('calc-results').hidden + ' ' + document.querySelector('.chart__watermark').textContent`)).startsWith('tab-cost:true tab-app:false tab-assumptions:false false $'))
   const shareTitle = (await readSnapshot()).sections.find((sec) => sec.questions.includes('PgP68U')).title
   check('the Save & Share button is named by the form\'s section and sits outside the tabs', (await api.eval(`document.getElementById('save-open').textContent.trim() + ':' + document.getElementById('save-open').hidden + ':' + Boolean(document.querySelector('.tabbar #save-open'))`)) === `${shareTitle}:false:true`, shareTitle)
-  check('the modal holds the section\'s questions and no section of that name is on the tab', (await api.eval(`[...document.querySelectorAll('#save-modal [name]')].map(i => i.name).join(' ') + ' | ' + [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim()).join(', ')`)) === 'app_name company contact_name email consent | Non Custody, Accounts & Storage, Staffing Costs, Payment Gateway, App Availability')
+  check('the modal holds the section\'s questions and no section of that name is on the tab', (await api.eval(`[...document.querySelectorAll('#save-modal [name]')].map(i => i.name).join(' ') + ' | ' + [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim()).join(', ')`)) === 'app_name company contact_name email consent | Non Custody, Accounts & Storage, Staffing Costs, Payment Gateway, Availability & Growth')
+  const first = await api.eval(`({
+    whose: document.getElementById('r-whose-text').textContent, link: document.getElementById('r-whose-link').textContent,
+    hero: document.querySelector('#chart-custodial-cost-vs-nostr .chart__watermark').textContent, sub: document.querySelector('#chart-custodial-cost-vs-nostr .chart__watermark-sub').textContent,
+    gold: getComputedStyle(document.querySelector('#panel-cost .chart')).borderLeftWidth, heroCard: Boolean(document.querySelector('.savings__hero')),
+    lines: [...document.querySelectorAll('#chart-custodial-cost-vs-nostr polyline')].map(p => p.getAttribute('class') + ':' + p.getAttribute('points').split(' ').length),
+    starts: [...document.querySelectorAll('#chart-custodial-cost-vs-nostr polyline')].map(p => p.getAttribute('points').split(' ')[0]),
+    markers: document.querySelectorAll('#chart-custodial-cost-vs-nostr .chart__marker, #chart-custodial-cost-vs-nostr .chart__marker--custodial').length,
+    labels: [...document.querySelectorAll('#chart-custodial-cost-vs-nostr .chart__marks text')].map(t => t.textContent),
+    legend: [...document.querySelectorAll('#panel-cost .legend--chart .legend__item')].map(l => l.textContent.trim()),
+    title: document.getElementById('chart-custodial-cost-vs-nostr-title').textContent,
+    cumulative: Boolean(document.getElementById('chart-cumulative-savings')),
+    top: [...document.querySelectorAll('#chart-custodial-cost-vs-nostr .chart__axis--top text')].map(t => t.textContent),
+    bottom: [...document.querySelectorAll('#chart-custodial-cost-vs-nostr .chart__axis--bottom text')].map(t => t.textContent),
+    years: document.querySelectorAll('#r-years thead th[data-year]').length,
+    yearOne: document.querySelector('#r-years thead th[data-year]').textContent,
+    measures: [...document.querySelectorAll('#r-years tbody th')].map(t => t.textContent).join(' | '),
+    cells: document.querySelectorAll('#r-years tbody td').length,
+    width: document.getElementById('chart-custodial-cost-vs-nostr').getAttribute('viewBox').split(' ')[2] + ':' + Math.round(document.getElementById('chart-custodial-cost-vs-nostr').getBoundingClientRect().width),
+  })`)
+  check('a fresh page says whose estimate it shows and invites the visitor in', first.whose === 'A typical estimate for an app with 50,000 active users.' && first.link === 'Make it yours', `${first.whose} / ${first.link}`)
+  check('the five-year saving is the watermark in the chart\'s gap, and the hero card is gone', /^\$\d+(\.\d+)?[kM]$/.test(first.hero) && first.sub === 'savings over five years' && !first.heroCard && first.gold !== '1px', `${first.hero} / ${first.sub} / rail ${first.gold}`)
+  check('the one chart has a custody line and a Nostr path, a point per year, from one start', first.lines.length === 2 && first.lines[0] === 'chart__line chart__line--custodial:6' && first.lines[1] === 'chart__line:6' && first.starts[0] === first.starts[1] && !first.cumulative, `${first.lines.join(' ')} ${first.starts.join(' ')}`)
+  check('a marker on every year, and no labels on them: only the watermark', first.markers === 11 && first.labels.length === 2 && first.labels[0] === first.hero && first.labels[1] === first.sub, `${first.markers} | ${first.labels.join(' | ')}`)
+  check('the legend names the two lines in the page\'s words', first.legend.join(' / ') === 'Cost of Custody / Cost of Nostr', first.legend.join(' / '))
+  check('the picture carries its small title at the top left, with the legend just under it', (await api.eval(`document.querySelector('#panel-cost .chart > .chart__title').textContent + ':' + document.querySelector('#panel-cost .chart > .chart__title').nextElementSibling.className`)) === 'Projected Nostr Integration:legend legend--chart')
+  check('the chart is described, and the year-by-year table runs the years across and the measures down', first.title.includes('the area between them is') && first.years === 5 && first.yearOne === 'Year 1' && first.measures === 'Active users | Cost of Custody | Cost of Nostr | Saved | Cumulative Savings' && first.cells === 25, `${first.years} ${first.yearOne} | ${first.measures} | ${first.cells}`)
+  check('the chart is drawn at the figure\'s own width', first.width.split(':')[0] === first.width.split(':')[1], first.width)
+  check('the runway runs along the top from the start of integration, named in the gutter', first.top.join(' | ') === 'Start | Year 1 | Year 2 | Year 3 | Year 4 | Year 5 | Runway', first.top.join(' | '))
+  check('projected users run along the bottom, one per year, named in the gutter', first.bottom.length === 7 && first.bottom[0] === '50k' && first.bottom[1] === '62.5k' && /k$/.test(first.bottom[5]) && first.bottom[6] === 'Users', first.bottom.join(' | '))
+  await api.eval(`document.querySelector('#chart-custodial-cost-vs-nostr .chart__hit[data-year="3"]').dispatchEvent(new PointerEvent('pointerenter', { bubbles: false }))`)
+  const tip = await api.eval(`({ hidden: document.getElementById('tip-chart-custodial-cost-vs-nostr').hidden, text: document.getElementById('tip-chart-custodial-cost-vs-nostr').textContent, cross: document.querySelector('#chart-custodial-cost-vs-nostr .chart__cross').hasAttribute('hidden'), dots: document.querySelectorAll('#chart-custodial-cost-vs-nostr .chart__dot:not([hidden])').length })`)
+  check('hovering a year shows a three-line tooltip, crosshair and a dot on each line', !tip.hidden && !tip.cross && tip.dots === 2 && tip.text.startsWith('Year 3') && tip.text.includes('Cost of Custody') && tip.text.includes('Cost of Nostr') && tip.text.includes('Cumulative Savings') && !tip.text.includes('users'), tip.text)
+  await api.eval(`document.getElementById('chart-custodial-cost-vs-nostr').dispatchEvent(new PointerEvent('pointerleave'))`)
+  check('…and leaving hides it', await api.eval(`document.getElementById('tip-chart-custodial-cost-vs-nostr').hidden`))
+  await api.eval(`document.getElementById('r-whose-link').click()`)
+  check('Make it yours opens App Info', (await api.eval(`document.getElementById('tab-app').getAttribute('aria-selected')`)) === 'true')
+  await api.eval(`document.getElementById('tab-cost').click()`)
   check('…without a results link in the address bar', (await api.eval(`location.search`)) === '')
   check('the other two panels are hidden', await api.eval(`document.getElementById('panel-assumptions').hidden && document.getElementById('panel-app').hidden && !document.getElementById('panel-cost').hidden`))
   await api.eval(`document.getElementById('tab-app').click()`)
@@ -57,7 +94,7 @@ await withBrowser(async (api) => {
     const title = document.querySelector('.calc-form__title')?.textContent.trim()
     const q = document.querySelector('label[for=f-mau]').textContent.replace(/\\s+/g, ' ').trim()
     return title + ' | ' + legends.join(', ') + ' | ' + q
-  })()`)) === 'undefined | Non Custody, Accounts & Storage, Staffing Costs, Payment Gateway, App Availability | Number of Monthly Active Users (MAU)')
+  })()`)) === 'undefined | Non Custody, Accounts & Storage, Staffing Costs, Payment Gateway, Availability & Growth | Number of Monthly Active Users (MAU)')
   check('the questions the page fills are not drawn', await api.eval(`!document.querySelector('[name=link], [name=test], [name=result_custodial], [name=version]')`))
   check('the required choices start with their defaults', await api.eval(`(() => {
     const on = [...document.querySelectorAll('#calc-form input:checked')].map(i => i.name + '=' + i.value).sort().join(' ')
@@ -68,7 +105,7 @@ await withBrowser(async (api) => {
     const s = document.querySelector('input[name=eng_content]')
     return s.dataset.values.split(',')[s.value] + ':' + s.closest('.slider-row').querySelector('output').textContent
   })()`)) === '5:1 - 10')
-  check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 64)
+  check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 67)
 
   check('number sliders start on their defaults', (await api.eval(`(() => {
     const v = (n) => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.values.split(',')[s.value] + '=' + s.closest('.slider-row').querySelector('output').textContent }
@@ -95,6 +132,7 @@ await withBrowser(async (api) => {
     f.querySelector('input[name=rails][value=processor]').checked = true
     f.querySelector('input[name=jur][value=eu]').checked = true
     f.querySelector('input[name=jur][value=uk]').checked = true
+    f.querySelector('input[name=growth][value="0.5"]').checked = true
     f.requestSubmit()
   })()`)
   await api.waitFor(`!document.getElementById('calc-results').hidden`)
@@ -102,8 +140,10 @@ await withBrowser(async (api) => {
     const $ = (s) => document.querySelector(s)
     const row = (l) => document.querySelector('.lt-row[data-line="' + l + '"]')
     return {
-      hero: $('#r-hero').textContent, heroRange: $('#r-hero-range').textContent,
-      nc: $('#r-nc').textContent, permau: $('#r-permau').textContent, saving: $('#r-saving').textContent,
+      hero: $('.chart__watermark').textContent, whose: $('#r-whose-text').textContent, whoseLink: $('#r-whose-link').textContent,
+      permauC: $('#r-permau-c').textContent, permauNC: $('#r-permau-nc').textContent, average: $('#r-average').textContent, averageRange: $('#r-average-range').textContent,
+      eyebrows: [...document.querySelectorAll('#panel-cost .stat .eyebrow--gold')].map(e => e.textContent),
+      yearTwoUsers: $('#r-years tbody tr[data-row=users] td:nth-child(3)').textContent,
       version: $('#r-version').textContent,
       accountsC: row('accounts').querySelector('.lt-value--c').textContent,
       accountsNC: row('accounts').querySelector('.lt-value--nc').textContent,
@@ -118,14 +158,15 @@ await withBrowser(async (api) => {
       focused: document.activeElement?.id,
     }
   })()`)
-  check('the hero figure is the typical custodial cost, compact', /^\$\d+(\.\d+)?[kM]$/.test(r.hero), r.hero)
-  check('the hero carries its range', /^Range \$.+ to \$.+$/.test(r.heroRange), r.heroRange)
-  check('the tiles are filled', r.nc.startsWith('$') && r.permau.startsWith('$') && r.saving.startsWith('$'), `${r.nc} ${r.permau} ${r.saving}`)
+  check('the watermark is the five-year saving, compact', /^\$\d+(\.\d+)?[kM]$/.test(r.hero), r.hero)
+  check('the three facts are per user today, per user on Nostr, and the average year, under gold eyebrows', /^\$\d+\.\d\d$/.test(r.permauC) && /^\$\d+\.\d\d$/.test(r.permauNC) && /^\$[\d.]+[kM]$/.test(r.average) && /^Range \$/.test(r.averageRange) && r.eyebrows.join(' | ') === 'Custodial Cost per User/Year | Nostr Cost per User/Year | Average Savings per Year', `${r.permauC} ${r.permauNC} ${r.average} | ${r.eyebrows.join(' | ')}`)
+  check('after Calculate the tab says it is the visitor\'s estimate', r.whose === 'Your estimate, for an app with 50,000 active users.' && r.whoseLink === 'Adjust', `${r.whose} / ${r.whoseLink}`)
+  check('growth compounds in the year-by-year table (50% then decayed)', r.yearTwoUsers === '103,125', r.yearTwoUsers)
   check('the table shows full figures', /^\$[\d,]+$/.test(r.accountsC) && /^\$[\d,]+$/.test(r.accountsNC), `${r.accountsC} ${r.accountsNC}`)
   check('no non-custodial line is zero', r.zeros === 0, `${r.zeros} zero lines`)
   check('the widest custodial bar is the full scale', Math.abs(r.barMax - 100) < 0.01, String(r.barMax))
   check('non-custodial bars share that scale', r.barNc > 0 && r.barNc < 100, String(r.barNc))
-  check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.endsWith('v=1'), r.link)
+  check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.includes('growth=0.5') && r.link.endsWith('v=1'), r.link)
   check('the contact door carries a subject and the inputs', r.contact.startsWith('/contact/?subject=') && r.contact.includes('mau%3D50000'), r.contact)
   check('sliders standing on "not given" stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('mod_vendor='), r.link)
   check('the version is named', r.version.includes('1'), r.version)
@@ -133,18 +174,18 @@ await withBrowser(async (api) => {
   check('Calculate opened the Estimated Cost tab', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected') + ':' + document.getElementById('panel-cost').hidden + ':' + document.getElementById('panel-app').hidden`)) === 'true:false:true')
 
   // ── a change, then opening Your Cost ─────────────────────────────────────
-  const heroBefore = await api.eval(`document.getElementById('r-hero').textContent`)
+  const heroBefore = await api.eval(`document.querySelector('.chart__watermark').textContent`)
   await api.eval(`{ document.getElementById('tab-app').click(); const s = document.querySelector('input[name=mau]'); s.value = s.dataset.values.split(',').indexOf('500000'); s.dispatchEvent(new Event('input', { bubbles: true })) }`)
-  check('a changed slider does not recompute by itself', (await api.eval(`document.getElementById('r-hero').textContent`)) === heroBefore)
+  check('a changed slider does not recompute by itself', (await api.eval(`document.querySelector('.chart__watermark').textContent`)) === heroBefore)
   await sleep(300)
   check('…but the address bar follows it', (await api.eval(`location.search`)).includes('mau=500000'))
   await api.eval(`document.getElementById('tab-cost').click()`)
   await sleep(150)
-  const heroAfter = await api.eval(`document.getElementById('r-hero').textContent`)
+  const heroAfter = await api.eval(`document.querySelector('.chart__watermark').textContent`)
   check('opening Estimated Cost after a change recomputes', heroAfter !== heroBefore, `${heroBefore} → ${heroAfter}`)
   await api.eval(`{ document.getElementById('tab-app').click(); const s = document.querySelector('input[name=mau]'); s.value = s.dataset.values.split(',').indexOf('50000'); s.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('tab-cost').click() }`)
   await sleep(150)
-  check('…and back again', (await api.eval(`document.getElementById('r-hero').textContent`)) === heroBefore)
+  check('…and back again', (await api.eval(`document.querySelector('.chart__watermark').textContent`)) === heroBefore)
   check('the error cleared', r.error)
 
   // ── the parts ─────────────────────────────────────────────────────────────

@@ -37,13 +37,17 @@ fields:
     id: 5VlKkm
     options: { "yes": eh05HT }             # holds user balances, credits or wallets
 
-  # ── App Availability ──────────────────────────────────────────────────────
+  # ── Availability & Growth ─────────────────────────────────────────────────
   distribution:
     id: 4F44bp
     options: { apple: dZHVfs, google: rq31GJ, web: QwlqB5 }
   jur:
     id: ePAdxW
     options: { eu: 3YfIJX, uk: pq8Wgs, us: gVmoP3, other: 1667Tr }
+  # User growth over the next year, as a share: Flat / Steady / Fast / Doubling.
+  growth:
+    id: Oa0uzB
+    options: { "0": Y5qAsA, "0.25": AyAW8J, "0.5": IxM6Xo, "1": ftLXDP }
 
   # ── Non Custody ───────────────────────────────────────────────────────────
   # "Our app already uses Nostr": Never / Somewhat / Always as 0, 0.5 and 1.

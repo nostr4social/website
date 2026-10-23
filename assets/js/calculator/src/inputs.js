@@ -16,6 +16,7 @@
 const HOURS = ['0', '5', '25', '60'] // 0 · 1 to 10 · 11 to 40 · over 40 hours a week
 const HEADS = ['0', '5', '50', '500', '2000'] // 0 · 1 to 10 · 11 to 100 · 101 to 1000 · over 1000 people
 const NOSTR = ['0', '0.5', '1'] // never · somewhat · always
+const GROWTH = ['0', '0.25', '0.5', '1'] // Flat / Steady / Fast / Doubling
 
 //   omit      a value that means the same as "not given"; the results link
 //             leaves it out so a link only carries what was said
@@ -53,9 +54,10 @@ export const INPUTS = {
   rev: { type: 'number', required: false, default: 0, min: 0, max: 1e12 },
   balances: { type: 'multi', required: false, default: [], options: ['yes'] },
 
-  // App Availability
+  // Availability & Growth
   distribution: { type: 'multi', required: false, default: [], options: ['apple', 'google', 'web'] },
   jur: { type: 'multi', required: true, default: ['us'], options: ['eu', 'uk', 'us', 'other'] },
+  growth: band(GROWTH), // users a year from now, as a share of today's; blank means the assumptions' default
 }
 
 /** The keys that are grid rows, by grid, for the submission and the form. */

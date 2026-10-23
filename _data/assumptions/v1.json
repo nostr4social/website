@@ -912,6 +912,46 @@
       "note": "An app that never holds funds has far less exposure.",
       "line": "payments",
       "group": "payments"
+    },
+    "growth_default": {
+      "label": "User growth over the next year, when not given",
+      "unit": "ratio of today's users",
+      "typical": 0.25,
+      "low": 0,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Used only for a visitor who has not said. Early-stage forecasts run far higher (Equidam finds founders forecast 120% in year one); an app with users already is held to a modest figure on purpose.",
+      "line": "shared",
+      "group": "projection"
+    },
+    "growth_decay": {
+      "label": "Each year's growth rate as a share of the previous year's",
+      "unit": "ratio",
+      "typical": 0.75,
+      "low": 0.5,
+      "high": 1,
+      "confidence": "low",
+      "source": {
+        "title": "Equidam: benchmarks for startup revenue growth (15,000+ ventures)",
+        "url": "https://www.equidam.com/benchmarks-for-startup-revenue-growth",
+        "date": "2024"
+      },
+      "note": "Founders' own forecasts fall from 120% to 83% to 60% a year, about 0.7 each year. A doubling app is therefore about 9 times its size in year five, not 32.",
+      "line": "shared",
+      "group": "projection"
+    },
+    "migration_months": {
+      "label": "Months for custody to leave, once work starts",
+      "unit": "months",
+      "typical": 12,
+      "low": 18,
+      "high": 6,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Front-loaded: the share of custody gone by month m is 1 − (1 − m/M)², since the large lines (storage, compute, keys) move first and the long tail drains last. Twelve months realises two thirds of the first year's saving; twenty-four about 42% of the first and 92% of the second. Low is the slower migration, which is the smaller saving. No one-time integration cost is modelled.",
+      "line": "shared",
+      "group": "projection"
     }
   }
 }

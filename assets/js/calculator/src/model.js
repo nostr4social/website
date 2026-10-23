@@ -18,6 +18,7 @@
 import { INPUTS, normalizeInputs } from './inputs.js'
 
 export const LINES = ['accounts', 'graph', 'storage', 'compliance', 'moderation', 'payments']
+// `project` below carries the saving forward five years.
 export const SCENARIOS = ['low', 'typical', 'high']
 
 // Model constants, not assumptions: conventions rather than estimates.
@@ -262,15 +263,75 @@ export function evaluate(inputs, v) {
   }
 }
 
+// ── the projection ──────────────────────────────────────────────────────────
+//
+// Saving over the years, cumulative. Each year re-runs the six lines at that
+// year's user count, with revenue held per user (posts and storage already
+// are), so fixed program fees and tiers behave as they would; hours, head
+// counts and reported legal spend stay as given, which errs conservative.
+// Users compound at the growth given, or the default, with each year's rate a
+// fraction of the previous (growth_decay). Custody leaves over
+// migration_months, front-loaded: the large lines (storage, compute, keys)
+// move first and the long tail (retained data, programs) drains last, so the
+// share gone by month m is 1 - (1 - m/M)^2 and most of the first year's
+// saving is realised in it.
+// Each point also carries `path`: what the app pays that year on the way to
+// Nostr, which is the custodial figure less the saving realised, so the two
+// start together today and the gap between them is that year's saving.
+// No one-time integration cost is modelled: that is a conversation, not an
+// estimate.
+
+export const YEARS = 5
+export const MARKER_YEAR = 3
+
+/** The share of year `year`'s saving realised while custody leaves over `months`, front-loaded. */
+export function rampShare(year, months) {
+  if (!(months > 0)) return 1
+  let s = 0
+  for (let m = (year - 1) * 12 + 1; m <= year * 12; m++) {
+    const u = Math.min(1, (m - 0.5) / months)
+    s += 1 - (1 - u) ** 2
+  }
+  return s / 12
+}
+
+/** Year 0 (today) through YEARS, for one scenario's assumption values. */
+export function project(inputs, v, today = evaluate(inputs, v)) {
+  const given = num(inputs.growth)
+  let rate = given != null ? given : v.growth_default
+  const points = [{ year: 0, users: inputs.mau, rate: 0, custodial: today.totals.custodial, noncustodial: today.totals.noncustodial, path: today.totals.custodial, saving: today.totals.saving, share: 0, realised: 0, cumulative: 0 }]
+  let users = inputs.mau
+  let cumulative = 0
+  for (let year = 1; year <= YEARS; year++) {
+    if (year > 1) rate *= v.growth_decay
+    users = Math.max(1, Math.round(users * (1 + rate)))
+    const scaled = { ...inputs, mau: users, rev: (inputs.rev * users) / inputs.mau }
+    const r = evaluate(scaled, v)
+    const share = rampShare(year, v.migration_months)
+    const realised = r.totals.saving * share
+    cumulative += realised
+    points.push({ year, users, rate, custodial: r.totals.custodial, noncustodial: r.totals.noncustodial, path: r.totals.custodial - realised, saving: r.totals.saving, share, realised, cumulative })
+  }
+  return points
+}
+
 /**
- * The whole result: the typical scenario plus the low and high bounds, the
- * clean inputs the page should echo back, and the overrides that applied.
+ * The whole result: the typical scenario plus the low and high bounds, each
+ * with its projection, the clean inputs the page should echo back, and the
+ * overrides that applied.
  */
 export function calculate(rawInputs, data, rawOverrides = {}) {
   const inputs = normalizeInputs(rawInputs)
   const overrides = cleanOverrides(data, rawOverrides)
   const out = { version: data.version, inputs, overrides }
-  for (const s of SCENARIOS) out[s] = evaluate(inputs, resolveAssumptions(data, s, overrides))
+  for (const s of SCENARIOS) {
+    const v = resolveAssumptions(data, s, overrides)
+    const r = evaluate(inputs, v)
+    r.projection = project(inputs, v, r)
+    r.totals.five_year = r.projection[YEARS].cumulative
+    r.totals.marker_year = r.projection[MARKER_YEAR].cumulative
+    out[s] = r
+  }
   return out
 }
 

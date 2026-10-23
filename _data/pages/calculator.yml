@@ -9,25 +9,21 @@
 # - Nothing about the person is ever in the results link.
 
 meta:
-  title: Cost of Custody Calculator
+  title: Non-Custodial Savings Calculator
   description: >-
-    Estimate what holding your users' accounts and data costs you a year, in
-    six lines, and what each line looks like after a Nostr integration. Every
-    assumption is sourced and editable.
+    This calculator exposes the misunderstood cost center of holding custody, and the savings to be had by releasing custody, of user accounts and data in social apps.
 
 sections:
   - type: hero
     glow: left
     tight: true
     head:
-      eyebrow: The business case, in numbers
+      eyebrow: Nostr Integration - Justified
       eyebrow_tone: gold
-      title: Cost of Custody Calculator
+      title: Non-Custodial Savings Calculator
       lede: >-
-        Custody is a cost center. Put in what you already know about your app
-        and see what holding your users costs you a year, line by line, and
-        what remains of each line once users hold themselves. Every number
-        here comes with its source, and every one can be changed.
+        User custody is a cost center that is often overlooked, and for good reason. Most businesses have no choice but to control user accounts and their content. Selling access to these is one means of recouping the cost, but what if non-custody itself was simply ... a profitable option? 
+        This calculator exposes the misunderstood cost center of holding custody, and the savings to be had by releasing custody, of user accounts and data in social apps.
 
   - type: calculator
     id: calculator
@@ -121,9 +117,9 @@ sections:
 
     # ── the tabs ─────────────────────────────────────────────────────────────
     tabs:
-      cost: Estimated Cost
-      app: App Info
-      assumptions: Other Info
+      cost: Results
+      app: App Input
+      assumptions: Other Input
       # What the cost tab shows before anything has been calculated.
       empty: Fill in App Info and press Calculate.
 
@@ -149,17 +145,41 @@ sections:
 
     # ── the results ──────────────────────────────────────────────────────────
     results:
-      eyebrow: Your estimate
-      title: What custody costs you
-      hero:
-        label: Custodial cost per year, typical
-      tiles:
-        noncustodial:
-          label: On Nostr, per year
-        per_mau:
-          label: Per active user, per year
-        saving:
-          label: Released per year
+      title: Calculated Savings
+      # The pictures, in order, full width. The ids are the chart module's;
+      # it also draws chart-cumulative-savings (cumulative saving by year
+      # with the low case as a floor) if listed here.
+      charts:
+        - id: chart-custodial-cost-vs-nostr
+          title: Projected Nostr Integration
+          legend:
+            custodial: Cost of Custody
+            nostr: Cost of Nostr
+          caption: >-
+            A year's cost, typical case, as the app grows. The cost of Nostr
+            starts where you are today and falls as custody leaves. The
+            shaded gap is five years of saving. Integration cost is not
+            estimated here; it depends on your app, and we scope it on a
+            call.
+      # The three facts under the chart.
+      stats:
+        custodial_per_mau:
+          label: Custodial Cost per User/Year
+        nostr_per_mau:
+          label: Nostr Cost per User/Year
+        average:
+          label: Average Savings per Year
+      # Measures down, years across; the script fills the year heads and the cells.
+      years:
+        summary: Year by year
+        columns:
+          year: Year
+        rows:
+          users: Active users
+          custodial: Cost of Custody
+          path: Cost of Nostr
+          realised: Saved
+          cumulative: Cumulative Savings
       legend:
         custodial: Custodial today
         noncustodial: On Nostr
@@ -262,6 +282,35 @@ sections:
       range: "Range {low} to {high}"
       range_short: "{low} to {high}"
       per_mau_pair: "{custodial} today, {noncustodial} on Nostr"
+      # Whose estimate the tab shows: the illustrative app's, or the visitor's.
+      whose:
+        illustrative: "A typical estimate for an app with {mau} active users."
+        yours: "Your estimate, for an app with {mau} active users."
+        make_yours: Make it yours
+        adjust: Adjust
+      chart:
+        today: Today
+        year: "Year {n}"
+        marker: "{amount} by year {n}"
+        floor: "at least {amount}"
+        aria: "Cumulative saving rises to {end} by year five; the low case gives at least {low}."
+        tip:
+          users: "{n} active users"
+          custodial: "Custody that year: {amount}"
+          noncustodial: "On Nostr: {amount}"
+          realised: "Saved that year: {amount}"
+          cumulative: "Saved so far: {amount}"
+          path: "On the way to Nostr: {amount}"
+          gap: "Saved that year: {amount}"
+        versus:
+          band_sub: savings over five years
+          runway: Runway
+          start: Start
+          users: Users
+          tip_custody: "Cost of Custody: {amount}"
+          tip_nostr: "Cost of Nostr: {amount}"
+          tip_cumulative: "Cumulative Savings: {amount}"
+          aria: "Custody costs {custodial} a year by year five against {noncustodial} on Nostr, a gap of {saving}; the area between them is {total}."
       version: "Assumptions version {version}"
       contact_subject: Cost of custody estimate
       # What the Save & Share modal says at runtime.
@@ -327,6 +376,7 @@ sections:
         header: "via nostr4.social/calculator:"
         subject: Cost of custody lead
         results: "Custodial {custodial} a year; on Nostr {noncustodial}."
+        five_year: "Saved over five years: {five_year}, at least {floor}."
         link: "Results: {link}"
         open: "Open in the calculator: {link}"
       errors:

@@ -2,37 +2,37 @@
 var $ = (sel, root = document) => root.querySelector(sel);
 var $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 function el(tag, attrs = {}, children = []) {
-  const node = document.createElement(tag);
+  const node2 = document.createElement(tag);
   for (const [key, value] of Object.entries(attrs)) {
     if (value == null || value === false) continue;
-    if (key === "class") node.className = value;
-    else if (key === "text") node.textContent = value;
-    else if (key === "dataset") Object.assign(node.dataset, value);
-    else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
-    else node.setAttribute(key, value === true ? "" : value);
+    if (key === "class") node2.className = value;
+    else if (key === "text") node2.textContent = value;
+    else if (key === "dataset") Object.assign(node2.dataset, value);
+    else if (key.startsWith("on")) node2.addEventListener(key.slice(2), value);
+    else node2.setAttribute(key, value === true ? "" : value);
   }
   for (const child of [].concat(children)) {
     if (child == null) continue;
-    node.append(typeof child === "string" ? document.createTextNode(child) : child);
+    node2.append(typeof child === "string" ? document.createTextNode(child) : child);
   }
-  return node;
+  return node2;
 }
-function clear(node) {
-  while (node.firstChild) node.removeChild(node.firstChild);
+function clear(node2) {
+  while (node2.firstChild) node2.removeChild(node2.firstChild);
 }
-function replace(node, ...children) {
-  clear(node);
-  for (const child of children) if (child != null) node.append(child);
+function replace(node2, ...children) {
+  clear(node2);
+  for (const child of children) if (child != null) node2.append(child);
 }
-function show(node, visible) {
-  node.hidden = !visible;
+function show(node2, visible) {
+  node2.hidden = !visible;
 }
 
 // assets/js/shared/src/config.js
 function readJson(id) {
-  const node = document.getElementById(id);
-  if (!node) throw new Error(`missing config block: ${id}`);
-  return JSON.parse(node.textContent);
+  const node2 = document.getElementById(id);
+  if (!node2) throw new Error(`missing config block: ${id}`);
+  return JSON.parse(node2.textContent);
 }
 function readOptional(id) {
   return document.getElementById(id) ? readJson(id) : {};
@@ -51,7 +51,7 @@ function fmt(template, vars = {}) {
   return String(template).replace(/\{(\w+)\}/g, (m, key) => vars[key] == null ? m : String(vars[key]));
 }
 function t(path, fallback = "") {
-  return path.split(".").reduce((node, key) => node == null ? void 0 : node[key], strings) ?? fallback;
+  return path.split(".").reduce((node2, key) => node2 == null ? void 0 : node2[key], strings) ?? fallback;
 }
 var dev = (() => {
   const local = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
@@ -334,16 +334,16 @@ function qrSvg(text2, { label, margin = 2 } = {}) {
 }
 
 // assets/js/shared/src/connect.js
-function setError(node, code) {
-  if (!node) return;
+function setError(node2, code) {
+  if (!node2) return;
   const message = code ? t(`errors.${code}`) || t("errors.unknown") : "";
-  node.textContent = message;
-  show(node, Boolean(message));
+  node2.textContent = message;
+  show(node2, Boolean(message));
 }
-function setStatus(node, message) {
-  if (!node) return;
-  node.textContent = message || "";
-  show(node, Boolean(message));
+function setStatus(node2, message) {
+  if (!node2) return;
+  node2.textContent = message || "";
+  show(node2, Boolean(message));
 }
 function shortNpub(hex) {
   try {
@@ -594,6 +594,7 @@ function pickRecipient(recipients, wanted) {
 var HOURS = ["0", "5", "25", "60"];
 var HEADS = ["0", "5", "50", "500", "2000"];
 var NOSTR = ["0", "0.5", "1"];
+var GROWTH = ["0", "0.25", "0.5", "1"];
 var band = (options, omit) => ({ type: "option", required: false, default: null, options, omit });
 var INPUTS = {
   // Non Custody: "Our app already uses Nostr"
@@ -640,9 +641,11 @@ var INPUTS = {
   rails: { type: "multi", required: false, default: [], options: ["p2p", "apple", "google", "processor", "reseller"] },
   rev: { type: "number", required: false, default: 0, min: 0, max: 1e12 },
   balances: { type: "multi", required: false, default: [], options: ["yes"] },
-  // App Availability
+  // Availability & Growth
   distribution: { type: "multi", required: false, default: [], options: ["apple", "google", "web"] },
-  jur: { type: "multi", required: true, default: ["us"], options: ["eu", "uk", "us", "other"] }
+  jur: { type: "multi", required: true, default: ["us"], options: ["eu", "uk", "us", "other"] },
+  growth: band(GROWTH)
+  // users a year from now, as a share of today's; blank means the assumptions' default
 };
 var GRIDS = {
   nostr: ["n_keys", "n_raw_keys", "n_signed_events", "n_event_storage", "n_media_storage", "n_labels", "n_feeds", "n_algos", "n_p2p", "n_nips"],
@@ -916,12 +919,302 @@ function evaluate(inputs, v) {
     }
   };
 }
+var YEARS = 5;
+var MARKER_YEAR = 3;
+function rampShare(year, months) {
+  if (!(months > 0)) return 1;
+  let s = 0;
+  for (let m = (year - 1) * 12 + 1; m <= year * 12; m++) {
+    const u = Math.min(1, (m - 0.5) / months);
+    s += 1 - (1 - u) ** 2;
+  }
+  return s / 12;
+}
+function project(inputs, v, today = evaluate(inputs, v)) {
+  const given = num(inputs.growth);
+  let rate = given != null ? given : v.growth_default;
+  const points = [{ year: 0, users: inputs.mau, rate: 0, custodial: today.totals.custodial, noncustodial: today.totals.noncustodial, path: today.totals.custodial, saving: today.totals.saving, share: 0, realised: 0, cumulative: 0 }];
+  let users = inputs.mau;
+  let cumulative = 0;
+  for (let year = 1; year <= YEARS; year++) {
+    if (year > 1) rate *= v.growth_decay;
+    users = Math.max(1, Math.round(users * (1 + rate)));
+    const scaled = { ...inputs, mau: users, rev: inputs.rev * users / inputs.mau };
+    const r = evaluate(scaled, v);
+    const share = rampShare(year, v.migration_months);
+    const realised = r.totals.saving * share;
+    cumulative += realised;
+    points.push({ year, users, rate, custodial: r.totals.custodial, noncustodial: r.totals.noncustodial, path: r.totals.custodial - realised, saving: r.totals.saving, share, realised, cumulative });
+  }
+  return points;
+}
 function calculate(rawInputs, data, rawOverrides = {}) {
   const inputs = normalizeInputs(rawInputs);
   const overrides = cleanOverrides(data, rawOverrides);
   const out = { version: data.version, inputs, overrides };
-  for (const s of SCENARIOS) out[s] = evaluate(inputs, resolveAssumptions(data, s, overrides));
+  for (const s of SCENARIOS) {
+    const v = resolveAssumptions(data, s, overrides);
+    const r = evaluate(inputs, v);
+    r.projection = project(inputs, v, r);
+    r.totals.five_year = r.projection[YEARS].cumulative;
+    r.totals.marker_year = r.projection[MARKER_YEAR].cumulative;
+    out[s] = r;
+  }
   return out;
+}
+
+// assets/js/calculator/src/format.js
+var full = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+var cents = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+var plain = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
+function money(n) {
+  return full.format(Math.round(n));
+}
+function compact(n) {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1e9) return `${sign}$${trim(abs / 1e9)}B`;
+  if (abs >= 1e6) return `${sign}$${trim(abs / 1e6)}M`;
+  if (abs >= 1e3) return `${sign}$${trim(abs / 1e3)}k`;
+  return full.format(Math.round(n));
+}
+function trim(x) {
+  const s = x >= 100 ? x.toFixed(0) : x >= 10 ? x.toFixed(1) : x.toFixed(2);
+  return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
+}
+function compactNumber(n) {
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return `${trim(abs / 1e9)}B`;
+  if (abs >= 1e6) return `${trim(abs / 1e6)}M`;
+  if (abs >= 1e3) return `${trim(abs / 1e3)}k`;
+  return String(Math.round(n));
+}
+function perMau(n) {
+  return cents.format(n);
+}
+function percent(r) {
+  return `${plain.format(r * 100)}%`;
+}
+function number(n) {
+  return plain.format(n);
+}
+
+// assets/js/calculator/src/chart.js
+var NS2 = "http://www.w3.org/2000/svg";
+var PAD = { top: 44, right: 20, bottom: 30, left: 64 };
+var GUTTER = 84;
+var HEIGHT = { wide: 300, narrow: 240 };
+var CUMULATIVE = "chart-cumulative-savings";
+var VERSUS = "chart-custodial-cost-vs-nostr";
+var charts = /* @__PURE__ */ new Map();
+var last = null;
+function node(name, attrs = {}, children = []) {
+  const n = document.createElementNS(NS2, name);
+  for (const [k, v] of Object.entries(attrs)) if (v != null) n.setAttribute(k, String(v));
+  for (const c of children) n.append(c);
+  return n;
+}
+function drawCharts(projections) {
+  last = projections;
+  if (!projections) return;
+  const { typical, low } = projections;
+  draw(CUMULATIVE, {
+    series: [
+      { key: "low", cls: "chart__floor", points: low.map((p) => p.cumulative) },
+      { key: "typical", cls: "chart__line", points: typical.map((p) => p.cumulative), markers: [MARKER_YEAR, YEARS] }
+    ],
+    band: ["typical", "low"],
+    labels: [
+      ...[MARKER_YEAR, YEARS].map((year) => ({ key: "typical", year, cls: "chart__label", dy: -12, text: fmt(t("chart.marker"), { amount: compact(typical[year].cumulative), n: year }) })),
+      { key: "low", year: YEARS, cls: "chart__floor-label", dy: -8, text: fmt(t("chart.floor"), { amount: compact(low[YEARS].cumulative) }) }
+    ],
+    title: fmt(t("chart.aria"), { end: compact(typical[YEARS].cumulative), low: compact(low[YEARS].cumulative) }),
+    tip: (year) => {
+      const p = typical[year];
+      return year === 0 ? [fmt(t("chart.tip.users"), { n: number(p.users) }), fmt(t("chart.tip.custodial"), { amount: compact(p.custodial) })] : [
+        fmt(t("chart.tip.users"), { n: number(p.users) }),
+        fmt(t("chart.tip.custodial"), { amount: compact(p.custodial) }),
+        fmt(t("chart.tip.noncustodial"), { amount: compact(p.noncustodial) }),
+        fmt(t("chart.tip.realised"), { amount: compact(p.realised) }),
+        fmt(t("chart.tip.cumulative"), { amount: compact(p.cumulative) })
+      ];
+    }
+  });
+  const end = typical[YEARS];
+  draw(VERSUS, {
+    series: [
+      { key: "custodial", cls: "chart__line chart__line--custodial", marker: "chart__marker chart__marker--custodial", points: typical.map((p) => p.custodial), markers: [0, 1, 2, 3, 4, 5] },
+      { key: "path", cls: "chart__line", marker: "chart__marker", points: typical.map((p) => p.path), markers: [1, 2, 3, 4, 5] }
+    ],
+    band: ["custodial", "path"],
+    // No labels on the dots: the axes and the tooltip carry the numbers.
+    labels: [],
+    // The five-year figure, hero-sized, in the gap: the area it names.
+    watermark: { year: 3.5, text: compact(end.cumulative), sub: t("chart.versus.band_sub") },
+    title: fmt(t("chart.versus.aria"), { custodial: compact(end.custodial), noncustodial: compact(end.path), saving: compact(end.saving), total: compact(end.cumulative) }),
+    // Two horizontal axes, named in a right-hand gutter: the runway in years
+    // along the top, from the start of integration; projected users along the bottom.
+    rows: [
+      { at: "top", name: t("chart.versus.runway"), values: (year) => year === 0 ? t("chart.versus.start") : fmt(t("chart.year"), { n: year }) },
+      { at: "bottom", name: t("chart.versus.users"), values: (year) => compactNumber(typical[year].users) }
+    ],
+    tip: (year) => {
+      const p = typical[year];
+      return [
+        fmt(t("chart.versus.tip_custody"), { amount: compact(p.custodial) }),
+        fmt(t("chart.versus.tip_nostr"), { amount: compact(p.path) }),
+        fmt(t("chart.versus.tip_cumulative"), { amount: compact(p.cumulative) })
+      ];
+    }
+  });
+}
+function draw(id, spec) {
+  const svg = document.getElementById(id);
+  if (!svg) return;
+  const width = Math.max(280, Math.round(svg.getBoundingClientRect().width || svg.parentElement?.clientWidth || 640));
+  const height = width < 520 ? HEIGHT.narrow : HEIGHT.wide;
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("height", String(height));
+  while (svg.lastChild && svg.lastChild.tagName !== "title") svg.removeChild(svg.lastChild);
+  const top = Math.max(1, ...spec.series.flatMap((s) => s.points));
+  const right = spec.rows ? GUTTER : PAD.right;
+  const plotW = width - PAD.left - right;
+  const plotH = height - PAD.top - PAD.bottom;
+  const x = (year) => PAD.left + plotW * year / YEARS;
+  const y = (value) => PAD.top + plotH - plotH * Math.max(0, value) / top;
+  const by = Object.fromEntries(spec.series.map((s) => [s.key, s.points]));
+  const at = (key, year) => key === "gap" ? (y(by[spec.band[0]][year]) + y(by[spec.band[1]][year])) / 2 : y(by[key][year]);
+  const grid = node("g", { class: "chart__grid" });
+  const axis = node("g", { class: "chart__axis" });
+  for (let i = 0; i <= 3; i++) {
+    const value = top * i / 3;
+    grid.append(node("line", { x1: PAD.left, x2: width - right, y1: y(value), y2: y(value), class: i === 0 ? "chart__baseline" : null }));
+    if (i > 0) axis.append(node("text", { x: PAD.left - 8, y: y(value) + 4, "text-anchor": "end" }, [compact(value)]));
+  }
+  const narrow = width < 520;
+  const rows = spec.rows || [{ at: "bottom", values: (year) => year === 0 ? t("chart.today") : fmt(t("chart.year"), { n: year }) }];
+  for (const row of rows) {
+    const g = node("g", { class: `chart__axis chart__axis--${row.at}` });
+    const baseline = row.at === "top" ? PAD.top - 18 : height - 8;
+    const ticks = narrow ? spec.rows ? [0, YEARS] : [0, MARKER_YEAR, YEARS] : [0, 1, 2, 3, 4, 5];
+    for (const year of ticks) {
+      g.append(node("text", { x: x(year), y: baseline, "text-anchor": year === 0 ? "start" : year === YEARS ? "end" : "middle" }, [row.values(year)]));
+    }
+    if (row.name) g.append(node("text", { x: width - right + 14, y: baseline, "text-anchor": "start", class: "chart__axis-name" }, [row.name]));
+    axis.append(g);
+  }
+  const pts = (points) => points.map((v, year) => `${x(year).toFixed(1)},${y(v).toFixed(1)}`);
+  const band2 = node("path", { class: "chart__band", d: `M${pts(by[spec.band[0]]).join("L")}L${pts(by[spec.band[1]]).reverse().join("L")}Z` });
+  const lines = node("g");
+  const marks = node("g", { class: "chart__marks" });
+  for (const s of spec.series) {
+    lines.append(node("polyline", { class: s.cls, points: pts(s.points).join(" ") }));
+    for (const year of s.markers || []) marks.append(node("circle", { class: s.marker || "chart__marker", cx: x(year), cy: y(s.points[year]), r: 5 }));
+  }
+  for (const l of spec.labels) {
+    if (l.minGap && Math.abs(y(by[spec.band[0]][l.year]) - y(by[spec.band[1]][l.year])) < l.minGap) continue;
+    marks.append(node("text", { class: l.cls, x: x(l.year) + (l.dx ?? -8), y: at(l.key, l.year) + l.dy, "text-anchor": l.anchor || "end" }, [l.text]));
+  }
+  if (spec.watermark) {
+    const w = spec.watermark;
+    const lerp = (key) => {
+      const a = Math.floor(w.year);
+      const f = w.year - a;
+      return y(by[key][a]) * (1 - f) + y(by[key][Math.min(YEARS, a + 1)]) * f;
+    };
+    const mid = (lerp(spec.band[0]) + lerp(spec.band[1])) / 2;
+    marks.append(node("text", { class: "chart__watermark", x: x(w.year), y: mid + (narrow ? 8 : 10), "text-anchor": "middle" }, [w.text]));
+    marks.append(node("text", { class: "chart__watermark-sub", x: x(w.year), y: mid + (narrow ? 26 : 32), "text-anchor": "middle" }, [w.sub]));
+  }
+  const hover = node("g", { class: "chart__hover" });
+  const cross = node("line", { class: "chart__cross", y1: PAD.top, y2: PAD.top + plotH, x1: 0, x2: 0, hidden: "" });
+  hover.append(cross);
+  for (const s of spec.series) hover.append(node("circle", { class: "chart__dot", "data-key": s.key, r: 6, hidden: "" }));
+  const hits = node("g", { class: "chart__hits" });
+  const step = plotW / YEARS;
+  for (let year = 0; year <= YEARS; year++) {
+    const rect = node("rect", { class: "chart__hit", x: x(year) - step / 2, y: PAD.top, width: step, height: plotH, "data-year": year });
+    rect.addEventListener("pointerenter", () => focusYear(id, year));
+    hits.append(rect);
+  }
+  svg.append(grid, band2, lines, axis, marks, hover, hits);
+  const title = svg.querySelector("title");
+  if (title) title.textContent = spec.title;
+  charts.set(id, { spec, layout: { x, y, width, height, by }, active: null });
+  hideTip(id);
+}
+function focusYear(id, year) {
+  const chart = charts.get(id);
+  const svg = document.getElementById(id);
+  const tip = document.getElementById(`tip-${id}`);
+  if (!chart || !svg || !tip) return;
+  chart.active = year;
+  const { x, y, by, width, height } = chart.layout;
+  const cross = svg.querySelector(".chart__cross");
+  cross.setAttribute("x1", x(year));
+  cross.setAttribute("x2", x(year));
+  cross.removeAttribute("hidden");
+  let anchor = 0;
+  for (const dot of svg.querySelectorAll(".chart__dot")) {
+    const v = by[dot.dataset.key][year];
+    dot.setAttribute("cx", x(year));
+    dot.setAttribute("cy", y(v));
+    dot.removeAttribute("hidden");
+    anchor = Math.max(anchor, v);
+  }
+  tip.replaceChildren();
+  const head = document.createElement("b");
+  head.textContent = year === 0 ? t("chart.today") : fmt(t("chart.year"), { n: year });
+  tip.append(head);
+  for (const text2 of chart.spec.tip(year)) {
+    const row = document.createElement("span");
+    row.textContent = text2;
+    tip.append(row);
+  }
+  tip.hidden = false;
+  const box = svg.getBoundingClientRect();
+  tip.style.setProperty("--tip-x", `${x(year) / width * box.width}px`);
+  tip.style.setProperty("--tip-y", `${y(anchor) / height * box.height}px`);
+  tip.classList.toggle("is-flipped", x(year) > width * 0.6);
+}
+function hideTip(id) {
+  const chart = charts.get(id);
+  const svg = document.getElementById(id);
+  const tip = document.getElementById(`tip-${id}`);
+  if (chart) chart.active = null;
+  if (tip) tip.hidden = true;
+  svg?.querySelector(".chart__cross")?.setAttribute("hidden", "");
+  for (const dot of svg?.querySelectorAll(".chart__dot") || []) dot.setAttribute("hidden", "");
+}
+function wireCharts() {
+  let timer = null;
+  const redraw = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const shown = [CUMULATIVE, VERSUS].map((id) => document.getElementById(id)).find(Boolean);
+      if (last && shown && shown.getBoundingClientRect().width > 0) drawCharts(last);
+    }, 80);
+  };
+  let observed = false;
+  for (const id of [CUMULATIVE, VERSUS]) {
+    const svg = document.getElementById(id);
+    if (!svg) continue;
+    svg.addEventListener("pointerleave", () => hideTip(id));
+    svg.addEventListener("blur", () => hideTip(id));
+    svg.addEventListener("keydown", (e) => {
+      const active = charts.get(id)?.active;
+      if (e.key === "ArrowRight") focusYear(id, Math.min(YEARS, (active ?? -1) + 1));
+      else if (e.key === "ArrowLeft") focusYear(id, Math.max(0, (active ?? YEARS + 1) - 1));
+      else if (e.key === "Escape") hideTip(id);
+      else return;
+      e.preventDefault();
+    });
+    if (!observed && "ResizeObserver" in window) {
+      new ResizeObserver(redraw).observe(svg.parentElement);
+      observed = true;
+    }
+  }
+  if (!observed) window.addEventListener("resize", redraw);
 }
 
 // assets/js/calculator/src/codec.js
@@ -1032,19 +1325,19 @@ function writeInputs(form2, inputs) {
   }
 }
 function writeDefaults(form2, defaultHours = {}) {
-  const starting = {};
+  const starting2 = {};
   for (const [key, spec] of Object.entries(INPUTS)) {
-    if (spec.type === "multi" || (spec.type === "number" || spec.type === "integer") && spec.default != null) starting[key] = spec.default;
+    if (spec.type === "multi" || (spec.type === "number" || spec.type === "integer") && spec.default != null) starting2[key] = spec.default;
   }
-  for (const [area, hours] of Object.entries(defaultHours)) starting[`eng_${area}`] = hours;
-  writeInputs(form2, starting);
+  for (const [area, hours] of Object.entries(defaultHours)) starting2[`eng_${area}`] = hours;
+  writeInputs(form2, starting2);
   for (const slider of $$('input[type="range"]', form2)) announceSlider(slider);
 }
 function wireSliders(form2) {
   for (const slider of $$('input[type="range"]', form2)) slider.addEventListener("input", () => announceSlider(slider));
 }
 function markInvalid(form2, key) {
-  for (const node of $$(".is-invalid", form2)) node.classList.remove("is-invalid");
+  for (const node2 of $$(".is-invalid", form2)) node2.classList.remove("is-invalid");
   if (!key) return;
   const wrap = $(`#field-${key}`, form2);
   if (wrap) wrap.classList.add("is-invalid");
@@ -1255,35 +1548,6 @@ async function openResponse(event, { signer, snapshot: snapshot2, map: map2 }) {
     }
   }
   return { error: "restore_locked" };
-}
-
-// assets/js/calculator/src/format.js
-var full = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-var cents = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-var plain = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
-function money(n) {
-  return full.format(Math.round(n));
-}
-function compact(n) {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? "-" : "";
-  if (abs >= 1e9) return `${sign}$${trim(abs / 1e9)}B`;
-  if (abs >= 1e6) return `${sign}$${trim(abs / 1e6)}M`;
-  if (abs >= 1e3) return `${sign}$${trim(abs / 1e3)}k`;
-  return full.format(Math.round(n));
-}
-function trim(x) {
-  const s = x >= 100 ? x.toFixed(0) : x >= 10 ? x.toFixed(1) : x.toFixed(2);
-  return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
-}
-function perMau(n) {
-  return cents.format(n);
-}
-function percent(r) {
-  return `${plain.format(r * 100)}%`;
-}
-function number(n) {
-  return plain.format(n);
 }
 
 // node_modules/@noble/hashes/utils.js
@@ -1808,6 +2072,7 @@ function composeLead({ inputs, result, link, contact, fieldLabels, open }) {
   }
   lines.push("");
   lines.push(fmt(t("compose.results"), { custodial: result.custodial, noncustodial: result.noncustodial }));
+  if (result.five_year) lines.push(fmt(t("compose.five_year"), { five_year: result.five_year, floor: result.floor }));
   lines.push(fmt(t("compose.link"), { link }));
   if (open) lines.push(fmt(t("compose.open"), { link: open }));
   lines.push("");
@@ -1834,18 +2099,22 @@ async function sendLead({ signer, recipient, subject, content, pow = 0, onProgre
 
 // assets/js/calculator/src/ui.js
 var range = (low, high) => fmt(t("range_short"), { low: compact(low), high: compact(high) });
-function renderResults(result) {
+function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result;
   const T = typical.totals;
-  text("#r-hero", compact(T.custodial));
-  text("#r-hero-range", fmt(t("range"), { low: compact(low.totals.custodial), high: compact(high.totals.custodial) }));
-  text("#r-nc", compact(T.noncustodial));
-  text("#r-nc-range", range(low.totals.noncustodial, high.totals.noncustodial));
-  text("#r-permau", perMau(T.per_mau_custodial));
-  text("#r-permau-pair", fmt(t("per_mau_pair"), { custodial: perMau(T.per_mau_custodial), noncustodial: perMau(T.per_mau_noncustodial) }));
-  text("#r-saving", compact(T.saving));
-  text("#r-saving-range", range(low.totals.saving, high.totals.saving));
+  const whose = $("#r-whose-text");
+  if (whose) whose.textContent = fmt(t(own ? "whose.yours" : "whose.illustrative"), { mau: number(inputs.mau) });
+  const link = $("#r-whose-link");
+  if (link) link.textContent = t(own ? "whose.adjust" : "whose.make_yours");
+  text("#r-permau-c", perMau(T.per_mau_custodial));
+  text("#r-permau-c-range", fmt(t("range"), { low: perMau(low.totals.per_mau_custodial), high: perMau(high.totals.per_mau_custodial) }));
+  text("#r-permau-nc", perMau(T.per_mau_noncustodial));
+  text("#r-permau-nc-range", fmt(t("range"), { low: perMau(low.totals.per_mau_noncustodial), high: perMau(high.totals.per_mau_noncustodial) }));
+  text("#r-average", compact(T.five_year / YEARS));
+  text("#r-average-range", fmt(t("range"), { low: compact(low.totals.five_year / YEARS), high: compact(high.totals.five_year / YEARS) }));
   text("#r-version", fmt(t("version"), { version: result.version }));
+  drawCharts({ typical: typical.projection, low: low.projection });
+  renderYears(typical.projection);
   const scale = Math.max(...LINES.map((l) => typical.lines[l].custodial), 1);
   for (const name of LINES) {
     const line = typical.lines[name];
@@ -1866,6 +2135,19 @@ function renderResults(result) {
     $(".bar--c", row).style.setProperty("--w", `${100 * line.custodial / scale}%`);
     $(".bar--nc", row).style.setProperty("--w", `${100 * line.noncustodial / scale}%`);
     renderParts(name, line, inputs);
+  }
+}
+function renderYears(projection) {
+  const head = $("#r-years-head");
+  if (!head) return;
+  for (const extra of $$("th[data-year]", head)) extra.remove();
+  for (let year = 1; year <= YEARS; year++) head.append(el("th", { scope: "col", class: "years-num", "data-year": year, text: fmt(t("chart.year"), { n: year }) }));
+  const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), path: (p) => money(p.path), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) };
+  for (const row of $$("#r-years tbody tr[data-row]")) {
+    const value = cell[row.dataset.row];
+    if (!value) continue;
+    for (const old of $$("td", row)) old.remove();
+    for (let year = 1; year <= YEARS; year++) row.append(el("td", { class: "years-num", text: value(projection[year]) }));
   }
 }
 function renderParts(name, line, inputs) {
@@ -1956,15 +2238,15 @@ function showResults(visible, { focus = false } = {}) {
   }
 }
 function setStatus2(message) {
-  const node = $("#r-status");
-  if (node) node.textContent = message || "";
+  const node2 = $("#r-status");
+  if (node2) node2.textContent = message || "";
 }
 function setError2(code, fieldLabel) {
-  const node = $("#calc-error");
-  if (!node) return;
+  const node2 = $("#calc-error");
+  if (!node2) return;
   const message = code ? fmt(t(`errors.${code}`) || t("errors.unknown"), { field: fieldLabel || "" }) : "";
-  node.textContent = message;
-  show(node, Boolean(message));
+  node2.textContent = message;
+  show(node2, Boolean(message));
 }
 function readOverrides() {
   const out = {};
@@ -1992,8 +2274,8 @@ function markChanged() {
   }
 }
 function text(sel, value) {
-  const node = $(sel);
-  if (node) node.textContent = value;
+  const node2 = $(sel);
+  if (node2) node2.textContent = value;
 }
 
 // assets/js/calculator/src/app.js
@@ -2013,8 +2295,8 @@ var pendingSave = false;
 var pendingOpen = null;
 var syncTimer = null;
 function labelFor(key) {
-  const node = document.querySelector(`#field-${key} .field__label, label[for="f-${key}"]`);
-  return node ? node.textContent.replace(/\s+/g, " ").replace(/\s*\*\s*$/, "").trim() : key;
+  const node2 = document.querySelector(`#field-${key} .field__label, label[for="f-${key}"]`);
+  return node2 ? node2.textContent.replace(/\s+/g, " ").replace(/\s*\*\s*$/, "").trim() : key;
 }
 function run(raw, overrides, { focus = true } = {}) {
   let result;
@@ -2034,7 +2316,7 @@ function run(raw, overrides, { focus = true } = {}) {
   setError2(null);
   current = result;
   dirty = false;
-  renderResults(result);
+  renderResults(result, { own: !sameAsDefaults(result.inputs) });
   const query2 = encode2(result.inputs, result.overrides, result.version);
   result.link = `${location.origin}${location.pathname}?${query2}`;
   history.replaceState(null, "", `?${query2}${test ? `&test=${encodeURIComponent(test)}` : ""}`);
@@ -2042,6 +2324,10 @@ function run(raw, overrides, { focus = true } = {}) {
   if (contact) contact.href = `${config.contact_href}?${new URLSearchParams({ subject: t("contact_subject"), calc: query2 })}`;
   showResults(true, { focus });
   return result;
+}
+var starting = "";
+function sameAsDefaults(inputs) {
+  return JSON.stringify(inputs) === starting;
 }
 function fresh() {
   return dirty || !current ? run(readInputs($("#calc-form")), readOverrides(), { focus: false }) : current;
@@ -2150,6 +2436,7 @@ function valuesFor(result, contact) {
     balances: i.balances,
     distribution: i.distribution,
     jur: i.jur,
+    growth: i.growth ?? "",
     nostr: grid("nostr", "n_"),
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
@@ -2255,7 +2542,12 @@ async function tell(signer, result, contact, open) {
   if (!recipient) return;
   const content = composeLead({
     inputs: result.inputs,
-    result: { custodial: compact(result.typical.totals.custodial), noncustodial: compact(result.typical.totals.noncustodial) },
+    result: {
+      custodial: compact(result.typical.totals.custodial),
+      noncustodial: compact(result.typical.totals.noncustodial),
+      five_year: compact(result.typical.totals.five_year),
+      floor: compact(result.low.totals.five_year)
+    },
     link: result.link,
     contact,
     fieldLabels: Object.fromEntries([...Object.keys(result.inputs), ...Object.keys(contact)].map((k) => [k, { label: labelFor(k) }])),
@@ -2290,7 +2582,7 @@ async function restore(pointer, signer) {
   const opened = await openResponse(event, { signer, snapshot, map });
   if (opened.error) return setStatus2(t(`errors.${opened.error}`));
   const v = opened.values;
-  const inputs = { mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, rev: v.rev, rails: v.rails, balances: v.balances, distribution: v.distribution, jur: v.jur };
+  const inputs = { mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, rev: v.rev, rails: v.rails, balances: v.balances, distribution: v.distribution, jur: v.jur, growth: Array.isArray(v.growth) ? v.growth[0] : v.growth };
   for (const [area, hours] of Object.entries(v.engineering || {})) inputs[`eng_${area}`] = hours;
   for (const [row, n] of Object.entries(v.moderation || {})) inputs[`mod_${row}`] = n;
   for (const [row, share] of Object.entries(v.nostr || {})) inputs[`n_${row}`] = share;
@@ -2321,6 +2613,8 @@ function onEdit() {
 function wire() {
   $("#calc-form")?.addEventListener("submit", onCalculate);
   $("#r-edit")?.addEventListener("click", onEdit);
+  $("#r-whose-link")?.addEventListener("click", onEdit);
+  wireCharts();
   $("#a-reset")?.addEventListener("click", onReset);
   $("#a-recalc")?.addEventListener("click", onRecalculate);
   for (const input of $$(".assume-input")) {
@@ -2365,6 +2659,11 @@ async function boot() {
     infra: A.default_hours_infra.typical,
     legal: A.default_hours_legal.typical
   });
+  try {
+    starting = JSON.stringify(normalizeInputs(readInputs(formEl)));
+  } catch {
+    starting = "";
+  }
   const opened = decode(location.search);
   test = opened.test;
   const pointer = decodePointer(new URLSearchParams(location.search).get("nevent"));

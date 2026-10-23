@@ -50,7 +50,7 @@ try {
 
   // ── the page's submit module, bundled for node ────────────────────────────
   const dir = await mkdtemp(join(tmpdir(), 'nostr4-form-e2e-'))
-  const strings = { compose: { header: 'via test:', subject: 'lead', results: '{custodial} / {noncustodial}', link: 'link {link}', open: 'open {link}' } }
+  const strings = { compose: { header: 'via test:', subject: 'lead', results: '{custodial} / {noncustodial}', five_year: 'five years {five_year}, floor {floor}', link: 'link {link}', open: 'open {link}' } }
   const config = { relays: { fallback_dm: [RELAY], discovery: [RELAY] }, timeouts: { publish: 4000, discovery: 2000 }, pow: { response: 12 } }
   const shim = join(dir, 'shim.mjs')
   await writeFile(shim, `
@@ -96,7 +96,7 @@ try {
   const bad = m.prepareForm({ ...snapshot, fields: snapshot.fields.slice(1) }, map)
   check('a template missing a mapped question is refused', bad === null)
 
-  const values = { mau: 50000, posts_per_user: 20, rails: ['apple', 'processor'], rev: 20000, jur: ['eu', 'us'], balances: [], engineering: { accounts: 5, infra: 25 }, moderation: { inhouse: 5 }, nostr: { keys: 1, media_storage: 0.5 }, legal_usd: '', result_custodial: 967914, result_noncustodial: 266254, link: 'https://nostr4.social/calculator/?mau=50000', overrides: '', version: '1', email: 'founder@example.com', test: '' }
+  const values = { mau: 50000, posts_per_user: 20, rails: ['apple', 'processor'], rev: 20000, jur: ['eu', 'us'], growth: '0.5', balances: [], engineering: { accounts: 5, infra: 25 }, moderation: { inhouse: 5 }, nostr: { keys: 1, media_storage: 0.5 }, legal_usd: '', result_custodial: 967914, result_noncustodial: 266254, link: 'https://nostr4.social/calculator/?mau=50000', overrides: '', version: '1', email: 'founder@example.com', test: '' }
   const signer = m.createGuestSigner()
   const started = Date.now()
   const { event, relays, ok } = await m.submitResponse(form, { signer, values, pow: 12 })
@@ -123,16 +123,17 @@ try {
   check('a grid answer is JSON of row id to column id', eng[map.fields.engineering.rows.accounts] === map.fields.engineering.columns['5'] && eng[map.fields.engineering.rows.infra] === map.fields.engineering.columns['25'] && Object.keys(eng).length === 2, byLabel[label('engineering')])
   const nostr = JSON.parse(byLabel[label('nostr')])
   check('a half answer maps to the Somewhat column', nostr[map.fields.nostr.rows.media_storage] === map.fields.nostr.columns['0.5'])
+  check('a single-choice answer is its option id', byLabel[label('growth')] === map.fields.growth.options['0.5'], byLabel[label('growth')])
   check('blank values are left out', !(label('app_name') in byLabel) && !(label('test') in byLabel) && !(label('legal_usd') in byLabel) && !(label('balances') in byLabel))
   check('a stranger cannot decrypt it', (() => { try { decrypt(got.content, getConversationKey(generateSecretKey(), got.pubkey)); return false } catch { return true } })())
 
   // ── the lead message ──────────────────────────────────────────────────────
-  const text = m.composeLead({ inputs: { mau: 50000, jur: ['eu', 'us'] }, result: { custodial: '$968k', noncustodial: '$266k' }, link: 'https://x', contact: { email: 'founder@example.com' }, fieldLabels: { mau: { label: 'Monthly active users' } } })
-  check('the lead text names the source, the inputs, the figures, the link and the contact', text.startsWith('via test:') && text.includes('Monthly active users: 50000') && text.includes('jur: eu, us') && text.includes('$968k / $266k') && text.includes('link https://x') && text.endsWith('email: founder@example.com'), text)
+  const text = m.composeLead({ inputs: { mau: 50000, jur: ['eu', 'us'] }, result: { custodial: '$968k', noncustodial: '$266k', five_year: '$3.1M', floor: '$400k' }, link: 'https://x', contact: { email: 'founder@example.com' }, fieldLabels: { mau: { label: 'Monthly active users' } } })
+  check('the lead text names the source, the inputs, the figures, the link and the contact', text.startsWith('via test:') && text.includes('Monthly active users: 50000') && text.includes('jur: eu, us') && text.includes('$968k / $266k') && text.includes('five years $3.1M, floor $400k') && text.includes('link https://x') && text.endsWith('email: founder@example.com'), text)
 
   // ── reading a response back ───────────────────────────────────────────────
   const back = m.readResponses(map, answers)
-  check('response tags read back into values keyed like the map', back.mau === '50000' && back.rails.join() === 'apple,processor' && back.engineering.accounts === '5' && back.engineering.infra === '25' && back.nostr.media_storage === '0.5' && back.email === 'founder@example.com', JSON.stringify(back))
+  check('response tags read back into values keyed like the map', back.mau === '50000' && back.growth.join() === '0.5' && back.rails.join() === 'apple,processor' && back.engineering.accounts === '5' && back.engineering.infra === '25' && back.nostr.media_storage === '0.5' && back.email === 'founder@example.com', JSON.stringify(back))
 
   // The responder opens it with the key that sent it.
   const asResponder = await m.restore.openResponse(got, { signer, snapshot, map })

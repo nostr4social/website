@@ -20,6 +20,7 @@ import { neventEncode } from '../../shared/src/vendor.js'
 import { createSignIn } from '../../shared/src/signin.js'
 import { loadRecipients, pickRecipient } from '../../shared/src/recipients.js'
 import { calculate, cleanOverrides, normalizeInputs } from './model.js'
+import { wireCharts } from './chart.js'
 import { decode, encode } from './codec.js'
 import { GRIDS, InputError } from './inputs.js'
 import { CONTACT_KEYS, markInvalid, readContact, readInputs, wireSliders, writeContact, writeDefaults, writeInputs } from './form.js'
@@ -82,7 +83,7 @@ function run(raw, overrides, { focus = true } = {}) {
   setError(null)
   current = result
   dirty = false
-  renderResults(result)
+  renderResults(result, { own: !sameAsDefaults(result.inputs) })
 
   const query = encode(result.inputs, result.overrides, result.version)
   result.link = `${location.origin}${location.pathname}?${query}`
@@ -93,6 +94,13 @@ function run(raw, overrides, { focus = true } = {}) {
 
   showResults(true, { focus })
   return result
+}
+
+let starting = '' // the form's starting answers, clean: the illustrative app
+
+/** Whether these inputs are the illustrative app's, so the page says so. */
+function sameAsDefaults(inputs) {
+  return JSON.stringify(inputs) === starting
 }
 
 /** The form's current answers, calculated, whether or not anything changed. */
@@ -234,6 +242,7 @@ function valuesFor(result, contact) {
     balances: i.balances,
     distribution: i.distribution,
     jur: i.jur,
+    growth: i.growth ?? '',
     nostr: grid('nostr', 'n_'),
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
@@ -353,7 +362,12 @@ async function tell(signer, result, contact, open) {
   if (!recipient) return
   const content = composeLead({
     inputs: result.inputs,
-    result: { custodial: compact(result.typical.totals.custodial), noncustodial: compact(result.typical.totals.noncustodial) },
+    result: {
+      custodial: compact(result.typical.totals.custodial),
+      noncustodial: compact(result.typical.totals.noncustodial),
+      five_year: compact(result.typical.totals.five_year),
+      floor: compact(result.low.totals.five_year),
+    },
     link: result.link,
     contact,
     fieldLabels: Object.fromEntries([...Object.keys(result.inputs), ...Object.keys(contact)].map((k) => [k, { label: labelFor(k) }])),
@@ -393,7 +407,7 @@ async function restore(pointer, signer) {
   const opened = await openResponse(event, { signer, snapshot, map })
   if (opened.error) return setStatus(t(`errors.${opened.error}`))
   const v = opened.values
-  const inputs = { mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, rev: v.rev, rails: v.rails, balances: v.balances, distribution: v.distribution, jur: v.jur }
+  const inputs = { mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, rev: v.rev, rails: v.rails, balances: v.balances, distribution: v.distribution, jur: v.jur, growth: Array.isArray(v.growth) ? v.growth[0] : v.growth }
   for (const [area, hours] of Object.entries(v.engineering || {})) inputs[`eng_${area}`] = hours
   for (const [row, n] of Object.entries(v.moderation || {})) inputs[`mod_${row}`] = n
   for (const [row, share] of Object.entries(v.nostr || {})) inputs[`n_${row}`] = share
@@ -430,6 +444,8 @@ function onEdit() {
 function wire() {
   $('#calc-form')?.addEventListener('submit', onCalculate)
   $('#r-edit')?.addEventListener('click', onEdit)
+  $('#r-whose-link')?.addEventListener('click', onEdit)
+  wireCharts()
   $('#a-reset')?.addEventListener('click', onReset)
   $('#a-recalc')?.addEventListener('click', onRecalculate)
   for (const input of $$('.assume-input')) {
@@ -476,6 +492,11 @@ async function boot() {
     infra: A.default_hours_infra.typical,
     legal: A.default_hours_legal.typical,
   })
+  try {
+    starting = JSON.stringify(normalizeInputs(readInputs(formEl)))
+  } catch {
+    starting = ''
+  }
 
   // Estimated Cost is the page's front: a fresh page shows the defaults'
   // result, a results link shows its own. Neither publishes anything.

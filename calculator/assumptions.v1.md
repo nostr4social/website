@@ -14,7 +14,7 @@ Confidence means:
 - **low**: a vendor page, a self-reported salary site, or a primary figure relayed second-hand
 - **unsourced**: no public figure exists; a stated default, deliberately conservative
 
-18 high, 33 unsourced, 8 low, 5 medium of 64 in all. The unsourced ones are the model's weakest points; treat the range, not the typical value, as the claim.
+18 high, 35 unsourced, 9 low, 5 medium of 67 in all. The unsourced ones are the model's weakest points; treat the range, not the typical value, as the claim.
 
 ## Used by more than one line
 
@@ -24,11 +24,17 @@ Confidence means:
 | `loaded_multiplier` | Benefits multiplier on base salary | 1.43× | 1.3× | 1.6× | multiplier | high | [BLS Employer Costs for Employee Compensation, private industry](https://www.bls.gov/news.release/ecec.nr0.htm) (2026-06) |
 | `overhead_multiplier` | Overhead multiplier (equipment, office, software) | 1.15× | 1.05× | 1.25× | multiplier | unsourced | none |
 | `compute_per_mau_year` | Serving and feed compute per active user | 1 | 0.5 | 3 | USD per MAU per year | medium | [Pinterest FY2025 Form 10-K: cost of revenue and MAU](https://www.sec.gov/Archives/edgar/data/1506293/000150629326000021/pins-20251231.htm) (2026-02) |
+| `growth_default` | User growth over the next year, when not given | 25% | 0% | 50% | ratio of today's users | unsourced | none |
+| `growth_decay` | Each year's growth rate as a share of the previous year's | 75% | 50% | 100% | ratio | low | [Equidam: benchmarks for startup revenue growth (15,000+ ventures)](https://www.equidam.com/benchmarks-for-startup-revenue-growth) (2024) |
+| `migration_months` | Months for custody to leave, once work starts | 12 | 18 | 6 | months | unsourced | none |
 
 - `eng_base_salary`: US median for software developers. Infra specialists run higher; the median is the defensible default.
 - `loaded_multiplier`: Private-industry total compensation divided by wages: benefits are 30% of compensation.
 - `overhead_multiplier`: ECEC excludes non-compensation overhead. A conservative allowance, editable.
 - `compute_per_mau_year`: Derived: Pinterest cost of revenue is 1.36 per MAU-year and Reddit 1.60 per DAU-year (both include hosting, ops staff and fees); Snap infrastructure alone is 3.40 per DAU-year. The typical value nets out storage and egress, which this model counts separately.
+- `growth_default`: Used only for a visitor who has not said. Early-stage forecasts run far higher (Equidam finds founders forecast 120% in year one); an app with users already is held to a modest figure on purpose.
+- `growth_decay`: Founders' own forecasts fall from 120% to 83% to 60% a year, about 0.7 each year. A doubling app is therefore about 9 times its size in year five, not 32.
+- `migration_months`: Front-loaded: the share of custody gone by month m is 1 − (1 − m/M)², since the large lines (storage, compute, keys) move first and the long tail drains last. Twelve months realises two thirds of the first year's saving; twenty-four about 42% of the first and 92% of the second. Low is the slower migration, which is the smaller saving. No one-time integration cost is modelled.
 
 ## 1. Accounts and personal data
 

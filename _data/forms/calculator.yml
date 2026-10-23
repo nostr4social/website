@@ -39,9 +39,9 @@ sections:
     description: ""
     questions: [YdT6dC, 88UlKt, 5VlKkm]
   - id: otjtEBA3
-    title: "App Availability"
+    title: "Availability & Growth"
     description: ""
-    questions: [ePAdxW, 4F44bp]
+    questions: [ePAdxW, 4F44bp, Oa0uzB]
   - id: ccwHtpN8
     title: "Calculated Results"
     description: ""
@@ -95,12 +95,6 @@ fields:
       - { id: pQBEbj, label: "Google Play billing" }
       - { id: vp18O4, label: "Third party processor (Stripe, PayPal, Adyen)" }
       - { id: mlhsBh, label: "Third party reseller (Paddle, Lemon Squeezy, FastSpring)" }
-  - id: YdT6dC
-    type: number
-    render: number
-    required: false
-    label: "What is your approximate in-app revenue (gross monthly USD)"
-    options: []
   - id: 4F44bp
     type: option
     render: checkboxes
@@ -110,6 +104,12 @@ fields:
       - { id: dZHVfs, label: "Apple App Store" }
       - { id: rq31GJ, label: "Google Play" }
       - { id: QwlqB5, label: "Web or direct" }
+  - id: YdT6dC
+    type: number
+    render: number
+    required: false
+    label: "What is your approximate in-app revenue (gross monthly USD)"
+    options: []
   - id: fIVb03
     type: grid
     render: multipleChoiceGrid
@@ -134,16 +134,6 @@ fields:
     options:
       - { id: 5dsrFl, label: "0" }
       - { id: rQ6Pqi, label: "Add option" }
-  - id: ePAdxW
-    type: option
-    render: checkboxes
-    required: true
-    label: "What regions hold primary jurisdiction?"
-    options:
-      - { id: 3YfIJX, label: "EU" }
-      - { id: pq8Wgs, label: "UK" }
-      - { id: gVmoP3, label: "US" }
-      - { id: 1667Tr, label: "Other" }
   - id: 8H7dN3
     type: grid
     render: multipleChoiceGrid
@@ -172,6 +162,16 @@ fields:
     label: "Do you hold user balances, credits or wallets?"
     options:
       - { id: eh05HT, label: "Yes" }
+  - id: ePAdxW
+    type: option
+    render: checkboxes
+    required: true
+    label: "What regions hold primary jurisdiction?"
+    options:
+      - { id: 3YfIJX, label: "EU" }
+      - { id: pq8Wgs, label: "UK" }
+      - { id: gVmoP3, label: "US" }
+      - { id: 1667Tr, label: "Other" }
   - id: qPZrNj
     type: number
     render: number
@@ -208,6 +208,16 @@ fields:
     required: false
     label: "App Name"
     options: []
+  - id: Oa0uzB
+    type: option
+    render: radioButton
+    required: false
+    label: "How fast is your user base growing? (estimated for the next year)"
+    options:
+      - { id: Y5qAsA, label: "Flat or shrinking" }
+      - { id: AyAW8J, label: "Steady, around 25%" }
+      - { id: IxM6Xo, label: "Fast, around 50%" }
+      - { id: ftLXDP, label: "Doubling or more" }
   - id: 5UFMyH
     type: text
     render: shortText

@@ -1,9 +1,11 @@
 {%- comment -%}
 The Cost of Custody Calculator, in three tabs and a modal.
 
-  Estimated Cost    the results: a hero figure, three tiles, the six-line
-                    table with paired bars, the parts, the doors. The page's
-                    front: a fresh page shows the defaults' estimate.
+  Estimated Cost    the results: whose estimate it is, the cost chart with
+                    the five-year saving written in its gap, three facts, the
+                    year-by-year table, then the six-line table with paired
+                    bars, the parts, the doors. The page's front: a fresh
+                    page shows the illustrative app's estimate.
   App Info          the form, rendered from the published form event
                     (_data/forms/calculator.yml) and nothing else: section
                     titles, questions, options, grid rows and columns are
@@ -157,34 +159,59 @@ simply stack.
   <p class="panel__empty" id="r-empty">{{ s.tabs.empty }}</p>
   <section class="results" id="calc-results" hidden aria-labelledby="results-title">
     <div class="results__head">
-      <span class="eyebrow eyebrow--gold">{{ r.eyebrow }}</span>
       <h2 class="results__title" id="results-title" tabindex="-1">{{ r.title }}</h2>
+      <p class="whose" id="r-whose"><span id="r-whose-text"></span> <button type="button" class="linkbutton whose__link" id="r-whose-link"></button></p>
     </div>
 
-    <div class="figures">
-      <div class="figures__hero">
-        <span class="stat__label">{{ r.hero.label }}</span>
-        <span class="hero-figure" id="r-hero"></span>
-        <span class="stat__range" id="r-hero-range"></span>
+    {%- comment -%} The chart, full width: the five-year figure sits in its gap. {%- endcomment -%}
+    {%- for chart in r.charts -%}
+    <figure class="chart">
+      {%- if chart.title %}<p class="chart__title">{{ chart.title }}</p>{% endif -%}
+      {%- if chart.legend -%}
+      <div class="legend legend--chart" aria-hidden="true">
+        <span class="legend__item"><span class="legend__swatch legend__swatch--line-c"></span>{{ chart.legend.custodial }}</span>
+        <span class="legend__item"><span class="legend__swatch legend__swatch--line-nc"></span>{{ chart.legend.nostr }}</span>
       </div>
-      <div class="figures__tiles">
-        <div class="stat">
-          <span class="stat__label">{{ r.tiles.noncustodial.label }}</span>
-          <span class="stat__value" id="r-nc"></span>
-          <span class="stat__range" id="r-nc-range"></span>
-        </div>
-        <div class="stat">
-          <span class="stat__label">{{ r.tiles.per_mau.label }}</span>
-          <span class="stat__value" id="r-permau"></span>
-          <span class="stat__range" id="r-permau-pair"></span>
-        </div>
-        <div class="stat">
-          <span class="stat__label">{{ r.tiles.saving.label }}</span>
-          <span class="stat__value" id="r-saving"></span>
-          <span class="stat__range" id="r-saving-range"></span>
-        </div>
+      {%- endif -%}
+      <div class="chart__plot">
+        <svg class="chart__svg" id="{{ chart.id }}" viewBox="0 0 640 300" role="img" aria-labelledby="{{ chart.id }}-title" tabindex="0"><title id="{{ chart.id }}-title"></title></svg>
+        <div class="chart__tip" id="tip-{{ chart.id }}" role="status" hidden></div>
+      </div>
+      <figcaption class="chart__caption">{{ chart.caption }}</figcaption>
+    </figure>
+    {%- endfor -%}
+
+    <div class="stats">
+      <div class="stat">
+        <span class="eyebrow eyebrow--gold">{{ r.stats.custodial_per_mau.label }}</span>
+        <span class="stat__value" id="r-permau-c"></span>
+        <span class="stat__range" id="r-permau-c-range"></span>
+      </div>
+      <div class="stat">
+        <span class="eyebrow eyebrow--gold">{{ r.stats.nostr_per_mau.label }}</span>
+        <span class="stat__value" id="r-permau-nc"></span>
+        <span class="stat__range" id="r-permau-nc-range"></span>
+      </div>
+      <div class="stat">
+        <span class="eyebrow eyebrow--gold">{{ r.stats.average.label }}</span>
+        <span class="stat__value" id="r-average"></span>
+        <span class="stat__range" id="r-average-range"></span>
       </div>
     </div>
+
+    <details class="years">
+      <summary class="years__summary">{{ r.years.summary }}</summary>
+      <table class="years-table" id="r-years">
+        <thead>
+          <tr id="r-years-head"><th scope="col">{{ r.years.columns.year }}</th></tr>
+        </thead>
+        <tbody>
+        {%- for row in r.years.rows -%}
+          <tr data-row="{{ row[0] }}"><th scope="row">{{ row[1] }}</th></tr>
+        {%- endfor -%}
+        </tbody>
+      </table>
+    </details>
 
     <div class="legend" aria-hidden="true">
       <span class="legend__item"><span class="legend__swatch legend__swatch--c"></span>{{ r.legend.custodial }}</span>

@@ -25,6 +25,15 @@ function trim(x) {
   return s.includes('.') ? s.replace(/\.?0+$/, '') : s
 }
 
+/** 62.5k, 1.2M; under a thousand, the whole number. */
+export function compactNumber(n) {
+  const abs = Math.abs(n)
+  if (abs >= 1e9) return `${trim(abs / 1e9)}B`
+  if (abs >= 1e6) return `${trim(abs / 1e6)}M`
+  if (abs >= 1e3) return `${trim(abs / 1e3)}k`
+  return String(Math.round(n))
+}
+
 export function perMau(n) {
   return cents.format(n)
 }

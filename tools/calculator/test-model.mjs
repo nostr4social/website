@@ -9,10 +9,10 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const data = JSON.parse(await readFile(resolve(root, '_data/assumptions/v1.json'), 'utf8'))
-const { calculate, evaluate, resolveAssumptions, LINES, SCENARIOS, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
+const { calculate, evaluate, resolveAssumptions, project, rampShare, LINES, SCENARIOS, YEARS, MARKER_YEAR, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
 const { encode, decode } = await import(resolve(root, 'assets/js/calculator/src/codec.js'))
 const { INPUTS, InputError } = await import(resolve(root, 'assets/js/calculator/src/inputs.js'))
-const { compact } = await import(resolve(root, 'assets/js/calculator/src/format.js'))
+const { compact, compactNumber } = await import(resolve(root, 'assets/js/calculator/src/format.js'))
 
 let failures = 0
 const test = async (name, fn) => {
@@ -217,6 +217,109 @@ await test('compact money keeps whole numbers whole and drops only decimal zeros
   assert.equal(compact(968000), '$968k')
   assert.equal(compact(950), '$950')
   assert.equal(compact(-276000), '-$276k')
+  assert.equal(compactNumber(50000), '50k')
+  assert.equal(compactNumber(62500), '62.5k')
+  assert.equal(compactNumber(1200000), '1.2M')
+  assert.equal(compactNumber(950), '950')
+})
+
+// ── the projection ───────────────────────────────────────────────────────────
+
+const typicalV = (over = {}) => ({ ...resolveAssumptions(data, 'typical'), ...over })
+
+await test('with no growth and no ramp, the saving cumulates in a straight line', () => {
+  const inputs = normalizeInputs({ ...base, growth: '0' })
+  const v = typicalV({ migration_months: 0 })
+  const p = project(inputs, v)
+  const annual = evaluate(inputs, v).totals.saving
+  assert.equal(p.length, YEARS + 1)
+  for (let y = 0; y <= YEARS; y++) {
+    assert.equal(p[y].users, inputs.mau)
+    assert.ok(Math.abs(p[y].cumulative - annual * y) < 1e-6, `year ${y}`)
+  }
+})
+
+await test('the ramp is front-loaded: a twelve-month one realises two thirds of the first year and all of the second', () => {
+  assert.ok(Math.abs(rampShare(1, 12) - 2 / 3) < 0.01, String(rampShare(1, 12)))
+  assert.equal(rampShare(2, 12), 1)
+  assert.ok(Math.abs(rampShare(1, 24) - 0.4167) < 0.01, String(rampShare(1, 24)))
+  assert.ok(Math.abs(rampShare(2, 24) - 0.9167) < 0.01, String(rampShare(2, 24)))
+  assert.ok(rampShare(1, 24) > 0.25, 'more than a linear ramp would')
+  assert.equal(rampShare(1, 0), 1)
+  assert.equal(rampShare(3, 6), 1)
+})
+
+await test('growth compounds and decays; users are whole', () => {
+  const inputs = normalizeInputs({ ...base, growth: '1' })
+  const p = project(inputs, typicalV({ growth_decay: 0.5 }))
+  assert.equal(p[1].users, 100000)
+  assert.equal(p[2].users, 150000)
+  assert.equal(p[3].users, 187500)
+  for (const q of p) assert.ok(Number.isInteger(q.users))
+})
+
+await test('a flat app saves the same each year after the ramp, so its curve bends only at the start', () => {
+  const inputs = normalizeInputs({ ...base, growth: '0' })
+  const p = project(inputs, typicalV({ migration_months: 12 }))
+  assert.ok(p[1].realised < p[2].realised - 1)
+  for (let y = 3; y <= YEARS; y++) assert.ok(Math.abs(p[y].realised - p[2].realised) < 1e-6)
+})
+
+await test('fixed program fees do not scale with users; per-user costs do', () => {
+  const inputs = normalizeInputs({ ...base, growth: '1', jur: ['uk'] })
+  const v = typicalV({ growth_decay: 1 })
+  const now = evaluate(inputs, v)
+  const later = evaluate({ ...inputs, mau: inputs.mau * 2, rev: inputs.rev * 2 }, v)
+  const osaNow = now.lines.compliance.parts.find((x) => x.id === 'privacy_programs').custodial
+  const osaLater = later.lines.compliance.parts.find((x) => x.id === 'privacy_programs').custodial
+  assert.equal(osaNow, osaLater)
+  const authNow = now.lines.accounts.parts.find((x) => x.id === 'auth').custodial
+  const authLater = later.lines.accounts.parts.find((x) => x.id === 'auth').custodial
+  assert.ok(Math.abs(authLater - 2 * authNow) < 1e-6)
+})
+
+await test('the growth default applies only when growth is not given', () => {
+  const given = project(normalizeInputs({ ...base, growth: '0.5' }), typicalV({ growth_default: 0 }))
+  const blank = project(normalizeInputs(base), typicalV({ growth_default: 0 }))
+  assert.ok(given[1].users > blank[1].users)
+  assert.equal(blank[1].users, base.mau)
+})
+
+await test('calculate carries the projection and the five- and three-year totals, low ≤ typical ≤ high', () => {
+  const r = calculate({ ...base, growth: '0.25' }, data)
+  for (const s of SCENARIOS) {
+    assert.equal(r[s].projection.length, YEARS + 1)
+    assert.equal(r[s].totals.five_year, r[s].projection[YEARS].cumulative)
+    assert.equal(r[s].totals.marker_year, r[s].projection[MARKER_YEAR].cumulative)
+    assert.ok(r[s].projection[YEARS].cumulative > r[s].projection[MARKER_YEAR].cumulative)
+    let sum = 0
+    for (const p of r[s].projection) {
+      sum += p.realised
+      assert.ok(Math.abs(p.cumulative - sum) < 1e-6)
+    }
+  }
+  assert.ok(r.low.totals.five_year <= r.typical.totals.five_year && r.typical.totals.five_year <= r.high.totals.five_year)
+  assert.ok(r.low.totals.five_year > 0, 'even the low case saves something')
+})
+
+await test('the Nostr path starts at today\'s cost and the gaps add up to the cumulative', () => {
+  const r = calculate({ ...base, growth: '0.25' }, data).typical
+  const p = r.projection
+  assert.equal(p[0].path, p[0].custodial)
+  assert.ok(p[1].path < p[0].path, 'the path falls during migration')
+  assert.ok(p[2].path <= p[2].noncustodial + 1e-6 && p[2].path >= p[2].noncustodial - 1e-6, 'once migrated, the path is the non-custodial cost')
+  let gaps = 0
+  for (const q of p) gaps += q.custodial - q.path
+  assert.ok(Math.abs(gaps - r.totals.five_year) < 1e-6)
+})
+
+await test('growth is a band, and an unknown band is refused', () => {
+  assert.equal(normalizeInputs({ ...base, growth: '0.25' }).growth, '0.25')
+  assert.equal(normalizeInputs(base).growth, null)
+  assert.throws(() => normalizeInputs({ ...base, growth: '0.3' }), (e) => e instanceof InputError && e.key === 'growth')
+  const q = encode(normalizeInputs({ ...base, growth: '0' }))
+  assert.ok(q.includes('growth=0'), q)
+  assert.equal(decode(`?${q}`).inputs.growth, '0')
 })
 
 await test('a baseline printout, for the eye', () => {
@@ -224,6 +327,7 @@ await test('a baseline printout, for the eye', () => {
   const f = (n) => Math.round(n).toLocaleString('en-US').padStart(12)
   for (const l of LINES) console.log(`     ${l.padEnd(11)} ${f(r.lines[l].custodial)} ${f(r.lines[l].noncustodial)}`)
   console.log(`     ${'total'.padEnd(11)} ${f(r.totals.custodial)} ${f(r.totals.noncustodial)}   per MAU ${r.totals.per_mau_custodial.toFixed(2)} → ${r.totals.per_mau_noncustodial.toFixed(2)}`)
+  for (const p of r.projection) console.log(`     year ${p.year}  ${String(p.users).padStart(9)} users  saved ${f(p.realised)}  so far ${f(p.cumulative)}`)
 })
 
 console.log(failures ? `\n${failures} failed` : '\nall passed')

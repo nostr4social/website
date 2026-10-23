@@ -6,23 +6,33 @@
 import { $, $$, clear, el, show } from '../../shared/src/dom.js'
 import { fmt, t } from '../../shared/src/config.js'
 import { compact, money, number, percent, perMau } from './format.js'
-import { LINES } from './model.js'
+import { LINES, YEARS } from './model.js'
+import { drawCharts } from './chart.js'
 
 const range = (low, high) => fmt(t('range_short'), { low: compact(low), high: compact(high) })
 
-export function renderResults(result) {
+export function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result
   const T = typical.totals
 
-  text('#r-hero', compact(T.custodial))
-  text('#r-hero-range', fmt(t('range'), { low: compact(low.totals.custodial), high: compact(high.totals.custodial) }))
-  text('#r-nc', compact(T.noncustodial))
-  text('#r-nc-range', range(low.totals.noncustodial, high.totals.noncustodial))
-  text('#r-permau', perMau(T.per_mau_custodial))
-  text('#r-permau-pair', fmt(t('per_mau_pair'), { custodial: perMau(T.per_mau_custodial), noncustodial: perMau(T.per_mau_noncustodial) }))
-  text('#r-saving', compact(T.saving))
-  text('#r-saving-range', range(low.totals.saving, high.totals.saving))
+  // Whose estimate this is: the illustrative app, or the visitor's own.
+  const whose = $('#r-whose-text')
+  if (whose) whose.textContent = fmt(t(own ? 'whose.yours' : 'whose.illustrative'), { mau: number(inputs.mau) })
+  const link = $('#r-whose-link')
+  if (link) link.textContent = t(own ? 'whose.adjust' : 'whose.make_yours')
+
+  // The three facts under the chart: per user today, per user on Nostr, and
+  // the average year of the five. The five-year figure itself is in the chart.
+  text('#r-permau-c', perMau(T.per_mau_custodial))
+  text('#r-permau-c-range', fmt(t('range'), { low: perMau(low.totals.per_mau_custodial), high: perMau(high.totals.per_mau_custodial) }))
+  text('#r-permau-nc', perMau(T.per_mau_noncustodial))
+  text('#r-permau-nc-range', fmt(t('range'), { low: perMau(low.totals.per_mau_noncustodial), high: perMau(high.totals.per_mau_noncustodial) }))
+  text('#r-average', compact(T.five_year / YEARS))
+  text('#r-average-range', fmt(t('range'), { low: compact(low.totals.five_year / YEARS), high: compact(high.totals.five_year / YEARS) }))
   text('#r-version', fmt(t('version'), { version: result.version }))
+
+  drawCharts({ typical: typical.projection, low: low.projection })
+  renderYears(typical.projection)
 
   // One scale for every bar: the largest custodial figure in the table.
   const scale = Math.max(...LINES.map((l) => typical.lines[l].custodial), 1)
@@ -49,6 +59,21 @@ export function renderResults(result) {
     $('.bar--nc', row).style.setProperty('--w', `${(100 * line.noncustodial) / scale}%`)
 
     renderParts(name, line, inputs)
+  }
+}
+
+/** The year-by-year table under the chart: the picture as numbers, measures down and years across. */
+function renderYears(projection) {
+  const head = $('#r-years-head')
+  if (!head) return
+  for (const extra of $$('th[data-year]', head)) extra.remove()
+  for (let year = 1; year <= YEARS; year++) head.append(el('th', { scope: 'col', class: 'years-num', 'data-year': year, text: fmt(t('chart.year'), { n: year }) }))
+  const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), path: (p) => money(p.path), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) }
+  for (const row of $$('#r-years tbody tr[data-row]')) {
+    const value = cell[row.dataset.row]
+    if (!value) continue
+    for (const old of $$('td', row)) old.remove()
+    for (let year = 1; year <= YEARS; year++) row.append(el('td', { class: 'years-num', text: value(projection[year]) }))
   }
 }
 
