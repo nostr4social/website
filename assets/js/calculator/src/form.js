@@ -5,7 +5,7 @@
 import { $, $$ } from '../../shared/src/dom.js'
 import { INPUTS } from './inputs.js'
 
-export const CONTACT_KEYS = ['name', 'company', 'email', 'npub']
+export const CONTACT_KEYS = ['app_name', 'company', 'contact_name', 'email']
 
 /** A slider's bands, from its data attributes. */
 function bands(slider) {
@@ -63,6 +63,10 @@ export function readContact(form) {
     if (v) out[key] = v
   }
   return out
+}
+
+export function writeContact(form, contact = {}) {
+  for (const key of CONTACT_KEYS) if (form.elements[key] && contact[key] != null) form.elements[key].value = String(contact[key])
 }
 
 /** Put a set of inputs (raw or clean) into the form. Missing keys are left alone. */

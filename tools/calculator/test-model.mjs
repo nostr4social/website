@@ -12,6 +12,7 @@ const data = JSON.parse(await readFile(resolve(root, '_data/assumptions/v1.json'
 const { calculate, evaluate, resolveAssumptions, LINES, SCENARIOS, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
 const { encode, decode } = await import(resolve(root, 'assets/js/calculator/src/codec.js'))
 const { INPUTS, InputError } = await import(resolve(root, 'assets/js/calculator/src/inputs.js'))
+const { compact } = await import(resolve(root, 'assets/js/calculator/src/format.js'))
 
 let failures = 0
 const test = async (name, fn) => {
@@ -204,6 +205,18 @@ await test('validation names the first bad input', () => {
   assert.equal(ok.eng_accounts, null)
   assert.deepEqual(ok.jur, ['eu', 'us'])
   assert.equal(Object.keys(ok).length, Object.keys(INPUTS).length)
+})
+
+await test('compact money keeps whole numbers whole and drops only decimal zeros', () => {
+  assert.equal(compact(210350), '$210k')
+  assert.equal(compact(100000), '$100k')
+  assert.equal(compact(1000), '$1k')
+  assert.equal(compact(1500000), '$1.5M')
+  assert.equal(compact(4990000), '$4.99M')
+  assert.equal(compact(20000), '$20k')
+  assert.equal(compact(968000), '$968k')
+  assert.equal(compact(950), '$950')
+  assert.equal(compact(-276000), '-$276k')
 })
 
 await test('a baseline printout, for the eye', () => {

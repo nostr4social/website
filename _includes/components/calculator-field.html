@@ -1,0 +1,93 @@
+{%- comment -%}
+One question from the published form, drawn by its type. Used by the
+calculator include for the questions on the tabs and for the ones in the
+Save & Share modal, so a question is drawn the same way wherever it sits.
+
+  field     the question from the snapshot (id, type, render, required,
+            label, options, rows, columns)
+  key       the question's key in the id map
+  mapping   the map entry (id, options, rows, columns)
+  stops     for a number drawn as a slider: { value: label }
+  form_id   when the question sits outside the form element (the modal),
+            the id of the form its answers belong to
+{%- endcomment -%}
+{%- assign field = include.field -%}
+{%- assign key = include.key -%}
+{%- assign mapping = include.mapping -%}
+{%- assign stops = include.stops -%}
+{%- if field.type == "grid" -%}
+  {%- comment -%} one stepped slider per row; the band values come from the map, in the form's column order {%- endcomment -%}
+  {%- capture values %}{% for col in field.columns %}{% for c in mapping.columns %}{% if c[1] == col.id %}{{ c[0] }}{% endif %}{% endfor %}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
+  {%- capture labels %}{% for col in field.columns %}{{ col.label }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
+  <fieldset class="field field--grid" id="field-{{ key }}">
+    <legend class="field__label">{% include lib/label.html text=field.label %}</legend>
+    <div class="sliders">
+      {%- for row in field.rows -%}
+      {%- assign rowkey = nil -%}
+      {%- for rk in mapping.rows -%}{%- if rk[1] == row.id -%}{%- assign rowkey = rk[0] -%}{%- endif -%}{%- endfor -%}
+      {%- if rowkey -%}
+      {%- assign name = key | append: "_" | append: rowkey -%}
+      {%- if key == "nostr" %}{% assign name = "n_" | append: rowkey %}{% endif -%}
+      {%- if key == "engineering" %}{% assign name = "eng_" | append: rowkey %}{% endif -%}
+      {%- if key == "moderation" %}{% assign name = "mod_" | append: rowkey %}{% endif -%}
+      {%- assign row_label = row.label -%}
+      <div class="slider-row" id="field-{{ name }}">
+        <label class="slider-row__label" for="f-{{ name }}">{% include lib/label.html text=row_label %}</label>
+        <div class="slider-row__control">
+          <input class="slider" type="range" id="f-{{ name }}" name="{{ name }}" min="0" max="{{ field.columns.size | minus: 1 }}" step="1" value="0"
+                 data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ field.columns.first.label }}">
+          <div class="slider__ticks" aria-hidden="true">
+            {%- for col in field.columns -%}<span class="slider__tick">{{ col.label }}</span>{%- endfor -%}
+          </div>
+        </div>
+        <output class="slider-row__value" for="f-{{ name }}">{{ field.columns.first.label }}</output>
+      </div>
+      {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </fieldset>
+
+{%- elsif field.type == "option" -%}
+  {%- assign multi = true -%}
+  {%- if field.render == "radioButton" or field.render == "dropdown" %}{% assign multi = false %}{% endif -%}
+  <fieldset class="field field--choices" id="field-{{ key }}">
+    <legend class="field__label">{% include lib/label.html text=field.label %}</legend>
+    <div class="choices">
+    {%- for opt in field.options -%}
+      {%- assign value = nil -%}
+      {%- for o in mapping.options -%}{%- if o[1] == opt.id -%}{%- assign value = o[0] -%}{%- endif -%}{%- endfor -%}
+      {%- if value -%}
+      {%- assign opt_label = opt.label -%}
+      <label class="choice">
+        <input type="{% if multi %}checkbox{% else %}radio{% endif %}" name="{{ key }}" value="{{ value }}" id="f-{{ key }}-{{ value }}">
+        <span class="choice__label">{% include lib/label.html text=opt_label %}</span>
+      </label>
+      {%- endif -%}
+    {%- endfor -%}
+    </div>
+  </fieldset>
+
+{%- elsif stops -%}
+  {%- capture values %}{% for stop in stops %}{{ stop[0] }}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
+  {%- capture labels %}{% for stop in stops %}{{ stop[1] }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
+  <div class="field field--slider" id="field-{{ key }}">
+    <div class="slider-row slider-row--single">
+      <label class="slider-row__label field__label" for="f-{{ key }}">{% include lib/label.html text=field.label %}</label>
+      <div class="slider-row__control">
+        <input class="slider" type="range" id="f-{{ key }}" name="{{ key }}" min="0" max="{{ stops.size | minus: 1 }}" step="1" value="0"
+               data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ stops.first[1] }}">
+        <div class="slider__ticks slider__ticks--ends" aria-hidden="true">
+          <span class="slider__tick">{{ stops.first[1] }}</span>
+          <span class="slider__tick">{% for stop in stops %}{% if forloop.last %}{{ stop[1] }}{% endif %}{% endfor %}</span>
+        </div>
+      </div>
+      <output class="slider-row__value" for="f-{{ key }}">{{ stops.first[1] }}</output>
+    </div>
+  </div>
+
+{%- else -%}
+  <label class="field" id="field-{{ key }}">
+    <span class="field__label">{% include lib/label.html text=field.label %}{% if field.required %} <span class="field__required" aria-hidden="true">*</span>{% endif %}</span>
+    <input class="field__input" id="f-{{ key }}" name="{{ key }}" type="{% if key == "email" %}email{% else %}text{% endif %}" autocomplete="off"{% if field.type == "number" %} inputmode="decimal"{% endif %}{% if key == "email" %} inputmode="email"{% endif %}{% if field.required %} required aria-required="true"{% endif %}{% if include.form_id %} form="{{ include.form_id }}"{% endif %}>
+  </label>
+{%- endif -%}

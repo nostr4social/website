@@ -102,7 +102,7 @@ export function wireToggles() {
 
 // ── the tabs ─────────────────────────────────────────────────────────────────
 
-export const TABS = ['app', 'assumptions', 'cost']
+export const TABS = ['cost', 'app', 'assumptions']
 
 export function activateTab(name, { focus = false } = {}) {
   for (const tab of TABS) {
@@ -148,11 +148,6 @@ export function showResults(visible, { focus = false } = {}) {
       $('#results-title')?.focus({ preventScroll: true })
     }
   }
-}
-
-export function setLink(url) {
-  const input = $('#r-link')
-  if (input) input.value = url
 }
 
 export function setStatus(message) {

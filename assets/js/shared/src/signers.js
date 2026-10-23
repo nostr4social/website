@@ -1,6 +1,7 @@
 // Three ways to sign, behind one interface.
 //
-//   { kind, pubkey, signEvent(template), nip44Encrypt(pubkey, plaintext), close() }
+//   { kind, pubkey, signEvent(template), nip44Encrypt(pubkey, plaintext),
+//     nip44Decrypt(pubkey, ciphertext), close() }
 //
 // The page never sees a private key except in guest mode, where it makes one,
 // uses it once, and zero-fills it. There is no session persistence anywhere:
@@ -14,6 +15,7 @@ import {
   getConversationKey,
   getPublicKey,
   nip44Encrypt as nip44EncryptWithKey,
+  nip44Decrypt as nip44DecryptWithKey,
 } from './vendor.js'
 import { config, dev } from './config.js'
 
@@ -69,6 +71,7 @@ export async function connectNip07() {
     pubkey,
     signEvent: (template) => window.nostr.signEvent(template),
     nip44Encrypt: (target, plaintext) => nip44.encrypt(target, plaintext),
+    nip44Decrypt: (target, ciphertext) => nip44.decrypt(target, ciphertext),
     close() {},
   }
 }
@@ -131,6 +134,7 @@ async function wrapBunker(signer, clientSecretKey) {
     pubkey,
     signEvent: (template) => signer.signEvent(template),
     nip44Encrypt: (target, plaintext) => signer.nip44Encrypt(target, plaintext),
+    nip44Decrypt: (target, ciphertext) => signer.nip44Decrypt(target, ciphertext),
     async close() {
       try {
         await signer.close()
@@ -203,11 +207,79 @@ export function createGuestSigner() {
       assertOpen()
       return nip44EncryptWithKey(plaintext, getConversationKey(secretKey, target))
     },
+    async nip44Decrypt(target, ciphertext) {
+      assertOpen()
+      return nip44DecryptWithKey(ciphertext, getConversationKey(secretKey, target))
+    },
     close() {
       open = false
       wipe(secretKey)
     },
   }
+}
+
+// ── Session: a disposable key that lives as long as the tab ──────────────────
+
+/**
+ * A key made once per tab and kept in sessionStorage, so every save from
+ * this tab comes from the same author and a reload does not change it.
+ * Closing the tab forgets it. It is never wiped on close(), because the
+ * next save needs it; `forget()` removes it.
+ */
+/** Is there a session key in this tab already? (Reading it makes none.) */
+export function hasSessionKey(storageKey = 'nostr4.session-key') {
+  try {
+    return /^[0-9a-f]{64}$/.test(sessionStorage.getItem(storageKey) || '')
+  } catch {
+    return false
+  }
+}
+
+export function createSessionSigner(storageKey = 'nostr4.session-key') {
+  let secretKey = null
+  try {
+    const hex = sessionStorage.getItem(storageKey)
+    if (hex && /^[0-9a-f]{64}$/.test(hex)) secretKey = hexToBytes(hex)
+  } catch {
+    /* no storage: a fresh key for this page */
+  }
+  if (!secretKey) {
+    secretKey = generateSecretKey()
+    try {
+      sessionStorage.setItem(storageKey, bytesToHex(secretKey))
+    } catch {
+      /* kept in memory only */
+    }
+  }
+  const pubkey = getPublicKey(secretKey)
+  return {
+    kind: 'session',
+    pubkey,
+    async signEvent(template) {
+      return finalizeEvent(template, secretKey)
+    },
+    async nip44Encrypt(target, plaintext) {
+      return nip44EncryptWithKey(plaintext, getConversationKey(secretKey, target))
+    },
+    async nip44Decrypt(target, ciphertext) {
+      return nip44DecryptWithKey(ciphertext, getConversationKey(secretKey, target))
+    },
+    close() {},
+    forget() {
+      try {
+        sessionStorage.removeItem(storageKey)
+      } catch {
+        /* nothing to remove */
+      }
+      wipe(secretKey)
+    },
+  }
+}
+
+export function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+  return out
 }
 
 export function bytesToHex(bytes) {

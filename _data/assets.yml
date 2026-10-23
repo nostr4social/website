@@ -5,7 +5,7 @@
 shared:
   nostr_tools:
     path: /assets/js/vendor/nostr-tools/nostr-tools-2.25.2.esm.min.js
-    integrity: "sha384-CuDpdRvLSmfiwWwTi36I5xZ9z2i8WU6hC6MxFMY2COfV/UbmTg07xsRx9N/0Ix/T"
+    integrity: "sha384-r59LamA9NX4DggTM1qA2gtxnjaMQiXB84zDR0xvoNOfbN53goG/MERNUphnsXdC+"
   uqr:
     path: /assets/js/vendor/uqr/uqr-0.1.3.esm.min.js
     integrity: "sha384-qQ3dTCin/VMbdg2YWgZ8OePJ7nbojdnfZ3lpsntY3sA6Fm7IKk0HI8QTTmv7Nss+"
@@ -15,8 +15,8 @@ shared:
 contact:
   app:
     path: /assets/js/contact/contact.js
-    integrity: "sha384-nuYWZ+y444s+TCnAPnMRbSFl3lVmW0sk8lzRs3B9iF0e8BSXB90jyjOva9huFN0q"
+    integrity: "sha384-ORKW8Ob3SzXZ/d0FtWXoddqYlfEBWhLzsIzimjrEL6bgPYp51CAYlt1ro5YmT2Fk"
 calculator:
   app:
     path: /assets/js/calculator/calculator.js
-    integrity: "sha384-UdG9Oy/a+AOOzUoSlukkzWx5NSVOrKMQXTeK2lnnwPj3+qaLcDw3RyelyeRmq/Hj"
+    integrity: "sha384-8UcYipvOeteZ3owsdjvwBChnzt2Fv7UbztFU/ZVnGESS5/EAG/3fn/Lq4oGOM8yQ"

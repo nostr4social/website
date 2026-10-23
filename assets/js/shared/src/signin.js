@@ -34,7 +34,8 @@ export function createSignIn({ onChange } = {}) {
   function show(mode) {
     const guest = $('#sign-guest')
     const signed = $('#sign-signed')
-    if (guest) guest.hidden = mode !== 'guest'
+    // In a sign dialog the doors stay; only the identity chip comes and goes.
+    if (guest && !guest.closest('dialog')) guest.hidden = mode !== 'guest'
     if (signed) signed.hidden = mode !== 'signed'
   }
 

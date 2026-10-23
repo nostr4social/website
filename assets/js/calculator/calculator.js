@@ -78,8 +78,10 @@ import {
   SimplePool,
   decodeNip19,
   npubEncode,
+  neventEncode,
   getConversationKey,
   nip44Encrypt,
+  nip44Decrypt,
   BunkerSigner,
   createNostrConnectURI
 } from "/assets/js/vendor/nostr-tools/nostr-tools-2.25.2.esm.min.js";
@@ -126,6 +128,7 @@ async function connectNip07() {
     pubkey,
     signEvent: (template) => window.nostr.signEvent(template),
     nip44Encrypt: (target, plaintext) => nip44.encrypt(target, plaintext),
+    nip44Decrypt: (target, ciphertext) => nip44.decrypt(target, ciphertext),
     close() {
     }
   };
@@ -176,6 +179,7 @@ async function wrapBunker(signer, clientSecretKey) {
     pubkey,
     signEvent: (template) => signer.signEvent(template),
     nip44Encrypt: (target, plaintext) => signer.nip44Encrypt(target, plaintext),
+    nip44Decrypt: (target, ciphertext) => signer.nip44Decrypt(target, ciphertext),
     async close() {
       try {
         await signer.close();
@@ -216,29 +220,55 @@ async function connectBunker(input, { onauth } = {}) {
     throw err instanceof SignerError ? err : new SignerError("nip46_connect_failed", err);
   }
 }
-function createGuestSigner() {
-  const secretKey = generateSecretKey();
+function hasSessionKey(storageKey = "nostr4.session-key") {
+  try {
+    return /^[0-9a-f]{64}$/.test(sessionStorage.getItem(storageKey) || "");
+  } catch {
+    return false;
+  }
+}
+function createSessionSigner(storageKey = "nostr4.session-key") {
+  let secretKey = null;
+  try {
+    const hex = sessionStorage.getItem(storageKey);
+    if (hex && /^[0-9a-f]{64}$/.test(hex)) secretKey = hexToBytes(hex);
+  } catch {
+  }
+  if (!secretKey) {
+    secretKey = generateSecretKey();
+    try {
+      sessionStorage.setItem(storageKey, bytesToHex(secretKey));
+    } catch {
+    }
+  }
   const pubkey = getPublicKey(secretKey);
-  let open = true;
-  const assertOpen = () => {
-    if (!open) throw new SignerError("guest_closed");
-  };
   return {
-    kind: "guest",
+    kind: "session",
     pubkey,
     async signEvent(template) {
-      assertOpen();
       return finalizeEvent(template, secretKey);
     },
     async nip44Encrypt(target, plaintext) {
-      assertOpen();
       return nip44Encrypt(plaintext, getConversationKey(secretKey, target));
     },
+    async nip44Decrypt(target, ciphertext) {
+      return nip44Decrypt(ciphertext, getConversationKey(secretKey, target));
+    },
     close() {
-      open = false;
+    },
+    forget() {
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch {
+      }
       wipe(secretKey);
     }
   };
+}
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out;
 }
 function bytesToHex(bytes) {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -338,11 +368,21 @@ function markExtension(available) {
 }
 function openBunkerModal() {
   const dialog = $("#bunker-modal");
-  if (dialog && !dialog.open) dialog.showModal();
+  if (dialog) {
+    if (!dialog.open) dialog.showModal();
+    return;
+  }
+  const panel = $("#bunker-panel");
+  if (panel) panel.hidden = false;
 }
 function closeBunkerModal() {
   const dialog = $("#bunker-modal");
-  if (dialog?.open) dialog.close();
+  if (dialog) {
+    if (dialog.open) dialog.close();
+    return;
+  }
+  const panel = $("#bunker-panel");
+  if (panel) panel.hidden = true;
 }
 function renderConnect({ uri }) {
   const qrHost = $("#bunker-qr");
@@ -386,7 +426,7 @@ function createSignIn({ onChange } = {}) {
   function show2(mode) {
     const guest = $("#sign-guest");
     const signed = $("#sign-signed");
-    if (guest) guest.hidden = mode !== "guest";
+    if (guest && !guest.closest("dialog")) guest.hidden = mode !== "guest";
     if (signed) signed.hidden = mode !== "signed";
   }
   async function adopt(next) {
@@ -923,7 +963,7 @@ function decode(search) {
 }
 
 // assets/js/calculator/src/form.js
-var CONTACT_KEYS = ["name", "company", "email", "npub"];
+var CONTACT_KEYS = ["app_name", "company", "contact_name", "email"];
 function bands(slider) {
   return { values: slider.dataset.values.split(","), labels: slider.dataset.labels.split("|") };
 }
@@ -971,6 +1011,9 @@ function readContact(form2) {
   }
   return out;
 }
+function writeContact(form2, contact = {}) {
+  for (const key of CONTACT_KEYS) if (form2.elements[key] && contact[key] != null) form2.elements[key].value = String(contact[key]);
+}
 function writeInputs(form2, inputs) {
   for (const [key, spec] of Object.entries(INPUTS)) {
     if (!(key in inputs) || inputs[key] == null) continue;
@@ -1009,6 +1052,211 @@ function markInvalid(form2, key) {
   input?.focus({ preventScroll: false });
 }
 
+// assets/js/shared/src/forms.js
+var KIND_FORM = 30168;
+var KIND_RESPONSE = 1069;
+function checkMap(snapshot2, map2) {
+  const byId = new Map(snapshot2.fields.map((f) => [f.id, f]));
+  const missing2 = [];
+  for (const [key, m] of Object.entries(map2.fields)) {
+    const f = byId.get(m.id);
+    if (!f) {
+      missing2.push(`${key}: no question with id ${m.id}`);
+      continue;
+    }
+    const rows = f.grid?.rows || f.rows || [];
+    const columns = f.grid?.columns || f.columns || [];
+    for (const [value, oid] of Object.entries(m.options || {})) {
+      if (!(f.options || []).some((o) => o.id === oid)) missing2.push(`${key}.${value}: no option ${oid}`);
+    }
+    for (const [value, rid] of Object.entries(m.rows || {})) {
+      if (!rows.some((r) => r.id === rid)) missing2.push(`${key}.${value}: no row ${rid}`);
+    }
+    for (const [value, cid] of Object.entries(m.columns || {})) {
+      if (!columns.some((c) => c.id === cid)) missing2.push(`${key}.${value}: no column ${cid}`);
+    }
+  }
+  return missing2;
+}
+function buildResponses(map2, values) {
+  const out = [];
+  for (const [key, v] of Object.entries(values)) {
+    const f = map2.fields[key];
+    if (!f) continue;
+    if (v == null || v === "" || Array.isArray(v) && v.length === 0) continue;
+    let value;
+    if (f.rows) {
+      const cells = {};
+      for (const [rowKey, colKey] of Object.entries(v)) {
+        const rid = f.rows[rowKey];
+        const cid = f.columns?.[String(colKey)];
+        if (rid && cid) cells[rid] = cid;
+      }
+      if (!Object.keys(cells).length) continue;
+      value = JSON.stringify(cells);
+    } else if (f.options) {
+      const list = Array.isArray(v) ? v : [v];
+      value = list.map((x) => f.options[String(x)]).filter(Boolean).join(";");
+      if (!value) continue;
+    } else {
+      value = String(v);
+    }
+    out.push(["response", f.id, value, "{}"]);
+  }
+  return out;
+}
+function readResponses(map2, tags) {
+  const byId = {};
+  for (const [key, f] of Object.entries(map2.fields)) byId[f.id] = { key, ...f };
+  const flip = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [v, k]));
+  const values = {};
+  for (const tag of tags) {
+    if (!Array.isArray(tag) || tag[0] !== "response") continue;
+    const f = byId[tag[1]];
+    if (!f) continue;
+    const raw = tag[2] ?? "";
+    if (f.rows) {
+      let cells;
+      try {
+        cells = JSON.parse(raw);
+      } catch {
+        continue;
+      }
+      const rows = flip(f.rows);
+      const cols = flip(f.columns);
+      const out = {};
+      for (const [rid, cid] of Object.entries(cells || {})) if (rows[rid] && cols[cid] != null) out[rows[rid]] = cols[cid];
+      values[f.key] = out;
+    } else if (f.options) {
+      const opts = flip(f.options);
+      const list = raw.split(";").map((id) => opts[id]).filter((v) => v != null);
+      values[f.key] = list;
+    } else {
+      values[f.key] = raw;
+    }
+  }
+  return values;
+}
+function formSecretFromList(list, snapshot2) {
+  const want = `${snapshot2.pubkey}:${snapshot2.d}`;
+  for (const tag of Array.isArray(list) ? list : []) {
+    if (!Array.isArray(tag) || tag[0] !== "f" || tag[1] !== want) continue;
+    const secret = String(tag[3] || "").split(":")[0];
+    if (/^[0-9a-f]{64}$/.test(secret)) return secret;
+  }
+  return null;
+}
+var KIND_MY_FORMS = 14083;
+var formAddress = (snapshot2) => `${KIND_FORM}:${snapshot2.pubkey}:${snapshot2.d}`;
+
+// assets/js/shared/src/relays.js
+var KIND_DM_RELAYS = 10050;
+var MAX_RELAYS = 5;
+var LOOPBACK = ["localhost", "127.0.0.1", "[::1]"];
+function normalizeRelay(url) {
+  try {
+    const parsed = new URL(String(url).trim());
+    if (parsed.protocol !== "wss:" && !(parsed.protocol === "ws:" && LOOPBACK.includes(parsed.hostname))) return null;
+    parsed.hash = "";
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+function dedupe(urls) {
+  return Array.from(new Set(urls.filter(Boolean)));
+}
+async function inboxRelaysFor(pool, pubkey) {
+  if (dev.local && dev.relays.length) {
+    const relays2 = dedupe(dev.relays.map(normalizeRelay)).slice(0, MAX_RELAYS);
+    if (relays2.length) return { relays: relays2, usedFallback: false };
+  }
+  const fallback = () => ({
+    relays: dedupe(config.relays.fallback_dm.map(normalizeRelay)).slice(0, MAX_RELAYS),
+    usedFallback: true
+  });
+  if (dev.no10050) return fallback();
+  let event = null;
+  try {
+    event = await pool.get(
+      config.relays.discovery,
+      { kinds: [KIND_DM_RELAYS], authors: [pubkey] },
+      { maxWait: config.timeouts.discovery }
+    );
+  } catch {
+    return fallback();
+  }
+  if (!event) return fallback();
+  const relays = dedupe(
+    event.tags.filter((tag) => tag[0] === "relay").map((tag) => normalizeRelay(tag[1]))
+  ).slice(0, MAX_RELAYS);
+  return relays.length ? { relays, usedFallback: false } : fallback();
+}
+
+// assets/js/calculator/src/restore.js
+var HEX643 = /^[0-9a-f]{64}$/;
+function decodePointer(value) {
+  const v = (value || "").trim();
+  if (!v) return null;
+  if (HEX643.test(v)) return { id: v, relays: [], author: null };
+  try {
+    const { type, data } = decodeNip19(v);
+    if (type === "nevent") return { id: data.id, relays: data.relays || [], author: data.author || null };
+    if (type === "note") return { id: data, relays: [], author: null };
+  } catch {
+    return null;
+  }
+  return null;
+}
+function relaysFor(pointer, snapshot2) {
+  const list = dev.local && dev.relays.length ? dev.relays : [...pointer.relays || [], ...snapshot2?.relays || [], ...config.relays.fallback_dm];
+  return [...new Set(list.map(normalizeRelay).filter(Boolean))].slice(0, 8);
+}
+async function fetchResponse(pointer, snapshot2) {
+  const pool = new SimplePool();
+  try {
+    const event = await pool.get(relaysFor(pointer, snapshot2), { ids: [pointer.id], kinds: [KIND_RESPONSE] }, { maxWait: config.timeouts.discovery });
+    return event || null;
+  } finally {
+    pool.destroy();
+  }
+}
+async function secretAsHolder(signer, snapshot2) {
+  const pool = new SimplePool();
+  try {
+    const relays = [...new Set([...config.relays.discovery, ...snapshot2.relays || []].map(normalizeRelay).filter(Boolean))];
+    const list = await pool.get(relays, { kinds: [KIND_MY_FORMS], authors: [signer.pubkey] }, { maxWait: config.timeouts.discovery });
+    if (!list) return null;
+    const json = JSON.parse(await signer.nip44Decrypt(signer.pubkey, list.content));
+    return formSecretFromList(json, snapshot2);
+  } catch {
+    return null;
+  } finally {
+    pool.destroy();
+  }
+}
+async function openResponse(event, { signer, snapshot: snapshot2, map: map2 }) {
+  if (!event.content) return { tags: event.tags, values: readResponses(map2, event.tags), how: "plain" };
+  if (signer) {
+    if (signer.pubkey === event.pubkey) {
+      try {
+        const tags = JSON.parse(await signer.nip44Decrypt(snapshot2.pubkey, event.content));
+        return { tags, values: readResponses(map2, tags), how: "responder" };
+      } catch {
+      }
+    }
+    const secret = await secretAsHolder(signer, snapshot2);
+    if (secret) {
+      try {
+        const tags = JSON.parse(nip44Decrypt(event.content, getConversationKey(hexToBytes(secret), event.pubkey)));
+        return { tags, values: readResponses(map2, tags), how: "holder" };
+      } catch {
+      }
+    }
+  }
+  return { error: "restore_locked" };
+}
+
 // assets/js/calculator/src/format.js
 var full = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 var cents = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1026,7 +1274,7 @@ function compact(n) {
 }
 function trim(x) {
   const s = x >= 100 ? x.toFixed(0) : x >= 10 ? x.toFixed(1) : x.toFixed(2);
-  return s.replace(/\.?0+$/, "");
+  return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
 }
 function perMau(n) {
   return cents.format(n);
@@ -1457,61 +1705,6 @@ function minePow(event, difficulty, { onProgress, signal } = {}) {
   });
 }
 
-// assets/js/shared/src/forms.js
-var KIND_FORM = 30168;
-var KIND_RESPONSE = 1069;
-function checkMap(snapshot2, map2) {
-  const byId = new Map(snapshot2.fields.map((f) => [f.id, f]));
-  const missing = [];
-  for (const [key, m] of Object.entries(map2.fields)) {
-    const f = byId.get(m.id);
-    if (!f) {
-      missing.push(`${key}: no question with id ${m.id}`);
-      continue;
-    }
-    const rows = f.grid?.rows || f.rows || [];
-    const columns = f.grid?.columns || f.columns || [];
-    for (const [value, oid] of Object.entries(m.options || {})) {
-      if (!(f.options || []).some((o) => o.id === oid)) missing.push(`${key}.${value}: no option ${oid}`);
-    }
-    for (const [value, rid] of Object.entries(m.rows || {})) {
-      if (!rows.some((r) => r.id === rid)) missing.push(`${key}.${value}: no row ${rid}`);
-    }
-    for (const [value, cid] of Object.entries(m.columns || {})) {
-      if (!columns.some((c) => c.id === cid)) missing.push(`${key}.${value}: no column ${cid}`);
-    }
-  }
-  return missing;
-}
-function buildResponses(map2, values) {
-  const out = [];
-  for (const [key, v] of Object.entries(values)) {
-    const f = map2.fields[key];
-    if (!f) continue;
-    if (v == null || v === "" || Array.isArray(v) && v.length === 0) continue;
-    let value;
-    if (f.rows) {
-      const cells = {};
-      for (const [rowKey, colKey] of Object.entries(v)) {
-        const rid = f.rows[rowKey];
-        const cid = f.columns?.[String(colKey)];
-        if (rid && cid) cells[rid] = cid;
-      }
-      if (!Object.keys(cells).length) continue;
-      value = JSON.stringify(cells);
-    } else if (f.options) {
-      const list = Array.isArray(v) ? v : [v];
-      value = list.map((x) => f.options[String(x)]).filter(Boolean).join(";");
-      if (!value) continue;
-    } else {
-      value = String(v);
-    }
-    out.push(["response", f.id, value, "{}"]);
-  }
-  return out;
-}
-var formAddress = (snapshot2) => `${KIND_FORM}:${snapshot2.pubkey}:${snapshot2.d}`;
-
 // assets/js/shared/src/nip17.js
 var KIND_CHAT = 14;
 var KIND_SEAL = 13;
@@ -1566,57 +1759,13 @@ async function publishWrap(pool, relays, wrap, ephemeralKey, { maxWait }) {
   });
 }
 
-// assets/js/shared/src/relays.js
-var KIND_DM_RELAYS = 10050;
-var MAX_RELAYS = 5;
-var LOOPBACK = ["localhost", "127.0.0.1", "[::1]"];
-function normalizeRelay(url) {
-  try {
-    const parsed = new URL(String(url).trim());
-    if (parsed.protocol !== "wss:" && !(parsed.protocol === "ws:" && LOOPBACK.includes(parsed.hostname))) return null;
-    parsed.hash = "";
-    return parsed.toString().replace(/\/$/, "");
-  } catch {
-    return null;
-  }
-}
-function dedupe(urls) {
-  return Array.from(new Set(urls.filter(Boolean)));
-}
-async function inboxRelaysFor(pool, pubkey) {
-  if (dev.local && dev.relays.length) {
-    const relays2 = dedupe(dev.relays.map(normalizeRelay)).slice(0, MAX_RELAYS);
-    if (relays2.length) return { relays: relays2, usedFallback: false };
-  }
-  const fallback = () => ({
-    relays: dedupe(config.relays.fallback_dm.map(normalizeRelay)).slice(0, MAX_RELAYS),
-    usedFallback: true
-  });
-  if (dev.no10050) return fallback();
-  let event = null;
-  try {
-    event = await pool.get(
-      config.relays.discovery,
-      { kinds: [KIND_DM_RELAYS], authors: [pubkey] },
-      { maxWait: config.timeouts.discovery }
-    );
-  } catch {
-    return fallback();
-  }
-  if (!event) return fallback();
-  const relays = dedupe(
-    event.tags.filter((tag) => tag[0] === "relay").map((tag) => normalizeRelay(tag[1]))
-  ).slice(0, MAX_RELAYS);
-  return relays.length ? { relays, usedFallback: false } : fallback();
-}
-
 // assets/js/calculator/src/submit.js
 var now2 = () => Math.floor(Date.now() / 1e3);
 function prepareForm(snapshot2, map2) {
   if (!snapshot2 || !snapshot2.pubkey || !snapshot2.d || !map2?.fields) return null;
-  const missing = checkMap(snapshot2, map2);
-  if (missing.length) {
-    console.warn("calculator form: the id map does not fit the snapshot", missing);
+  const missing2 = checkMap(snapshot2, map2);
+  if (missing2.length) {
+    console.warn("calculator form: the id map does not fit the snapshot", missing2);
     return null;
   }
   return { snapshot: snapshot2, mapping: map2 };
@@ -1651,7 +1800,7 @@ async function submitResponse(form2, { signer, values, pow = 0, onProgress }) {
     pool.destroy();
   }
 }
-function composeLead({ inputs, result, link, contact, fieldLabels }) {
+function composeLead({ inputs, result, link, contact, fieldLabels, open }) {
   const lines = [t("compose.header"), ""];
   for (const [key, v] of Object.entries(inputs)) {
     if (v == null || v === "" || Array.isArray(v) && !v.length) continue;
@@ -1660,8 +1809,9 @@ function composeLead({ inputs, result, link, contact, fieldLabels }) {
   lines.push("");
   lines.push(fmt(t("compose.results"), { custodial: result.custodial, noncustodial: result.noncustodial }));
   lines.push(fmt(t("compose.link"), { link }));
+  if (open) lines.push(fmt(t("compose.open"), { link: open }));
   lines.push("");
-  for (const key of ["name", "company", "email", "npub"]) if (contact[key]) lines.push(`${t(`compose.${key}`)}: ${contact[key]}`);
+  for (const key of ["app_name", "company", "contact_name", "email"]) if (contact[key]) lines.push(`${fieldLabels[key]?.label || key}: ${contact[key]}`);
   return lines.join("\n").trim();
 }
 async function sendLead({ signer, recipient, subject, content, pow = 0, onProgress }) {
@@ -1762,7 +1912,7 @@ function wireToggles() {
     });
   }
 }
-var TABS = ["app", "assumptions", "cost"];
+var TABS = ["cost", "app", "assumptions"];
 function activateTab(name, { focus = false } = {}) {
   for (const tab of TABS) {
     const button = $(`#tab-${tab}`);
@@ -1804,10 +1954,6 @@ function showResults(visible, { focus = false } = {}) {
       $("#results-title")?.focus({ preventScroll: true });
     }
   }
-}
-function setLink(url) {
-  const input = $("#r-link");
-  if (input) input.value = url;
 }
 function setStatus2(message) {
   const node = $("#r-status");
@@ -1855,15 +2001,21 @@ var assumptions = readJson("page-assumptions");
 var snapshot = readJson("page-form");
 var map = readJson("page-map");
 var form = prepareForm(snapshot, map);
-function labelFor(key) {
-  const node = document.querySelector(`#field-${key} .field__label, label[for="f-${key}"]`);
-  return node ? node.textContent.replace(/\s+/g, " ").trim() : key;
-}
 var current = null;
+var dirty = false;
 var test = null;
 var openedAt = Date.now();
 var sends = [];
+var lastLead = "";
 var signIn = null;
+var session = null;
+var pendingSave = false;
+var pendingOpen = null;
+var syncTimer = null;
+function labelFor(key) {
+  const node = document.querySelector(`#field-${key} .field__label, label[for="f-${key}"]`);
+  return node ? node.textContent.replace(/\s+/g, " ").replace(/\s*\*\s*$/, "").trim() : key;
+}
 function run(raw, overrides, { focus = true } = {}) {
   let result;
   try {
@@ -1881,15 +2033,94 @@ function run(raw, overrides, { focus = true } = {}) {
   markInvalid($("#calc-form"), null);
   setError2(null);
   current = result;
+  dirty = false;
   renderResults(result);
   const query2 = encode2(result.inputs, result.overrides, result.version);
   result.link = `${location.origin}${location.pathname}?${query2}`;
-  setLink(result.link);
   history.replaceState(null, "", `?${query2}${test ? `&test=${encodeURIComponent(test)}` : ""}`);
   const contact = $("#r-contact");
   if (contact) contact.href = `${config.contact_href}?${new URLSearchParams({ subject: t("contact_subject"), calc: query2 })}`;
   showResults(true, { focus });
   return result;
+}
+function fresh() {
+  return dirty || !current ? run(readInputs($("#calc-form")), readOverrides(), { focus: false }) : current;
+}
+function onCalculate(event) {
+  event.preventDefault();
+  run(readInputs(event.currentTarget), readOverrides());
+}
+function onRecalculate() {
+  markChanged();
+  run(readInputs($("#calc-form")), readOverrides(), { focus: true });
+}
+function onTab(name, opts) {
+  if (name === "cost" && dirty) run(readInputs($("#calc-form")), readOverrides(), { focus: false });
+  activateTab(name, opts);
+}
+function onDirty() {
+  dirty = true;
+  syncUrl();
+}
+function currentQuery() {
+  try {
+    const inputs = normalizeInputs(readInputs($("#calc-form")));
+    return encode2(inputs, cleanOverrides(assumptions, readOverrides()), assumptions.version) + (test ? `&test=${encodeURIComponent(test)}` : "");
+  } catch {
+    return null;
+  }
+}
+function syncUrl() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    const query2 = currentQuery();
+    if (query2) history.replaceState(null, "", `?${query2}`);
+  }, 120);
+}
+var modal = () => $("#save-modal");
+function requiredKeys() {
+  return CONTACT_KEYS.filter((key) => snapshot?.fields?.some((f) => f.id === map.fields[key]?.id && f.required));
+}
+function missing(formEl) {
+  const out = [];
+  for (const key of requiredKeys()) if (!formEl.elements[key]?.value.trim()) out.push(key);
+  if (formEl.elements.email?.value.trim() && !formEl.elements.consent?.checked) out.push("consent");
+  return out;
+}
+function gate() {
+  const formEl = $("#calc-form");
+  if (!formEl || !modal()) return;
+  const lacking = missing(formEl);
+  const own = Boolean(signIn?.current());
+  const save2 = $("#save-submit");
+  if (save2) save2.disabled = lacking.length > 0;
+  const needed = $("#save-needed");
+  if (needed) {
+    needed.textContent = lacking.length ? fmt(t("modal.needed"), { list: lacking.map((k) => k === "consent" ? t("modal.consent_name") : labelFor(k)).join(", ") }) : "";
+  }
+  const signedNote = $("#identity-note");
+  if (signedNote && own) signedNote.textContent = t("modal.signed");
+}
+var signDialog = () => $("#sign-modal");
+function openSign() {
+  const dialog = signDialog();
+  if (dialog && !dialog.open) dialog.showModal();
+}
+function closeSign() {
+  const dialog = signDialog();
+  if (dialog?.open) dialog.close();
+}
+function openSave() {
+  const dialog = modal();
+  if (!dialog) return;
+  setStatus2("");
+  $("#save-status").textContent = "";
+  gate();
+  if (!dialog.open) dialog.showModal();
+}
+function closeSave() {
+  const dialog = modal();
+  if (dialog?.open) dialog.close();
 }
 function withhold(formEl) {
   if (formEl.elements.website.value) return "honeypot";
@@ -1929,30 +2160,92 @@ function valuesFor(result, contact) {
     test: test || ""
   };
 }
-async function save(result, contact) {
-  if (!form) return;
+function signerForSave() {
   const own = signIn?.current();
-  const signer = own || createGuestSigner();
-  const pow = dev.noPow ? 0 : own ? config.pow.signed : config.pow.response;
-  setStatus2(t("status.saving"));
+  if (own) return own;
+  if (!session) session = createSessionSigner();
+  return session;
+}
+function onSave() {
+  const formEl = $("#calc-form");
+  const error = $("#save-error");
+  if (!form || !formEl) return;
+  error.hidden = true;
+  if (missing(formEl).length) return gate();
+  const problem = withhold(formEl);
+  if (problem === "honeypot") {
+    $("#save-status").textContent = fmt(t("modal.saved"), { ok: 1, total: 1, id: "ok" });
+    return;
+  }
+  if (problem) {
+    error.textContent = t(`errors.${problem}`) || t("errors.unknown");
+    error.hidden = false;
+    return;
+  }
+  if (signIn?.current()) return save(signIn.current());
+  pendingSave = true;
+  openSign();
+}
+function onSession() {
+  closeSign();
+  if (pendingOpen) {
+    const pointer = pendingOpen;
+    pendingOpen = null;
+    if (hasSessionKey()) return restore(pointer, signerForSave());
+    setStatus2(t("errors.restore_locked"));
+    return;
+  }
+  if (!pendingSave) return;
+  pendingSave = false;
+  save(signerForSave());
+}
+function onSigner(signer) {
+  gate();
+  if (!signer) return;
+  closeSign();
+  if (pendingOpen) {
+    const pointer = pendingOpen;
+    pendingOpen = null;
+    return restore(pointer, signer);
+  }
+  if (!pendingSave) return;
+  pendingSave = false;
+  save(signer);
+}
+async function save(signer) {
+  const formEl = $("#calc-form");
+  const status = $("#save-status");
+  const result = fresh();
+  if (!result) return closeSave();
+  const contact = readContact(formEl);
+  const pow = dev.noPow ? 0 : signer.kind === "session" ? config.pow.response : config.pow.signed;
+  $("#save-submit").disabled = true;
+  status.textContent = t("status.saving");
   try {
-    const { ok, relays } = await submitResponse(form, {
+    const { event, ok, relays } = await submitResponse(form, {
       signer,
       values: valuesFor(result, contact),
       pow,
-      onProgress: ({ tries }) => setStatus2(fmt(t("status.mining"), { hashes: tries }))
+      onProgress: ({ tries }) => status.textContent = fmt(t("status.mining"), { hashes: tries })
     });
     sends.push(Date.now());
-    setStatus2(ok ? fmt(t("status.saved"), { ok, total: relays.length }) : t("status.failed"));
-    if (ok && Object.keys(contact).length) await tell(signer, result, contact);
+    status.textContent = ok ? fmt(t("modal.saved"), { ok, total: relays.length, id: event.id.slice(0, 12) }) : t("status.failed");
+    setStatus2(status.textContent);
+    if (ok) {
+      const hint = relays.find((r) => r.ok)?.url;
+      const nevent = neventEncode({ id: event.id, relays: hint ? [hint] : [], author: event.pubkey });
+      await tell(signer, result, contact, `${location.origin}${location.pathname}?nevent=${nevent}`);
+    }
   } catch (err) {
     console.warn("calculator: could not save", err);
-    setStatus2(t("status.failed"));
+    status.textContent = t("status.failed");
   } finally {
-    if (!own) signer.close();
+    gate();
   }
 }
-async function tell(signer, result, contact) {
+async function tell(signer, result, contact, open) {
+  const fingerprint = JSON.stringify([contact, result.link]);
+  if (fingerprint === lastLead) return;
   let recipient;
   try {
     recipient = pickRecipient(await loadRecipients(), config.lead_recipient);
@@ -1965,58 +2258,105 @@ async function tell(signer, result, contact) {
     result: { custodial: compact(result.typical.totals.custodial), noncustodial: compact(result.typical.totals.noncustodial) },
     link: result.link,
     contact,
-    fieldLabels: Object.fromEntries(Object.keys(result.inputs).map((k) => [k, { label: labelFor(k) }]))
+    fieldLabels: Object.fromEntries([...Object.keys(result.inputs), ...Object.keys(contact)].map((k) => [k, { label: labelFor(k) }])),
+    open
   });
   try {
-    await sendLead({ signer, recipient, subject: t("compose.subject"), content, pow: dev.noPow ? 0 : signer.kind === "guest" ? config.pow.anonymous : config.pow.signed });
+    await sendLead({ signer, recipient, subject: t("compose.subject"), content, pow: dev.noPow ? 0 : signer.kind === "session" ? config.pow.anonymous : config.pow.signed });
+    lastLead = fingerprint;
   } catch (err) {
     console.warn("calculator: could not notify", err);
   }
 }
-function onSubmit(event) {
-  event.preventDefault();
-  const formEl = event.currentTarget;
-  const result = run(readInputs(formEl), readOverrides());
-  if (!result) return;
-  if (withhold(formEl)) return;
-  void save(result, readContact(formEl));
-}
-function onRecalculate() {
-  markChanged();
-  run(readInputs($("#calc-form")), readOverrides(), { focus: true });
-}
-function onReset() {
-  writeOverrides({});
-  markChanged();
-}
-async function onShare() {
-  const link = $("#r-link");
-  if (!link) return;
+var copyTimer = null;
+async function onCopyUrl() {
+  const button = $("#save-copy");
+  const query2 = currentQuery();
+  const url = query2 ? `${location.origin}${location.pathname}?${query2}` : location.href;
   try {
-    await navigator.clipboard.writeText(link.value);
-    setStatus2(t("share_done"));
+    await navigator.clipboard.writeText(url);
   } catch {
-    link.select();
+    $("#save-status").textContent = url;
+    return;
   }
+  button.classList.add("is-copied");
+  clearTimeout(copyTimer);
+  copyTimer = setTimeout(() => button.classList.remove("is-copied"), 1800);
+}
+async function restore(pointer, signer) {
+  setStatus2(t("status.opening"));
+  const event = await fetchResponse(pointer, snapshot);
+  if (!event) return setStatus2(t("errors.restore_missing"));
+  const opened = await openResponse(event, { signer, snapshot, map });
+  if (opened.error) return setStatus2(t(`errors.${opened.error}`));
+  const v = opened.values;
+  const inputs = { mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, rev: v.rev, rails: v.rails, balances: v.balances, distribution: v.distribution, jur: v.jur };
+  for (const [area, hours] of Object.entries(v.engineering || {})) inputs[`eng_${area}`] = hours;
+  for (const [row, n] of Object.entries(v.moderation || {})) inputs[`mod_${row}`] = n;
+  for (const [row, share] of Object.entries(v.nostr || {})) inputs[`n_${row}`] = share;
+  let overrides = {};
+  try {
+    overrides = v.overrides ? JSON.parse(v.overrides) : {};
+  } catch {
+    overrides = {};
+  }
+  const formEl = $("#calc-form");
+  writeInputs(formEl, inputs);
+  writeOverrides(overrides);
+  writeContact(formEl, Object.fromEntries(CONTACT_KEYS.map((k) => [k, v[k]])));
+  if (v.test) test = v.test;
+  const result = run(inputs, overrides, { focus: false });
+  if (result) setStatus2(fmt(t("status.opened"), { when: new Date(event.created_at * 1e3).toLocaleString(), how: t(`status.opened_${opened.how}`) }));
+}
+function openFromLink(pointer) {
+  if (!form) return setStatus2(t("errors.restore_missing"));
+  if (hasSessionKey()) return restore(pointer, signerForSave());
+  pendingOpen = pointer;
+  setStatus2(t("errors.restore_locked"));
+  openSign();
 }
 function onEdit() {
   activateTab("app", { focus: true });
 }
 function wire() {
-  $("#calc-form")?.addEventListener("submit", onSubmit);
-  $("#r-share")?.addEventListener("click", onShare);
+  $("#calc-form")?.addEventListener("submit", onCalculate);
   $("#r-edit")?.addEventListener("click", onEdit);
   $("#a-reset")?.addEventListener("click", onReset);
   $("#a-recalc")?.addEventListener("click", onRecalculate);
-  for (const input of document.querySelectorAll(".assume-input")) input.addEventListener("change", markChanged);
-  wireTabs((name, opts) => activateTab(name, opts));
+  for (const input of $$(".assume-input")) {
+    input.addEventListener("change", markChanged);
+    input.addEventListener("change", onDirty);
+  }
+  $("#calc-form")?.addEventListener("input", onDirty);
+  $("#calc-form")?.addEventListener("change", onDirty);
+  $("#save-open")?.addEventListener("click", openSave);
+  $("#save-close")?.addEventListener("click", closeSave);
+  $("#save-submit")?.addEventListener("click", onSave);
+  $("#save-copy")?.addEventListener("click", onCopyUrl);
+  $("#save-modal")?.addEventListener("input", gate);
+  $("#save-modal")?.addEventListener("change", gate);
+  $("#sign-session")?.addEventListener("click", onSession);
+  $("#sign-cancel")?.addEventListener("click", () => {
+    pendingSave = false;
+    pendingOpen = null;
+    closeSign();
+  });
+  $("#sign-modal")?.addEventListener("close", () => {
+    pendingSave = false;
+    pendingOpen = null;
+  });
+  wireTabs(onTab);
   wireToggles();
+}
+function onReset() {
+  writeOverrides({});
+  markChanged();
+  dirty = true;
 }
 async function boot() {
   const formEl = $("#calc-form");
   if (!formEl) return;
   wire();
-  activateTab("app");
   wireSliders(formEl);
   const A = assumptions.assumptions;
   writeDefaults(formEl, {
@@ -2027,18 +2367,30 @@ async function boot() {
   });
   const opened = decode(location.search);
   test = opened.test;
-  if (opened.present) {
+  const pointer = decodePointer(new URLSearchParams(location.search).get("nevent"));
+  if (pointer) {
+    if (opened.present) {
+      writeInputs(formEl, opened.inputs);
+      writeOverrides(opened.overrides);
+    }
+    run(readInputs(formEl), readOverrides(), { focus: false });
+  } else if (opened.present) {
     writeInputs(formEl, opened.inputs);
     writeOverrides(opened.overrides);
     const result = run(opened.inputs, opened.overrides, { focus: false });
     if (result) setStatus2(t("status.shared"));
+    else activateTab("app");
+  } else {
+    const result = run(readInputs(formEl), readOverrides(), { focus: false });
+    if (result) history.replaceState(null, "", location.pathname);
   }
   if (form) {
-    const row = $("#sign-row");
-    if (row) row.hidden = false;
-    signIn = createSignIn();
+    const open = $("#save-open");
+    if (open) open.hidden = false;
+    signIn = createSignIn({ onChange: onSigner });
     signIn.wire();
     signIn.markExtension(await detectNip07());
+    if (pointer) openFromLink(pointer);
   }
   document.documentElement.dataset.calculator = "ready";
   document.documentElement.dataset.calculatorForm = form ? "ready" : "none";

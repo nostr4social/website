@@ -12,8 +12,10 @@ export {
   SimplePool,
   decodeNip19,
   npubEncode,
+  neventEncode,
   getConversationKey,
   nip44Encrypt,
+  nip44Decrypt,
   BunkerSigner,
   createNostrConnectURI,
 } from '/assets/js/vendor/nostr-tools/nostr-tools-2.25.2.esm.min.js'

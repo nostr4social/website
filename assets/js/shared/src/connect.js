@@ -46,14 +46,27 @@ export function markExtension(available) {
 
 // ── the remote-signer modal ──────────────────────────────────────────────────
 
+// The bunker UI is either a dialog of its own (#bunker-modal, on /contact/)
+// or a panel inside another dialog (#bunker-panel, in the calculator's sign
+// dialog). Either way the ids inside it are the same.
 export function openBunkerModal() {
   const dialog = $('#bunker-modal')
-  if (dialog && !dialog.open) dialog.showModal()
+  if (dialog) {
+    if (!dialog.open) dialog.showModal()
+    return
+  }
+  const panel = $('#bunker-panel')
+  if (panel) panel.hidden = false
 }
 
 export function closeBunkerModal() {
   const dialog = $('#bunker-modal')
-  if (dialog?.open) dialog.close()
+  if (dialog) {
+    if (dialog.open) dialog.close()
+    return
+  }
+  const panel = $('#bunker-panel')
+  if (panel) panel.hidden = true
 }
 
 export function renderConnect({ uri }) {

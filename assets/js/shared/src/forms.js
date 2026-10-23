@@ -161,4 +161,59 @@ export function buildResponses(map, values) {
   return out
 }
 
+/**
+ * The inverse of buildResponses: response tags back into values keyed like
+ * the map. An option answer becomes the value or list of values; a grid
+ * answer becomes { rowKey: columnValue }; anything unmapped is ignored.
+ */
+export function readResponses(map, tags) {
+  const byId = {}
+  for (const [key, f] of Object.entries(map.fields)) byId[f.id] = { key, ...f }
+  const flip = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [v, k]))
+  const values = {}
+  for (const tag of tags) {
+    if (!Array.isArray(tag) || tag[0] !== 'response') continue
+    const f = byId[tag[1]]
+    if (!f) continue
+    const raw = tag[2] ?? ''
+    if (f.rows) {
+      let cells
+      try {
+        cells = JSON.parse(raw)
+      } catch {
+        continue
+      }
+      const rows = flip(f.rows)
+      const cols = flip(f.columns)
+      const out = {}
+      for (const [rid, cid] of Object.entries(cells || {})) if (rows[rid] && cols[cid] != null) out[rows[rid]] = cols[cid]
+      values[f.key] = out
+    } else if (f.options) {
+      const opts = flip(f.options)
+      const list = raw.split(';').map((id) => opts[id]).filter((v) => v != null)
+      values[f.key] = list
+    } else {
+      values[f.key] = raw
+    }
+  }
+  return values
+}
+
+/**
+ * The form's secret from a formstr "My Forms" list (kind 14083), decrypted:
+ * a JSON list of ["f", "<pubkey>:<d>", relay, "<secret>[:<viewKey>]"].
+ * Returns the secret hex for this snapshot's form, or null.
+ */
+export function formSecretFromList(list, snapshot) {
+  const want = `${snapshot.pubkey}:${snapshot.d}`
+  for (const tag of Array.isArray(list) ? list : []) {
+    if (!Array.isArray(tag) || tag[0] !== 'f' || tag[1] !== want) continue
+    const secret = String(tag[3] || '').split(':')[0]
+    if (/^[0-9a-f]{64}$/.test(secret)) return secret
+  }
+  return null
+}
+
+export const KIND_MY_FORMS = 14083
+
 export const formAddress = (snapshot) => `${KIND_FORM}:${snapshot.pubkey}:${snapshot.d}`

@@ -1,7 +1,10 @@
 {%- comment -%}
-The Cost of Custody Calculator, in three tabs.
+The Cost of Custody Calculator, in three tabs and a modal.
 
-  Your App          the form, rendered from the published form event
+  Estimated Cost    the results: a hero figure, three tiles, the six-line
+                    table with paired bars, the parts, the doors. The page's
+                    front: a fresh page shows the defaults' estimate.
+  App Info          the form, rendered from the published form event
                     (_data/forms/calculator.yml) and nothing else: section
                     titles, questions, options, grid rows and columns are
                     the form's own words. _data/forms/map.yml says which
@@ -9,10 +12,14 @@ The Cost of Custody Calculator, in three tabs.
                     page's file says which numbers are drawn as sliders and
                     over which stops. The questions the page fills itself
                     (results, link, version, test) are not drawn.
-  Our Assumptions   every assumption as an editable row, rendered by Jekyll
+  Other Info        every assumption as an editable row, rendered by Jekyll
                     from _data/assumptions/v<N>.json, with Recalculate.
-  Your Cost         the results: a hero figure, three tiles, the six-line
-                    table with paired bars, the parts, the link, the doors.
+  Save & Share      a button outside the tabs, named by the form's own
+                    section, opening a modal with that section's questions,
+                    the sign-in doors, a consent line, Save to Nostr and
+                    Share Template. The section is the one that holds the
+                    email question, so renaming it in formstr changes only
+                    the button.
 
 Page chrome (tab names, buttons, the empty state, the sign-in row) is the
 page's copy in _data/pages/calculator.yml. Field ids are f-<key>, assumption
@@ -29,24 +36,30 @@ simply stack.
 {%- assign shared = site.data.assets.shared -%}
 {%- assign a = site.data.assets.calculator -%}
 {%- assign filled = "result_custodial,result_noncustodial,link,overrides,version,test" | split: "," -%}
+{%- comment -%} The Save & Share section: the one holding the email question. {%- endcomment -%}
+{%- assign email_id = map.fields.email.id -%}
+{%- assign share_section = nil -%}
+{%- for sec in form.sections -%}{%- if sec.questions contains email_id -%}{%- assign share_section = sec -%}{%- endif -%}{%- endfor -%}
 <div class="calc" id="calc">
 
-  <div class="tabs" role="tablist">
-    <button type="button" class="tab" role="tab" id="tab-app" aria-controls="panel-app" aria-selected="true">{{ s.tabs.app }}</button>
-    <button type="button" class="tab" role="tab" id="tab-assumptions" aria-controls="panel-assumptions" aria-selected="false" tabindex="-1">{{ s.tabs.assumptions }}</button>
-    <button type="button" class="tab" role="tab" id="tab-cost" aria-controls="panel-cost" aria-selected="false" tabindex="-1">{{ s.tabs.cost }}</button>
+  <div class="tabbar">
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab" role="tab" id="tab-cost" aria-controls="panel-cost" aria-selected="true">{{ s.tabs.cost }}</button>
+      <button type="button" class="tab tab--lit" role="tab" id="tab-app" aria-controls="panel-app" aria-selected="false" tabindex="-1">{{ s.tabs.app }}</button>
+      <button type="button" class="tab" role="tab" id="tab-assumptions" aria-controls="panel-assumptions" aria-selected="false" tabindex="-1">{{ s.tabs.assumptions }}</button>
+    </div>
+    {%- if share_section -%}
+    <button type="button" class="btn btn--primary btn--lg" id="save-open" hidden>{{ share_section.title }}</button>
+    {%- endif -%}
   </div>
 
-  {%- comment -%} ── Your App ───────────────────────────────────────────── {%- endcomment -%}
-  <section class="panel" id="panel-app" role="tabpanel" aria-labelledby="tab-app">
+  {%- comment -%} ── App Info ───────────────────────────────────────────── {%- endcomment -%}
+  <section class="panel" id="panel-app" role="tabpanel" aria-labelledby="tab-app" hidden>
   {%- if form -%}
   <form class="calc-form" id="calc-form" novalidate>
-    <div class="calc-form__head">
-      <h2 class="calc-form__title">{{ form.name }}</h2>
-      {%- if form.description != "" %}<p class="calc-form__lede">{{ form.description }}</p>{% endif -%}
-    </div>
 
     {%- for sec in form.sections -%}
+    {%- if share_section and sec.id == share_section.id %}{% continue %}{% endif -%}
     {%- comment -%} A section whose questions are all filled by the page (the results) is not drawn. {%- endcomment -%}
     {%- assign drawable = "" -%}
     {%- for qid in sec.questions -%}
@@ -63,83 +76,7 @@ simply stack.
         {%- unless key == nil or filled contains key -%}
         {%- for q in form.fields -%}{%- if q.id == qid -%}{%- assign field = q -%}{%- endif -%}{%- endfor -%}
         {%- assign stops = f.sliders[key] -%}
-
-        {%- if field.type == "grid" -%}
-          {%- comment -%} one stepped slider per row; the band values come from the map, in the form's column order {%- endcomment -%}
-          {%- capture values %}{% for col in field.columns %}{% for c in mapping.columns %}{% if c[1] == col.id %}{{ c[0] }}{% endif %}{% endfor %}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
-          {%- capture labels %}{% for col in field.columns %}{{ col.label }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
-          <fieldset class="field field--grid" id="field-{{ key }}">
-            <legend class="field__label">{% include lib/label.html text=field.label %}</legend>
-            <div class="sliders">
-              {%- for row in field.rows -%}
-              {%- assign rowkey = nil -%}
-              {%- for rk in mapping.rows -%}{%- if rk[1] == row.id -%}{%- assign rowkey = rk[0] -%}{%- endif -%}{%- endfor -%}
-              {%- if rowkey -%}
-              {%- assign name = key | append: "_" | append: rowkey -%}
-              {%- if key == "nostr" %}{% assign name = "n_" | append: rowkey %}{% endif -%}
-              {%- if key == "engineering" %}{% assign name = "eng_" | append: rowkey %}{% endif -%}
-              {%- if key == "moderation" %}{% assign name = "mod_" | append: rowkey %}{% endif -%}
-              {%- assign row_label = row.label -%}
-              <div class="slider-row" id="field-{{ name }}">
-                <label class="slider-row__label" for="f-{{ name }}">{% include lib/label.html text=row_label %}</label>
-                <div class="slider-row__control">
-                  <input class="slider" type="range" id="f-{{ name }}" name="{{ name }}" min="0" max="{{ field.columns.size | minus: 1 }}" step="1" value="0"
-                         data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ field.columns.first.label }}">
-                  <div class="slider__ticks" aria-hidden="true">
-                    {%- for col in field.columns -%}<span class="slider__tick">{{ col.label }}</span>{%- endfor -%}
-                  </div>
-                </div>
-                <output class="slider-row__value" for="f-{{ name }}">{{ field.columns.first.label }}</output>
-              </div>
-              {%- endif -%}
-              {%- endfor -%}
-            </div>
-          </fieldset>
-
-        {%- elsif field.type == "option" -%}
-          {%- assign multi = true -%}
-          {%- if field.render == "radioButton" or field.render == "dropdown" %}{% assign multi = false %}{% endif -%}
-          <fieldset class="field field--choices" id="field-{{ key }}">
-            <legend class="field__label">{% include lib/label.html text=field.label %}</legend>
-            <div class="choices">
-            {%- for opt in field.options -%}
-              {%- assign value = nil -%}
-              {%- for o in mapping.options -%}{%- if o[1] == opt.id -%}{%- assign value = o[0] -%}{%- endif -%}{%- endfor -%}
-              {%- if value -%}
-              {%- assign opt_label = opt.label -%}
-              <label class="choice">
-                <input type="{% if multi %}checkbox{% else %}radio{% endif %}" name="{{ key }}" value="{{ value }}" id="f-{{ key }}-{{ value }}">
-                <span class="choice__label">{% include lib/label.html text=opt_label %}</span>
-              </label>
-              {%- endif -%}
-            {%- endfor -%}
-            </div>
-          </fieldset>
-
-        {%- elsif stops -%}
-          {%- capture values %}{% for stop in stops %}{{ stop[0] }}{% unless forloop.last %},{% endunless %}{% endfor %}{% endcapture -%}
-          {%- capture labels %}{% for stop in stops %}{{ stop[1] }}{% unless forloop.last %}|{% endunless %}{% endfor %}{% endcapture -%}
-          <div class="field field--slider" id="field-{{ key }}">
-            <div class="slider-row slider-row--single">
-              <label class="slider-row__label field__label" for="f-{{ key }}">{% include lib/label.html text=field.label %}</label>
-              <div class="slider-row__control">
-                <input class="slider" type="range" id="f-{{ key }}" name="{{ key }}" min="0" max="{{ stops.size | minus: 1 }}" step="1" value="0"
-                       data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ stops.first[1] }}">
-                <div class="slider__ticks slider__ticks--ends" aria-hidden="true">
-                  <span class="slider__tick">{{ stops.first[1] }}</span>
-                  <span class="slider__tick">{% for stop in stops %}{% if forloop.last %}{{ stop[1] }}{% endif %}{% endfor %}</span>
-                </div>
-              </div>
-              <output class="slider-row__value" for="f-{{ key }}">{{ stops.first[1] }}</output>
-            </div>
-          </div>
-
-        {%- else -%}
-          <label class="field" id="field-{{ key }}">
-            <span class="field__label">{% include lib/label.html text=field.label %}</span>
-            <input class="field__input" id="f-{{ key }}" name="{{ key }}" type="text" autocomplete="off"{% if field.type == "number" %} inputmode="decimal"{% endif %}>
-          </label>
-        {%- endif -%}
+        {% include components/calculator-field.html field=field key=key mapping=mapping stops=stops %}
         {%- endunless -%}
       {%- endfor -%}
       </div>
@@ -158,31 +95,12 @@ simply stack.
       <button type="submit" class="btn btn--primary btn--lg" id="calc-submit">{{ f.submit.label }}</button>
     </div>
 
-    {%- comment -%} How the response is signed. Same ids as on /contact/, so the shared sign-in flow wires both. {%- endcomment -%}
-    <div class="signrow" id="sign-row" hidden>
-      <div class="sendrow__alt" id="sign-guest">
-        <p class="keyline">{% include lib/icon.html name="key" class="keyline__icon" %}<span>{{ f.sign.guest_note }}</span></p>
-        <button type="button" class="signlink" id="sign-bunker">{% include lib/icon.html name="key" class="keyline__icon" %}<span>{{ f.sign.bunker }}</span></button>
-        <button type="button" class="signlink" id="sign-extension">{% include lib/icon.html name="key" class="keyline__icon" %}<span>{{ f.sign.extension }}</span></button>
-        <p class="sendrow__status" id="sign-status" hidden role="status"></p>
-        <p class="contact__error contact__error--small" id="sign-error" hidden role="alert"></p>
-      </div>
-      <div class="identity" id="sign-signed" hidden>
-        <span class="identity__avatar">{% include lib/icon.html name="face" class="identity__glyph" %}</span>
-        <div class="identity__text">
-          <span class="identity__who"><b class="identity__name" id="identity-name"></b> <span class="identity__key code" id="identity-key"></span></span>
-          <span class="identity__note"><span id="identity-note"></span> <button type="button" class="linkbutton" id="sign-out">{{ f.sign.switch }}</button></span>
-        </div>
-      </div>
-    </div>
   </form>
-
-  {% include lib/bunker-modal.html %}
   {%- endif -%}
   </section>
 
-  {%- comment -%} ── Our Assumptions ────────────────────────────────────── {%- endcomment -%}
-  <section class="panel" id="panel-assumptions" role="tabpanel" aria-labelledby="tab-assumptions">
+  {%- comment -%} ── Other Info ─────────────────────────────────────────── {%- endcomment -%}
+  <section class="panel" id="panel-assumptions" role="tabpanel" aria-labelledby="tab-assumptions" hidden>
     <div class="assume" id="calc-assume">
       <h2 class="assume__title">{{ asm.title }}</h2>
       <p class="assume__intro">{{ asm.intro }}</p>
@@ -234,7 +152,7 @@ simply stack.
     </div>
   </section>
 
-  {%- comment -%} ── Your Cost ──────────────────────────────────────────── {%- endcomment -%}
+  {%- comment -%} ── Estimated Cost ─────────────────────────────────────── {%- endcomment -%}
   <section class="panel" id="panel-cost" role="tabpanel" aria-labelledby="tab-cost">
   <p class="panel__empty" id="r-empty">{{ s.tabs.empty }}</p>
   <section class="results" id="calc-results" hidden aria-labelledby="results-title">
@@ -312,14 +230,6 @@ simply stack.
     </table>
 
     <div class="results__actions">
-      <div class="share">
-        <button type="button" class="btn btn--primary" id="r-share">{{ r.actions.share.label }}</button>
-        <label class="share__link">
-          <span class="visually-hidden">{{ r.link_label }}</span>
-          <input class="field__input field__input--small code" id="r-link" type="text" readonly>
-        </label>
-        <span class="share__note">{{ r.actions.share.note }}</span>
-      </div>
       <div class="actions actions--flush">
         <a class="btn btn--secondary" id="r-contact" href="{{ s.config.contact_href | relative_url }}">{{ r.actions.contact.label }}</a>
         <button type="button" class="btn btn--ghost" id="r-edit">{{ r.actions.edit.label }}</button>
@@ -329,6 +239,63 @@ simply stack.
     <p class="results__version" id="r-version"></p>
   </section>
   </section>
+
+  {%- comment -%}
+    ── Save & Share ──────────────────────────────────────────────────────
+    Outside the tab panels, since a dialog inside a hidden panel cannot
+    show; its answers belong to the form by the `form` attribute. The
+    bunker modal carries a form of its own and sits beside it.
+  {%- endcomment -%}
+    {%- if share_section -%}
+    <dialog class="modal modal--save" id="save-modal" aria-labelledby="save-title">
+      <div class="modal__head">
+        <h2 class="modal__title" id="save-title">{{ share_section.title }}</h2>
+        <button type="button" class="linkbutton" id="save-close">{{ s.modal.close }}</button>
+      </div>
+      {%- if share_section.description != "" %}<p class="modal__lede">{{ share_section.description }}</p>{% endif -%}
+      <div class="modal__fields">
+      {%- for qid in share_section.questions -%}
+        {%- assign key = nil -%}
+        {%- for m in map.fields -%}{%- if m[1].id == qid -%}{%- assign key = m[0] -%}{%- assign mapping = m[1] -%}{%- endif -%}{%- endfor -%}
+        {%- unless key == nil or filled contains key -%}
+        {%- for q in form.fields -%}{%- if q.id == qid -%}{%- assign field = q -%}{%- endif -%}{%- endfor -%}
+        {%- assign stops = f.sliders[key] -%}
+        {%- if key == "email" -%}
+        {%- comment -%} The email and its consent line share one cell, so the line sits under the field. {%- endcomment -%}
+        <div class="modal__cell">
+        {% include components/calculator-field.html field=field key=key mapping=mapping stops=stops form_id="calc-form" %}
+        <label class="choice choice--consent">
+          <input type="checkbox" name="consent" value="yes" id="f-consent" form="calc-form">
+          <span class="choice__label">{{ s.modal.consent }}</span>
+        </label>
+        </div>
+        {%- else -%}
+        {% include components/calculator-field.html field=field key=key mapping=mapping stops=stops form_id="calc-form" %}
+        {%- endif -%}
+        {%- endunless -%}
+      {%- endfor -%}
+      </div>
+
+      {%- comment -%} Who signs, once someone has signed in with their own key. {%- endcomment -%}
+      <div class="identity" id="sign-signed" hidden>
+        <span class="identity__avatar">{% include lib/icon.html name="face" class="identity__glyph" %}</span>
+        <div class="identity__text">
+          <span class="identity__who"><b class="identity__name" id="identity-name"></b> <span class="identity__key code" id="identity-key"></span></span>
+          <span class="identity__note"><span id="identity-note"></span> <button type="button" class="linkbutton" id="sign-out">{{ s.modal.switch }}</button></span>
+        </div>
+      </div>
+
+      <div class="modal__actions">
+        <button type="button" class="btn btn--primary" id="save-submit" disabled>{{ s.modal.save }}</button>
+        <button type="button" class="linkbutton modal__copy" id="save-copy">{% include lib/icon.html name="copy" class="modal__copy-icon modal__copy-icon--idle" %}{% include lib/icon.html name="check" class="modal__copy-icon modal__copy-icon--done" %}<span>{{ s.modal.copy }}</span></button>
+      </div>
+      <p class="modal__needed" id="save-needed" role="status"></p>
+      <p class="modal__status" id="save-status" role="status"></p>
+      <p class="contact__error contact__error--small" id="save-error" hidden role="alert"></p>
+    </dialog>
+    {%- endif -%}
+
+  {%- if form %}{% include lib/sign-modal.html copy=s.modal.sign %}{% endif -%}
 
   {%- comment -%} Inert data, not executable. {%- endcomment -%}
   <script type="application/json" id="page-shared-strings">{{ site.data.blocks.signin_strings | jsonify }}</script>

@@ -73,7 +73,7 @@ export async function submitResponse(form, { signer, values, pow = 0, onProgress
 }
 
 /** The plaintext hello reads: the source line, the inputs, the figures, the link, the contact. */
-export function composeLead({ inputs, result, link, contact, fieldLabels }) {
+export function composeLead({ inputs, result, link, contact, fieldLabels, open }) {
   const lines = [t('compose.header'), '']
   for (const [key, v] of Object.entries(inputs)) {
     if (v == null || v === '' || (Array.isArray(v) && !v.length)) continue
@@ -82,8 +82,9 @@ export function composeLead({ inputs, result, link, contact, fieldLabels }) {
   lines.push('')
   lines.push(fmt(t('compose.results'), { custodial: result.custodial, noncustodial: result.noncustodial }))
   lines.push(fmt(t('compose.link'), { link }))
+  if (open) lines.push(fmt(t('compose.open'), { link: open }))
   lines.push('')
-  for (const key of ['name', 'company', 'email', 'npub']) if (contact[key]) lines.push(`${t(`compose.${key}`)}: ${contact[key]}`)
+  for (const key of ['app_name', 'company', 'contact_name', 'email']) if (contact[key]) lines.push(`${fieldLabels[key]?.label || key}: ${contact[key]}`)
   return lines.join('\n').trim()
 }
 

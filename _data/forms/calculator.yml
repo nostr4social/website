@@ -3,7 +3,7 @@
 # the build when the live template no longer matches it. The page submits
 # responses against the ids here and never fetches the template itself.
 
-naddr: naddr1qvzqqqr4mqpzp85tguhd488hwe52qaf4xnk39fa3ua8fwu65tvwdqtl8wm0ssz2eqy2hwumn8ghj7un9d3shjtnyv9kh2uewd9hj7qgwwaehxw309ahx7uewd3hkctcpr9mhxue69uhhyetvv9ujuumwdae8gtnnda3kjctv9uq3wamnwvaz7tmjv4kxz7fwwpexjmtpdshxuet59uq3uamnwvaz7tmjv4kxz7fwdehhxarj9emkjun9v3hx2apwdfcz7qgawaehxw309ahx7um5wgknqvfw09skk6tgdahxuefwvdhk6tcprpmhxue69uhhyetvv9ujuen0wfkhxarj9eshqup0qqfxxatnw3hkg7fdvdskccm4d3shgmmjyrz3t4
+naddr: naddr1qvzqqqr4mqpzp85tguhd488hwe52qaf4xnk39fa3ua8fwu65tvwdqtl8wm0ssz2eqy2hwumn8ghj7un9d3shjtnyv9kh2uewd9hj7qgwwaehxw309ahx7uewd3hkctcpzamhxue69uhhyetvv9ujuurjd9kkzmpwdejhgtcpr9mhxue69uhhyetvv9ujuumwdae8gtnnda3kjctv9uq3uamnwvaz7tmjv4kxz7fwdehhxarj9emkjun9v3hx2apwdfcz7qgawaehxw309ahx7um5wgknqvfw09skk6tgdahxuefwvdhk6tcprpmhxue69uhhyetvv9ujuen0wfkhxarj9eshqup0qqfxxatnw3hkg7fdvdskccm4d3shgmmjwxu5ly
 pubkey: 9e8b472eda9cf77668a0753534ed12a7b1e74e9773545b1cd02fe776df080959
 d: custody-calculator
 name: "Nostr4 : Calculate The Cost of Custody"
@@ -11,9 +11,10 @@ description: "calculator available online at https://nostr4.social/calculator"
 encrypted: false
 anonymous_allowed: true
 relays:
+  - wss://nostr.lol/
+  - wss://relay.primal.net/
   - wss://relay.formstr.app
   - wss://relay.damus.io/
-  - wss://relay.primal.net/
   - wss://nos.lol
   - wss://relay.nostr.wirednet.jp/
   - wss://nostr-01.yakihonne.com
@@ -46,8 +47,8 @@ sections:
     description: ""
     questions: [qPZrNj, C93CmL, iHHHuZ, LxmN8x, OHi8fq, XU5x6e]
   - id: 2vnN8v0y
-    title: "Personal Info"
-    description: ""
+    title: "Send & Share"
+    description: "Send your calculated results to us as a Nostr event, encrypted with your private key and visible only to Nostr4. We will follow up to schedule a free consult call and discuss your cost saving opportunities. Sign with your existing Nostr key to follow up with these results later."
     questions: [t3pia5, 5UFMyH, BBZoy9, PgP68U]
 fields:
   - id: OKIJzE
@@ -205,7 +206,7 @@ fields:
     type: text
     render: shortText
     required: false
-    label: "Your Name"
+    label: "App Name"
     options: []
   - id: 5UFMyH
     type: text
@@ -217,13 +218,13 @@ fields:
     type: text
     render: shortText
     required: false
-    label: "Email Address"
+    label: "Contact Name"
     options: []
   - id: PgP68U
     type: text
     render: shortText
     required: false
-    label: "Nostr npub"
+    label: "Contact Email"
     options: []
   - id: XU5x6e
     type: text

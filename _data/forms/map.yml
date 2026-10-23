@@ -70,8 +70,8 @@ fields:
   version: { id: OHi8fq }
   test: { id: XU5x6e }                     # set only from ?test= in the URL
 
-  # ── Personal Info (optional) ──────────────────────────────────────────────
-  name: { id: t3pia5 }
-  company: { id: 5UFMyH }
-  email: { id: BBZoy9 }
-  npub: { id: PgP68U }
+  # ── Save & Share (the contact details) ────────────────────────────────────
+  app_name: { id: t3pia5 }                 # App Name
+  company: { id: 5UFMyH }                  # Company Name
+  contact_name: { id: BBZoy9 }             # Contact Name
+  email: { id: PgP68U }                    # Contact Email

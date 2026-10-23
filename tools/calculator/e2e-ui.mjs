@@ -11,7 +11,8 @@ import { spawn } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { SimplePool, useWebSocketImplementation } from 'nostr-tools/pool'
-import { verifyEvent } from 'nostr-tools/pure'
+import { getPublicKey, verifyEvent } from 'nostr-tools/pure'
+import { hexToBytes } from '@noble/hashes/utils.js'
 import { getConversationKey, decrypt } from 'nostr-tools/nip44'
 import { getPow } from 'nostr-tools/nip13'
 import { withBrowser } from '../contact-bundle/cdp.mjs'
@@ -44,15 +45,19 @@ await withBrowser(async (api) => {
   // ── a fresh page ──────────────────────────────────────────────────────────
   await api.goto(`${BASE}/calculator/`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
-  check('results are hidden until a calculation', await api.eval(`document.getElementById('calc-results').hidden`))
-  check('three tabs, with Your App open', (await api.eval(`[...document.querySelectorAll('[role=tab]')].map(t => t.id + ':' + t.getAttribute('aria-selected')).join(' ')`)) === 'tab-app:true tab-assumptions:false tab-cost:false')
-  check('the other two panels are hidden', await api.eval(`document.getElementById('panel-assumptions').hidden && document.getElementById('panel-cost').hidden && !document.getElementById('panel-app').hidden`))
-  check('the form carries the published form\'s own words', (await api.eval(`(() => {
+  check('a fresh page opens on Estimated Cost with the defaults\' result', (await api.eval(`[...document.querySelectorAll('[role=tab]')].map(t => t.id + ':' + t.getAttribute('aria-selected')).join(' ') + ' ' + document.getElementById('calc-results').hidden + ' ' + document.getElementById('r-hero').textContent`)).startsWith('tab-cost:true tab-app:false tab-assumptions:false false $'))
+  const shareTitle = (await readSnapshot()).sections.find((sec) => sec.questions.includes('PgP68U')).title
+  check('the Save & Share button is named by the form\'s section and sits outside the tabs', (await api.eval(`document.getElementById('save-open').textContent.trim() + ':' + document.getElementById('save-open').hidden + ':' + Boolean(document.querySelector('.tabbar #save-open'))`)) === `${shareTitle}:false:true`, shareTitle)
+  check('the modal holds the section\'s questions and no section of that name is on the tab', (await api.eval(`[...document.querySelectorAll('#save-modal [name]')].map(i => i.name).join(' ') + ' | ' + [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim()).join(', ')`)) === 'app_name company contact_name email consent | Non Custody, Accounts & Storage, Staffing Costs, Payment Gateway, App Availability')
+  check('…without a results link in the address bar', (await api.eval(`location.search`)) === '')
+  check('the other two panels are hidden', await api.eval(`document.getElementById('panel-assumptions').hidden && document.getElementById('panel-app').hidden && !document.getElementById('panel-cost').hidden`))
+  await api.eval(`document.getElementById('tab-app').click()`)
+  check('the form carries the published form\'s own words and not its title', (await api.eval(`(() => {
     const legends = [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim())
-    const title = document.querySelector('.calc-form__title').textContent.trim()
+    const title = document.querySelector('.calc-form__title')?.textContent.trim()
     const q = document.querySelector('label[for=f-mau]').textContent.replace(/\\s+/g, ' ').trim()
     return title + ' | ' + legends.join(', ') + ' | ' + q
-  })()`)) === 'Nostr4 : Calculate The Cost of Custody | Non Custody, Accounts & Storage, Staffing Costs, Payment Gateway, App Availability, Personal Info | Number of Monthly Active Users (MAU)')
+  })()`)) === 'undefined | Non Custody, Accounts & Storage, Staffing Costs, Payment Gateway, App Availability | Number of Monthly Active Users (MAU)')
   check('the questions the page fills are not drawn', await api.eval(`!document.querySelector('[name=link], [name=test], [name=result_custodial], [name=version]')`))
   check('the required choices start with their defaults', await api.eval(`(() => {
     const on = [...document.querySelectorAll('#calc-form input:checked')].map(i => i.name + '=' + i.value).sort().join(' ')
@@ -105,7 +110,7 @@ await withBrowser(async (api) => {
       paymentsNC: row('payments').querySelector('.lt-value--nc').textContent,
       barMax: Math.max(...[...document.querySelectorAll('.bar--c')].map(b => parseFloat(b.style.getPropertyValue('--w')))),
       barNc: parseFloat(row('moderation').querySelector('.bar--nc').style.getPropertyValue('--w')),
-      link: $('#r-link').value,
+      link: location.href,
       contact: $('#r-contact').getAttribute('href'),
       url: location.search,
       error: $('#calc-error').hidden,
@@ -120,13 +125,26 @@ await withBrowser(async (api) => {
   check('no non-custodial line is zero', r.zeros === 0, `${r.zeros} zero lines`)
   check('the widest custodial bar is the full scale', Math.abs(r.barMax - 100) < 0.01, String(r.barMax))
   check('non-custodial bars share that scale', r.barNc > 0 && r.barNc < 100, String(r.barNc))
-  check('the results link carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.endsWith('v=1'), r.link)
-  check('the page URL is the same link', r.url.includes('mau=50000'), r.url)
+  check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.endsWith('v=1'), r.link)
   check('the contact door carries a subject and the inputs', r.contact.startsWith('/contact/?subject=') && r.contact.includes('mau%3D50000'), r.contact)
   check('sliders standing on "not given" stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('mod_vendor='), r.link)
   check('the version is named', r.version.includes('1'), r.version)
   check('the results heading took focus', r.focused === 'results-title', r.focused)
-  check('Calculate opened the Your Cost tab', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected') + ':' + document.getElementById('panel-cost').hidden + ':' + document.getElementById('panel-app').hidden`)) === 'true:false:true')
+  check('Calculate opened the Estimated Cost tab', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected') + ':' + document.getElementById('panel-cost').hidden + ':' + document.getElementById('panel-app').hidden`)) === 'true:false:true')
+
+  // ── a change, then opening Your Cost ─────────────────────────────────────
+  const heroBefore = await api.eval(`document.getElementById('r-hero').textContent`)
+  await api.eval(`{ document.getElementById('tab-app').click(); const s = document.querySelector('input[name=mau]'); s.value = s.dataset.values.split(',').indexOf('500000'); s.dispatchEvent(new Event('input', { bubbles: true })) }`)
+  check('a changed slider does not recompute by itself', (await api.eval(`document.getElementById('r-hero').textContent`)) === heroBefore)
+  await sleep(300)
+  check('…but the address bar follows it', (await api.eval(`location.search`)).includes('mau=500000'))
+  await api.eval(`document.getElementById('tab-cost').click()`)
+  await sleep(150)
+  const heroAfter = await api.eval(`document.getElementById('r-hero').textContent`)
+  check('opening Estimated Cost after a change recomputes', heroAfter !== heroBefore, `${heroBefore} → ${heroAfter}`)
+  await api.eval(`{ document.getElementById('tab-app').click(); const s = document.querySelector('input[name=mau]'); s.value = s.dataset.values.split(',').indexOf('50000'); s.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('tab-cost').click() }`)
+  await sleep(150)
+  check('…and back again', (await api.eval(`document.getElementById('r-hero').textContent`)) === heroBefore)
   check('the error cleared', r.error)
 
   // ── the parts ─────────────────────────────────────────────────────────────
@@ -153,21 +171,21 @@ await withBrowser(async (api) => {
   await sleep(200)
   const after = await api.eval(`({
     storage: document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent,
-    link: document.getElementById('r-link').value,
+    link: location.href,
     tab: document.getElementById('tab-cost').getAttribute('aria-selected'),
     status: document.getElementById('r-status').textContent,
   })`)
-  check('Recalculate recomputes the line and opens Your Cost', after.storage !== before && after.tab === 'true', `${before} → ${after.storage}`)
+  check('Recalculate recomputes the line and opens Estimated Cost', after.storage !== before && after.tab === 'true', `${before} → ${after.storage}`)
   check('the override travels in the link', after.link.includes('a.egress_gb_per_mau_month=5'), after.link)
   await api.eval(`document.getElementById('tab-assumptions').click(); document.getElementById('a-reset').click(); document.getElementById('a-recalc').click()`)
   await sleep(200)
   check('reset then Recalculate restores the typical value', (await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent`)) === before)
   await api.eval(`document.getElementById('r-edit').click()`)
-  check('Edit inputs returns to Your App', (await api.eval(`document.getElementById('tab-app').getAttribute('aria-selected')`)) === 'true')
+  check('Edit inputs returns to App Info', (await api.eval(`document.getElementById('tab-app').getAttribute('aria-selected')`)) === 'true')
   // leave the override in place for the shared-link check below
-  await api.eval(`document.getElementById('tab-assumptions').click(); const i = document.getElementById('a-egress_gb_per_mau_month'); i.value = '5'; i.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('a-recalc').click()`)
+  await api.eval(`{ document.getElementById('tab-assumptions').click(); const i = document.getElementById('a-egress_gb_per_mau_month'); i.value = '5'; i.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('a-recalc').click() }`)
   await sleep(200)
-  after.link = await api.eval(`document.getElementById('r-link').value`)
+  after.link = await api.eval(`location.href`)
 
   if (SHOTS) {
     await snap(api, join(SHOTS, 'calculator-1440.png'))
@@ -190,7 +208,7 @@ await withBrowser(async (api) => {
     url: location.search,
   })`)
   check('a results link opens straight to the results', !shared.hidden)
-  check('…on the Your Cost tab', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected')`)) === 'true')
+  check('…on the Estimated Cost tab', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected')`)) === 'true')
   check('…says nothing was submitted', shared.status.includes('Nothing was submitted'), shared.status)
   check('…fills the form from the link', shared.mau === '50000' && shared.ts === '25', `${shared.mau} ${shared.ts}`)
   check('…and the assumption override', shared.egress === '5', shared.egress)
@@ -228,22 +246,44 @@ await withBrowser(async (api) => {
         await sleep(1000)
       }
       check('the page carries the form', (await api.eval(`document.documentElement.dataset.calculatorForm`)) === 'ready')
-      check('the sign row is shown', !(await api.eval(`document.getElementById('sign-row').hidden`)))
 
-      await sleep(3200) // past the too-fast guard
       await api.eval(`(() => {
         const f = document.getElementById('calc-form')
         const slide = (name, value) => { const s = f.querySelector('input[name=' + name + ']'); s.value = s.dataset.values.split(',').indexOf(value); s.dispatchEvent(new Event('input', { bubbles: true })) }
         slide('mau', '10000'); slide('eng_infra', '25'); slide('n_media_storage', '0.5')
         f.querySelector('input[name=jur][value=us]').checked = true
-        f.elements.email.value = 'founder@example.com'
-        f.elements.company.value = 'Example'
-        f.requestSubmit()
+        document.getElementById('save-open').click()
       })()`)
-      await api.waitFor(`!document.getElementById('calc-results').hidden`)
-      await api.waitFor(`/Saved as a Nostr form response|Could not reach/.test(document.getElementById('r-status').textContent)`, { timeout: 60000 })
-      const status = await api.eval(`document.getElementById('r-status').textContent`)
-      check('the status reports the save', /Saved as a Nostr form response · 1 of 1 relays/.test(status), status)
+      check('Save & Share opens the modal with Send on (nothing is required) and the copy link on', (await api.eval(`document.getElementById('save-modal').open + ':' + document.getElementById('save-submit').disabled + ':' + document.getElementById('save-copy').disabled + ':' + document.getElementById('save-copy').textContent.trim()`)) === 'true:false:false:Copy URL for Sharing')
+      await api.send('Browser.grantPermissions', { permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'], origin: BASE })
+      await api.send('Page.bringToFront')
+      await sleep(300)
+      await api.eval(`document.getElementById('save-copy').click()`)
+      await sleep(300)
+      const copied = await api.eval(`document.getElementById('save-copy').className + ' | ' + location.search + ' | ' + document.getElementById('save-status').textContent`)
+      const clipboard = await api.eval(`navigator.clipboard.readText().catch(() => '')`)
+      check('the copy link copies the form\'s URL and shows the check', (copied.includes('is-copied') && clipboard.includes('mau=10000')) || copied.includes('?mau=10000') || copied.includes('&mau=10000'), copied + ' | clipboard: ' + clipboard)
+      check('…with nothing listed as needed', (await api.eval(`document.getElementById('save-needed').textContent`)) === '')
+      check('the modal was hidden before it was opened', !(await api.eval(`getComputedStyle(document.getElementById('sign-modal')).display !== 'none'`)))
+      check('the consent line sits right under the email field', (await api.eval(`document.getElementById('field-email').nextElementSibling.classList.contains('choice--consent')`)))
+      await api.eval(`(() => {
+        const f = document.getElementById('calc-form')
+        const set = (name, v) => { f.elements[name].value = v; f.elements[name].dispatchEvent(new Event('input', { bubbles: true })) }
+        set('app_name', 'Example App'); set('email', 'founder@example.com'); set('company', 'Example'); set('contact_name', 'Founder')
+      })()`)
+      check('required answers alone do not enable Save once an email is given; consent is needed', await api.eval(`document.getElementById('save-submit').disabled`))
+      check('the modal says what is still needed', (await api.eval(`document.getElementById('save-needed').textContent`)) === 'Still needed: your consent to email')
+      await api.eval(`{ const c = document.getElementById('f-consent'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })) }`)
+      check('consent enables Send', (await api.eval(`document.getElementById('save-submit').disabled`)) === false)
+      await sleep(3200) // past the too-fast guard
+      await api.eval(`document.getElementById('save-submit').click()`)
+      check('Save to Nostr asks how to sign', await api.eval(`document.getElementById('sign-modal').open && !document.getElementById('bunker-panel').hidden === false`))
+      check('the disposable key is explained', (await api.eval(`document.getElementById('sign-session').textContent`)).includes('Close the tab and it is gone'))
+      await api.eval(`document.getElementById('sign-session').click()`)
+      check('choosing it closes the sign dialog', !(await api.eval(`document.getElementById('sign-modal').open`)))
+      await api.waitFor(`/Sent · |Could not reach/.test(document.getElementById('save-status').textContent)`, { timeout: 60000 })
+      const status = await api.eval(`document.getElementById('save-status').textContent`)
+      check('the modal reports the send with the event id', /Sent · 1 of 1 relays · event [0-9a-f]{12}/.test(status), status)
 
       const got = await pool.querySync([RELAY], { kinds: [KIND_RESPONSE], '#a': [formAddress(snapshot)] }, { maxWait: 4000 })
       check('one kind 1069 landed on the relay', got.length === 1, String(got.length))
@@ -253,7 +293,9 @@ await withBrowser(async (api) => {
         const answers = JSON.parse(decrypt(ev.content, getConversationKey(fixture.secret, ev.pubkey)))
         const byId = Object.fromEntries(snapshot.fields.map((f) => [f.id, f.label]))
         const byLabel = Object.fromEntries(answers.map(([, id, v]) => [byId[id], v]))
-        check('the form secret decrypts the page\'s answers', byLabel['Number of Monthly Active Users (MAU)'] === '10000' && byLabel['Email Address'] === 'founder@example.com' && byLabel['Company Name'] === 'Example', JSON.stringify(byLabel))
+        check('the form secret decrypts the page\'s answers', byLabel['Number of Monthly Active Users (MAU)'] === '10000' && byLabel['Contact Email'] === 'founder@example.com' && byLabel['Company Name'] === 'Example' && byLabel['Contact Name'] === 'Founder' && byLabel['App Name'] === 'Example App', JSON.stringify(byLabel))
+        const stored = await api.eval(`sessionStorage.getItem('nostr4.session-key')`)
+        check('the response is signed by the tab\'s disposable key', Boolean(stored) && ev.pubkey === getPublicKey(hexToBytes(stored)), ev.pubkey.slice(0, 12))
         check('the computed figures and the link travel with the inputs', /^\d+$/.test(byLabel['Annual custodial cost (USD, typical)'] || '') && (byLabel['Results link'] || '').includes('mau=10000'), byLabel['Results link'])
         check('the test marker is blank when the URL had none', !('test' in byLabel))
         const eng = JSON.parse(byLabel['Software Engineering (hours per week)'] || '{}')
@@ -268,6 +310,35 @@ await withBrowser(async (api) => {
         if (!wraps.length) await sleep(1000)
       }
       check('a lead message was gift-wrapped to the inbox', wraps.length === 1 && getPow(wraps[0].id) >= 18, `${wraps.length} wraps`)
+      // A second save from the same tab comes from the same key and does not re-send the lead.
+      await api.eval(`{ const c = document.getElementById('f-consent'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('save-submit').click() }`)
+      await sleep(200)
+      await api.eval(`document.getElementById('sign-session').click()`)
+      await api.waitFor(`/Sent · /.test(document.getElementById('save-status').textContent) && document.getElementById('save-submit').disabled === false`, { timeout: 60000 })
+      await sleep(500)
+      const again = await pool.querySync([RELAY], { kinds: [KIND_RESPONSE], '#a': [formAddress(snapshot)] }, { maxWait: 4000 })
+      const wrapsAgain = await pool.querySync([RELAY], { kinds: [1059] }, { maxWait: 2000 })
+      check('a second save in the same tab comes from the same key', again.length === 2 && new Set(again.map((e) => e.pubkey)).size === 1, `${again.length} responses, ${new Set(again.map((e) => e.pubkey)).size} key(s)`)
+      check('an unchanged lead is not sent twice', wrapsAgain.length === 1, `${wrapsAgain.length} wraps`)
+
+      // ── opening the sent response from its link, in the same tab ──────────
+      const { neventEncode } = await import('nostr-tools/nip19')
+      const nevent = neventEncode({ id: ev.id, relays: [RELAY], author: ev.pubkey })
+      await api.goto(`${BASE}/calculator/?nevent=${nevent}&relay=${encodeURIComponent(RELAY)}`)
+      await api.waitFor(`/Opened a response sent/.test(document.getElementById('r-status').textContent) || /not found|sign in/i.test(document.getElementById('r-status').textContent)`, { timeout: 20000 })
+      const restored = await api.eval(`({
+        status: document.getElementById('r-status').textContent,
+        mau: (() => { const s = document.getElementById('f-mau'); return s.dataset.values.split(',')[s.value] })(),
+        email: document.getElementById('f-email').value,
+        tab: document.getElementById('tab-cost').getAttribute('aria-selected'),
+      })`)
+      check('the tab\'s key opens the sent response and fills the page', restored.status.includes('with the key that sent it') && restored.mau === '10000' && restored.email === 'founder@example.com' && restored.tab === 'true', JSON.stringify(restored))
+      await api.eval(`sessionStorage.clear()`)
+      await api.goto(`${BASE}/calculator/?nevent=${nevent}&relay=${encodeURIComponent(RELAY)}`)
+      await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+      await sleep(500)
+      check('without that key the page asks for a signer', (await api.eval(`document.getElementById('sign-modal').open + ':' + document.getElementById('r-status').textContent`)).startsWith('true:To open a sent response'))
+      await api.eval(`document.getElementById('sign-cancel').click()`)
     } finally {
       pool.destroy()
       stopRelay()

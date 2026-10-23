@@ -84,3 +84,19 @@
   color: var(--ink-3);
   font-size: var(--fs-s);
 }
+
+// A real disabled control, as opposed to the `btn--disabled` placeholder: dim,
+// no hover, and a cursor that says so.
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  background: var(--bg-2);
+  border-color: var(--line-strong);
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover,
+.btn[aria-disabled="true"]:hover {
+  background: var(--bg-2);
+  color: var(--ink-faint);
+}

@@ -121,11 +121,31 @@ sections:
 
     # ── the tabs ─────────────────────────────────────────────────────────────
     tabs:
-      app: Your App
-      assumptions: Our Assumptions
-      cost: Your Cost
+      cost: Estimated Cost
+      app: App Info
+      assumptions: Other Info
       # What the cost tab shows before anything has been calculated.
-      empty: Fill in Your App and press Calculate.
+      empty: Fill in App Info and press Calculate.
+
+    # ── the Save & Share modal ───────────────────────────────────────────────
+    # Its title, description and questions come from the form's own section;
+    # this is the chrome around them. Brief on purpose.
+    modal:
+      consent: You may email me about these results.
+      save: Send Results to Nostr4
+      copy: Copy URL for Sharing
+      close: Close
+      switch: Switch
+      # The dialog Save to Nostr opens: how the response is signed.
+      sign:
+        title: Sign the response
+        extension: With my browser extension
+        extension_note: Alby, nos2x, Amber. You can update or delete the response later from any Nostr client.
+        bunker: With my remote signer
+        bunker_note: nsec.app or any bunker. Same as above, approved on your signer.
+        session: Without a key
+        session_note: A disposable key made for this tab. Close the tab and it is gone; nothing can be updated or deleted later.
+        cancel: Cancel
 
     # ── the results ──────────────────────────────────────────────────────────
     results:
@@ -192,16 +212,10 @@ sections:
       implied: Benchmark-implied; nobody was given
       no_payments: No in-app payments
       actions:
-        share:
-          label: Share Results
-          note: >-
-            The link carries your inputs and any assumptions you changed.
-            Nothing about you.
         contact:
           label: Sanity-check this number with us
         edit:
           label: Edit inputs
-      link_label: Results link
 
     # ── the assumptions panel ────────────────────────────────────────────────
     assumptions:
@@ -249,8 +263,13 @@ sections:
       range_short: "{low} to {high}"
       per_mau_pair: "{custodial} today, {noncustodial} on Nostr"
       version: "Assumptions version {version}"
-      share_done: Link copied
       contact_subject: Cost of custody estimate
+      # What the Save & Share modal says at runtime.
+      modal:
+        needed: "Still needed: {list}"
+        consent_name: your consent to email
+        signed: Signed with your key. You can update or delete this later from any Nostr client.
+        saved: "Sent · {ok} of {total} relays · event {id}"
       changed: changed
       details:
         show: Show the parts
@@ -298,16 +317,18 @@ sections:
         saved: "Saved as a Nostr form response · {ok} of {total} relays"
         failed: Could not reach a relay to save your inputs. Your results are unaffected.
         shared: Opened from a results link. Nothing was submitted.
+        opening: Opening the saved response...
+        opened: "Opened a response sent {when}, {how}."
+        opened_responder: with the key that sent it
+        opened_holder: as its recipient
+        opened_plain: which was not encrypted
       # The message hello receives when a submission carries contact details.
       compose:
         header: "via nostr4.social/calculator:"
         subject: Cost of custody lead
         results: "Custodial {custodial} a year; on Nostr {noncustodial}."
         link: "Results: {link}"
-        name: Name
-        company: Company
-        email: Email
-        npub: Nostr
+        open: "Open in the calculator: {link}"
       errors:
         required: "{field} is required."
         invalid: "{field} has a value this page does not recognise."
@@ -315,6 +336,12 @@ sections:
         not_an_integer: "{field} must be a whole number."
         too_small: "{field} is too small."
         too_large: "{field} is larger than this model handles."
+        too_fast: That was quick. Give it a moment and send again.
+        restore_missing: That response was not found on the relays.
+        restore_locked: >-
+          To open a sent response, sign in with the key that sent it, or as
+          Nostr4.
+        rate_limited: That is three sends in ten minutes. Give it a rest.
         unknown: Something went wrong. Reload and try again.
       money:
         year: per year

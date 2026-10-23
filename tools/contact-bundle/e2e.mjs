@@ -31,8 +31,8 @@ const aliasVendor = {
       contents: `
         export { generateSecretKey, getPublicKey, finalizeEvent, getEventHash, verifyEvent } from 'nostr-tools/pure'
         export { SimplePool, useWebSocketImplementation } from 'nostr-tools/pool'
-        export { decode as decodeNip19, npubEncode } from 'nostr-tools/nip19'
-        export { getConversationKey, encrypt as nip44Encrypt } from 'nostr-tools/nip44'
+        export { decode as decodeNip19, npubEncode, neventEncode } from 'nostr-tools/nip19'
+        export { getConversationKey, encrypt as nip44Encrypt, decrypt as nip44Decrypt } from 'nostr-tools/nip44'
         export { BunkerSigner, createNostrConnectURI } from 'nostr-tools/nip46'
       `,
       resolveDir: root,

@@ -78,8 +78,10 @@ import {
   SimplePool,
   decodeNip19,
   npubEncode,
+  neventEncode,
   getConversationKey,
   nip44Encrypt,
+  nip44Decrypt,
   BunkerSigner,
   createNostrConnectURI
 } from "/assets/js/vendor/nostr-tools/nostr-tools-2.25.2.esm.min.js";
@@ -202,6 +204,7 @@ async function connectNip07() {
     pubkey,
     signEvent: (template) => window.nostr.signEvent(template),
     nip44Encrypt: (target, plaintext) => nip44.encrypt(target, plaintext),
+    nip44Decrypt: (target, ciphertext) => nip44.decrypt(target, ciphertext),
     close() {
     }
   };
@@ -252,6 +255,7 @@ async function wrapBunker(signer, clientSecretKey) {
     pubkey,
     signEvent: (template) => signer.signEvent(template),
     nip44Encrypt: (target, plaintext) => signer.nip44Encrypt(target, plaintext),
+    nip44Decrypt: (target, ciphertext) => signer.nip44Decrypt(target, ciphertext),
     async close() {
       try {
         await signer.close();
@@ -309,6 +313,10 @@ function createGuestSigner() {
     async nip44Encrypt(target, plaintext) {
       assertOpen();
       return nip44Encrypt(plaintext, getConversationKey(secretKey, target));
+    },
+    async nip44Decrypt(target, ciphertext) {
+      assertOpen();
+      return nip44Decrypt(ciphertext, getConversationKey(secretKey, target));
     },
     close() {
       open = false;
@@ -388,11 +396,21 @@ function markExtension(available) {
 }
 function openBunkerModal() {
   const dialog = $("#bunker-modal");
-  if (dialog && !dialog.open) dialog.showModal();
+  if (dialog) {
+    if (!dialog.open) dialog.showModal();
+    return;
+  }
+  const panel = $("#bunker-panel");
+  if (panel) panel.hidden = false;
 }
 function closeBunkerModal() {
   const dialog = $("#bunker-modal");
-  if (dialog?.open) dialog.close();
+  if (dialog) {
+    if (dialog.open) dialog.close();
+    return;
+  }
+  const panel = $("#bunker-panel");
+  if (panel) panel.hidden = true;
 }
 function renderConnect({ uri }) {
   const qrHost = $("#bunker-qr");
@@ -436,7 +454,7 @@ function createSignIn({ onChange } = {}) {
   function show2(mode) {
     const guest = $("#sign-guest");
     const signed = $("#sign-signed");
-    if (guest) guest.hidden = mode !== "guest";
+    if (guest && !guest.closest("dialog")) guest.hidden = mode !== "guest";
     if (signed) signed.hidden = mode !== "signed";
   }
   async function adopt(next) {

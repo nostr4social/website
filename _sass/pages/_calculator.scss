@@ -15,10 +15,21 @@
 
 // ── the tabs ─────────────────────────────────────────────────────────────────
 // Three panels, one shown at a time once the script runs; without it all
-// three stack, in order.
+// three stack, in order. The Save & Share button sits on the same rule.
+
+.tabbar {
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: var(--s-4);
+  justify-content: space-between;
+}
+
+.tabbar .btn {
+  margin-bottom: var(--s-2);
+}
 
 .tabs {
-  border-bottom: 1px solid var(--line);
   display: flex;
   gap: var(--s-2);
 }
@@ -33,6 +44,7 @@
   font-weight: var(--fw-ui);
   margin-bottom: -1px;
   padding: var(--s-3) var(--s-4);
+  white-space: nowrap;
 }
 
 .tab:hover {
@@ -42,6 +54,16 @@
 .tab[aria-selected="true"] {
   border-bottom-color: var(--purple-lift);
   color: var(--ink-0);
+}
+
+// The form's tab is the one to notice: the inputs are where the estimate comes from.
+.tab--lit {
+  color: var(--gold);
+}
+
+.tab--lit[aria-selected="true"] {
+  border-bottom-color: var(--gold);
+  color: var(--gold);
 }
 
 .tab:focus-visible {
@@ -639,25 +661,8 @@
   padding-top: var(--s-5);
 }
 
-.share {
-  align-items: center;
-  display: grid;
-  gap: var(--s-2) var(--s-4);
-  grid-template-columns: auto minmax(0, 1fr);
-  width: 100%;
-}
 
-.share__link {
-  display: block;
-  min-width: 0;
-}
 
-.share__note {
-  color: var(--ink-3);
-  font-size: var(--fs-xs);
-  grid-column: 2;
-  line-height: var(--lh-card);
-}
 
 .results__status,
 .results__version {
@@ -668,6 +673,177 @@
 
 .results__status:empty,
 .results__version:empty {
+  display: none;
+}
+
+// ── the Save & Share modal ───────────────────────────────────────────────────
+
+// A closed dialog stays hidden (the browser's own rule); an open one lays
+// its parts out in a column.
+.modal--save[open],
+.modal--sign[open] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.modal--save {
+  max-width: 40em;
+}
+
+.modal--sign {
+  max-width: 36em;
+}
+
+.modal--save .modal__head {
+  margin-bottom: 0;
+}
+
+.modal__lede {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+}
+
+.modal__fields {
+  display: grid;
+  gap: var(--s-3) var(--s-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.modal__cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.choice--consent {
+  font-size: var(--fs-xs);
+}
+
+.field__required {
+  color: var(--gold);
+}
+
+.modal__note {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+}
+
+.modal__actions {
+  align-items: center;
+  display: flex;
+  gap: var(--s-4);
+  justify-content: space-between;
+}
+
+// The copy link: plain weight, an icon that turns into a check once copied.
+.modal__copy {
+  align-items: center;
+  display: inline-flex;
+  font-weight: var(--fw-body);
+  gap: var(--s-2);
+}
+
+.modal__copy-icon {
+  height: 16px;
+  width: 16px;
+}
+
+.modal__copy-icon--done,
+.modal__copy.is-copied .modal__copy-icon--idle {
+  display: none;
+}
+
+.modal__copy.is-copied .modal__copy-icon--done {
+  color: var(--ok);
+  display: block;
+}
+
+// The sign dialog's three doors.
+.sign-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.sign-option {
+  align-items: flex-start;
+  background: var(--bg-0);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  color: var(--ink-1);
+  cursor: pointer;
+  display: flex;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  text-align: left;
+  width: 100%;
+}
+
+.sign-option:hover {
+  border-color: var(--purple-lift);
+}
+
+.sign-option:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.sign-option.is-missing {
+  opacity: 0.6;
+}
+
+.sign-option__icon {
+  color: var(--gold);
+  flex: none;
+  height: 20px;
+  margin-top: 2px;
+  width: 20px;
+}
+
+.sign-option__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sign-option__text b {
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+  font-weight: var(--fw-ui);
+}
+
+.sign-option__text span {
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+}
+
+.modal--sign .connect {
+  border-top: 1px solid var(--line);
+  padding-top: var(--s-4);
+}
+
+.modal__needed {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
+}
+
+.modal__needed:empty {
+  display: none;
+}
+
+.modal__status {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-card);
+  overflow-wrap: anywhere;
+}
+
+.modal__status:empty {
   display: none;
 }
 
@@ -845,12 +1021,34 @@ tr.is-changed .assume-input {
     flex-direction: column;
   }
 
-  .share {
-    grid-template-columns: minmax(0, 1fr);
+  .tabbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0;
   }
 
-  .share__note {
-    grid-column: 1;
+  .tabs {
+    gap: 0;
+    justify-content: space-between;
+  }
+
+  .tab {
+    font-size: var(--fs-s);
+    padding: var(--s-3) var(--s-2);
+  }
+
+  .tabbar .btn {
+    align-self: stretch;
+    margin: var(--s-3) 0;
+  }
+
+  .modal__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .modal__fields {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   // Each table row becomes a card: cells stack, and the column name comes

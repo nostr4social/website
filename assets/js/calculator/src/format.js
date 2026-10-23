@@ -19,9 +19,10 @@ export function compact(n) {
   return full.format(Math.round(n))
 }
 
+/** Up to three significant figures, with any trailing decimal zeros dropped. Whole numbers stay whole: 210 is 210, not 21. */
 function trim(x) {
   const s = x >= 100 ? x.toFixed(0) : x >= 10 ? x.toFixed(1) : x.toFixed(2)
-  return s.replace(/\.?0+$/, '')
+  return s.includes('.') ? s.replace(/\.?0+$/, '') : s
 }
 
 export function perMau(n) {

@@ -13,9 +13,10 @@ import { build } from 'esbuild'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { generateSecretKey, verifyEvent } from 'nostr-tools/pure'
+import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools/pure'
 import { SimplePool, useWebSocketImplementation } from 'nostr-tools/pool'
-import { getConversationKey, decrypt } from 'nostr-tools/nip44'
+import { getConversationKey, decrypt, encrypt } from 'nostr-tools/nip44'
+import { bytesToHex } from '@noble/hashes/utils.js'
 import { getPow } from 'nostr-tools/nip13'
 import { root, readMap, readSnapshot, parseTemplate, formAddress, KIND_FORM, KIND_RESPONSE, checkMap } from './lib.mjs'
 import { fixtureTemplate, localRelay } from './fixture.mjs'
@@ -49,16 +50,16 @@ try {
 
   // ── the page's submit module, bundled for node ────────────────────────────
   const dir = await mkdtemp(join(tmpdir(), 'nostr4-form-e2e-'))
-  const strings = { compose: { header: 'via test:', subject: 'lead', results: '{custodial} / {noncustodial}', link: 'link {link}', name: 'Name', company: 'Company', email: 'Email', npub: 'Nostr' } }
-  const config = { relays: { fallback_dm: [RELAY], discovery: [RELAY] }, timeouts: { publish: 4000, discovery: 1000 }, pow: { response: 12 } }
+  const strings = { compose: { header: 'via test:', subject: 'lead', results: '{custodial} / {noncustodial}', link: 'link {link}', open: 'open {link}' } }
+  const config = { relays: { fallback_dm: [RELAY], discovery: [RELAY] }, timeouts: { publish: 4000, discovery: 2000 }, pow: { response: 12 } }
   const shim = join(dir, 'shim.mjs')
   await writeFile(shim, `
     globalThis.document = { getElementById: (id) => ({ textContent: id === 'page-strings' ? ${JSON.stringify(JSON.stringify(strings))} : id === 'page-config' ? ${JSON.stringify(JSON.stringify(config))} : null }) }
-    globalThis.location = { hostname: 'example.test', search: '' }
+    globalThis.location = { hostname: 'localhost', search: '?relay=${RELAY}' }
     globalThis.Worker = undefined
   `)
   const entry = join(dir, 'entry.mjs')
-  await writeFile(entry, `import '${shim}'\nexport * from '${resolve(root, 'assets/js/calculator/src/submit.js')}'\nexport { createGuestSigner } from '${resolve(root, 'assets/js/shared/src/signers.js')}'\n`)
+  await writeFile(entry, `import '${shim}'\nexport * from '${resolve(root, 'assets/js/calculator/src/submit.js')}'\nexport * as restore from '${resolve(root, 'assets/js/calculator/src/restore.js')}'\nexport { createGuestSigner } from '${resolve(root, 'assets/js/shared/src/signers.js')}'\nexport { readResponses, formSecretFromList } from '${resolve(root, 'assets/js/shared/src/forms.js')}'\n`)
   const out = join(dir, 'bundle.mjs')
   await build({
     entryPoints: [entry],
@@ -78,8 +79,8 @@ try {
           contents: `
             export { generateSecretKey, getPublicKey, finalizeEvent, getEventHash, verifyEvent } from 'nostr-tools/pure'
             export { SimplePool, useWebSocketImplementation } from 'nostr-tools/pool'
-            export { decode as decodeNip19, npubEncode } from 'nostr-tools/nip19'
-            export { getConversationKey, encrypt as nip44Encrypt } from 'nostr-tools/nip44'
+            export { decode as decodeNip19, npubEncode, neventEncode } from 'nostr-tools/nip19'
+            export { getConversationKey, encrypt as nip44Encrypt, decrypt as nip44Decrypt } from 'nostr-tools/nip44'
             export { BunkerSigner, createNostrConnectURI } from 'nostr-tools/nip46'
           `,
           resolveDir: root,
@@ -122,12 +123,34 @@ try {
   check('a grid answer is JSON of row id to column id', eng[map.fields.engineering.rows.accounts] === map.fields.engineering.columns['5'] && eng[map.fields.engineering.rows.infra] === map.fields.engineering.columns['25'] && Object.keys(eng).length === 2, byLabel[label('engineering')])
   const nostr = JSON.parse(byLabel[label('nostr')])
   check('a half answer maps to the Somewhat column', nostr[map.fields.nostr.rows.media_storage] === map.fields.nostr.columns['0.5'])
-  check('blank values are left out', !(label('name') in byLabel) && !(label('test') in byLabel) && !(label('legal_usd') in byLabel) && !(label('balances') in byLabel))
+  check('blank values are left out', !(label('app_name') in byLabel) && !(label('test') in byLabel) && !(label('legal_usd') in byLabel) && !(label('balances') in byLabel))
   check('a stranger cannot decrypt it', (() => { try { decrypt(got.content, getConversationKey(generateSecretKey(), got.pubkey)); return false } catch { return true } })())
 
   // ── the lead message ──────────────────────────────────────────────────────
   const text = m.composeLead({ inputs: { mau: 50000, jur: ['eu', 'us'] }, result: { custodial: '$968k', noncustodial: '$266k' }, link: 'https://x', contact: { email: 'founder@example.com' }, fieldLabels: { mau: { label: 'Monthly active users' } } })
-  check('the lead text names the source, the inputs, the figures, the link and the contact', text.startsWith('via test:') && text.includes('Monthly active users: 50000') && text.includes('jur: eu, us') && text.includes('$968k / $266k') && text.includes('link https://x') && text.endsWith('Email: founder@example.com'), text)
+  check('the lead text names the source, the inputs, the figures, the link and the contact', text.startsWith('via test:') && text.includes('Monthly active users: 50000') && text.includes('jur: eu, us') && text.includes('$968k / $266k') && text.includes('link https://x') && text.endsWith('email: founder@example.com'), text)
+
+  // ── reading a response back ───────────────────────────────────────────────
+  const back = m.readResponses(map, answers)
+  check('response tags read back into values keyed like the map', back.mau === '50000' && back.rails.join() === 'apple,processor' && back.engineering.accounts === '5' && back.engineering.infra === '25' && back.nostr.media_storage === '0.5' && back.email === 'founder@example.com', JSON.stringify(back))
+
+  // The responder opens it with the key that sent it.
+  const asResponder = await m.restore.openResponse(got, { signer, snapshot, map })
+  check('the responder\'s key opens the response', asResponder.how === 'responder' && asResponder.values.mau === '50000', JSON.stringify(asResponder.error || asResponder.how))
+  const stranger = m.createGuestSigner()
+  const asStranger = await m.restore.openResponse(got, { signer: stranger, snapshot, map })
+  check('a stranger\'s key cannot', asStranger.error === 'restore_locked')
+
+  // The form holder opens it through their My Forms list (kind 14083), as formstr.app would.
+  const holderSecret = generateSecretKey()
+  const holderPub = getPublicKey(holderSecret)
+  const list = [['f', `${snapshot.pubkey}:${snapshot.d}`, RELAY, bytesToHex(formSecret)]]
+  const listEvent = finalizeEvent({ kind: 14083, created_at: Math.floor(Date.now() / 1000), tags: [], content: encrypt(JSON.stringify(list), getConversationKey(holderSecret, holderPub)) }, holderSecret)
+  await Promise.allSettled(pool.publish([RELAY], listEvent))
+  const holder = { kind: 'nip07', pubkey: holderPub, nip44Decrypt: async (target, ciphertext) => decrypt(ciphertext, getConversationKey(holderSecret, target)) }
+  check('the form\'s secret is found in the holder\'s list', m.formSecretFromList(list, snapshot) === bytesToHex(formSecret))
+  const asHolder = await m.restore.openResponse(got, { signer: holder, snapshot, map })
+  check('the holder\'s key opens it through the list', asHolder.how === 'holder' && asHolder.values.email === 'founder@example.com', JSON.stringify(asHolder.error || asHolder.how))
 
   signer.close()
   pool.destroy()
