@@ -29,7 +29,11 @@ import { compact } from './format.js'
 import { composeLead, prepareForm, sendLead, submitResponse } from './submit.js'
 import {
   activateTab,
+  clearFocus,
+  closeHow,
+  focusAssumptions,
   markChanged,
+  openHow,
   readOverrides,
   renderResults,
   setError,
@@ -88,9 +92,6 @@ function run(raw, overrides, { focus = true } = {}) {
   const query = encode(result.inputs, result.overrides, result.version)
   result.link = `${location.origin}${location.pathname}?${query}`
   history.replaceState(null, '', `?${query}${test ? `&test=${encodeURIComponent(test)}` : ''}`)
-
-  const contact = $('#r-contact')
-  if (contact) contact.href = `${config.contact_href}?${new URLSearchParams({ subject: t('contact_subject'), calc: query })}`
 
   showResults(true, { focus })
   return result
@@ -472,6 +473,18 @@ function wire() {
   })
   wireTabs(onTab)
   wireToggles()
+  // A part in a savings list explains itself; the dialog's one action opens the assumptions it rests on.
+  $('#r-table')?.addEventListener('click', (e) => {
+    const button = e.target.closest('button.part')
+    if (button && current) openHow(button.dataset.line, button.dataset.part, current, assumptions)
+  })
+  $('#how-close')?.addEventListener('click', closeHow)
+  $('#how-adjust')?.addEventListener('click', () => {
+    closeHow()
+    activateTab('assumptions', { focus: true })
+    focusAssumptions()
+  })
+  $('#a-filter-clear')?.addEventListener('click', clearFocus)
 }
 
 function onReset() {

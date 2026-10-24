@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const data = JSON.parse(await readFile(resolve(root, '_data/assumptions/v1.json'), 'utf8'))
-const { calculate, evaluate, resolveAssumptions, project, rampShare, LINES, SCENARIOS, YEARS, MARKER_YEAR, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
+const { calculate, evaluate, resolveAssumptions, project, rampShare, nudge, LINE_FUNCTIONS, PART_ASSUMPTIONS, LINES, SCENARIOS, YEARS, MARKER_YEAR, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
 const { encode, decode } = await import(resolve(root, 'assets/js/calculator/src/codec.js'))
 const { INPUTS, InputError } = await import(resolve(root, 'assets/js/calculator/src/inputs.js'))
 const { compact, compactNumber } = await import(resolve(root, 'assets/js/calculator/src/format.js'))
@@ -311,6 +311,71 @@ await test('the Nostr path starts at today\'s cost and the gaps add up to the cu
   let gaps = 0
   for (const q of p) gaps += q.custodial - q.path
   assert.ok(Math.abs(gaps - r.totals.five_year) < 1e-6)
+})
+
+await test('the lines\' average savings add up to the average saving, in every scenario', () => {
+  const r = calculate({ ...base, growth: '0.25' }, data)
+  for (const s of SCENARIOS) {
+    const sum = LINES.reduce((acc, l) => acc + r[s].lines[l].average, 0)
+    assert.ok(Math.abs(sum - r[s].totals.average) < 1e-6, `${s}: ${sum} vs ${r[s].totals.average}`)
+    assert.ok(Math.abs(r[s].totals.average - r[s].totals.five_year / YEARS) < 1e-6)
+    for (const l of LINES) assert.ok(r[s].lines[l].average >= -1e-6, `${l} never negative`)
+  }
+})
+
+await test('a payments line on store rails alone gets a peer-to-peer nudge; one with a p2p rail does not', () => {
+  const stores = calculate({ ...base, rails: ['apple', 'google'], rev: 10000 }, data).typical
+  assert.ok(stores.lines.payments.nudge && stores.lines.payments.nudge.id === 'p2p' && stores.lines.payments.nudge.amount > 0, JSON.stringify(stores.lines.payments.nudge))
+  assert.ok(stores.lines.payments.average < 1, 'the line itself saves nothing')
+  const p2p = calculate({ ...base, rails: ['apple', 'p2p'], rev: 10000 }, data).typical
+  assert.equal(p2p.lines.payments.nudge, null)
+  const none = calculate({ ...base, rails: [], rev: 0 }, data).typical
+  assert.equal(none.lines.payments.nudge, null)
+  const processor = calculate({ ...base, rails: ['processor'], rev: 10000 }, data).typical
+  assert.equal(processor.lines.payments.nudge, null, 'a processor rail already saves')
+  assert.equal(nudge('accounts', normalizeInputs(base), resolveAssumptions(data, 'typical'), stores.lines.accounts), null)
+})
+
+await test('what remains on Nostr follows what the app hosts: age checks, moderation, tooling and content law keep only a share', () => {
+  const v = resolveAssumptions(data, 'typical')
+  const r = evaluate(normalizeInputs({ ...base, jur: ['uk', 'us'], mod_inhouse: '5' }), v)
+  const verify = r.lines.accounts.parts.find((p) => p.id === 'verify')
+  assert.ok(Math.abs(verify.noncustodial - verify.custodial * v.verify_remains_share) < 1e-6)
+  const tooling = r.lines.moderation.parts.find((p) => p.id === 'tooling')
+  assert.ok(Math.abs(tooling.noncustodial - tooling.custodial * v.tooling_remains_share) < 1e-6)
+  const labels = r.lines.moderation.parts.find((p) => p.id === 'labels')
+  assert.equal(labels.custodial, 0)
+  assert.ok(labels.noncustodial > 0, 'a label provider is the Nostr-native cost')
+  const programs = r.lines.compliance.parts.find((p) => p.id === 'privacy_programs')
+  const contentLaw = v.uk_osa_year
+  assert.ok(Math.abs(programs.noncustodial - (contentLaw * v.content_law_remains_share + (v.gdpr_program_year + v.us_privacy_year_small) * v.privacy_remains_share)) < 1e-6)
+  // In the low scenario no age check remains, yet the accounts line still costs something on Nostr.
+  const low = evaluate(normalizeInputs({ ...base, jur: ['uk'] }), resolveAssumptions(data, 'low'))
+  assert.equal(low.lines.accounts.parts.find((p) => p.id === 'verify').noncustodial, 0)
+  assert.ok(low.lines.accounts.noncustodial > 0)
+})
+
+await test('the part → assumptions map says exactly which assumptions each line reads', () => {
+  // Inputs that walk every branch: all regions, every rail, balances held, given and defaulted bands, reported spend or not, above and below the CCPA threshold.
+  const variants = [
+    normalizeInputs({ ...base, jur: ['eu', 'uk', 'us', 'other'], rails: ['p2p', 'apple', 'google', 'processor', 'reseller'], rev: 50000, balances: ['yes'], mod_inhouse: '5', mod_vendor: '5' }),
+    normalizeInputs({ mau: 10000000, jur: ['us'], rails: ['apple'], rev: 200000, legal_usd: 50000 }),
+    normalizeInputs({ mau: 1000, jur: ['other'] }),
+    normalizeInputs({ mau: 1000, jur: ['other'], rails: ['google'], rev: 200000 }),
+  ]
+  const v = resolveAssumptions(data, 'typical')
+  for (const line of LINES) {
+    const read = new Set()
+    const recorder = new Proxy(v, { get: (target, key) => { if (typeof key === 'string') read.add(key); return target[key] } })
+    for (const inputs of variants) LINE_FUNCTIONS[line](inputs, recorder)
+    const listed = new Set(Object.entries(PART_ASSUMPTIONS).filter(([k]) => k.startsWith(`${line}.`)).flatMap(([, keys]) => keys))
+    for (const key of read) assert.ok(listed.has(key), `${line} reads ${key} but no part lists it`)
+    for (const key of listed) assert.ok(read.has(key), `${line} lists ${key} but never reads it`)
+    for (const key of listed) assert.ok(key in data.assumptions, `${line} lists ${key}, which is not in the file`)
+  }
+  // Every part that can appear has an entry.
+  const r = calculate(variants[0], data).typical
+  for (const line of LINES) for (const p of r.lines[line].parts) assert.ok(PART_ASSUMPTIONS[`${line}.${p.id}`], `${line}.${p.id} has no entry`)
 })
 
 await test('growth is a band, and an unknown band is refused', () => {

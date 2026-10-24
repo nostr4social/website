@@ -731,16 +731,18 @@ function cleanOverrides(data, overrides = {}) {
 var loadedHourly = (v) => v.eng_base_salary * v.loaded_multiplier * v.overhead_multiplier / HOURS_PER_YEAR;
 var loadedYear = (base, v) => base * v.loaded_multiplier * v.overhead_multiplier;
 var num = (x) => x == null || x === "" ? null : Number(x);
-function engHoursYear(area, inputs, v) {
+function engHoursWeek(area, inputs, v) {
   const given = num(inputs[`eng_${area}`]);
-  const defaults = {
-    accounts: v.default_hours_accounts,
-    content: v.default_hours_content,
-    infra: v.default_hours_infra,
-    legal: v.default_hours_legal
-  };
-  const weekly = given != null ? given : defaults[area];
-  return weekly * WEEKS_PER_YEAR;
+  if (given != null) return given;
+  if (area === "accounts") return v.default_hours_accounts;
+  if (area === "content") return v.default_hours_content;
+  if (area === "infra") return v.default_hours_infra;
+  return v.default_hours_legal;
+}
+function engineering(area, inputs, v) {
+  const hours = engHoursWeek(area, inputs, v);
+  const hourly = loadedHourly(v);
+  return { cost: hours * WEEKS_PER_YEAR * hourly, hours, hourly, defaulted: num(inputs[`eng_${area}`]) == null };
 }
 function nostrShares(inputs) {
   const g = (k) => num(inputs[k]) ?? 0;
@@ -769,12 +771,13 @@ function accounts(inputs, v) {
     has(inputs, "other") ? v.verify_share_other : 0
   );
   const verify = mau * verifyShare * v.verify_price;
-  const eng = engHoursYear("accounts", inputs, v) * loadedHourly(v);
+  const eng = engineering("accounts", inputs, v);
   const parts = [
     part("auth", mau * v.auth_per_mau_month * 12, 0),
     part("resets", mau * v.reset_rate_per_mau_year * v.reset_cost, 0),
-    part("verify", verify, verify, { rate: verifyShare }),
-    part("engineering", eng, 0, { defaulted: num(inputs.eng_accounts) == null }),
+    // Age assurance becomes a layer the app reads (store, wallet) rather than buys; a share remains.
+    part("verify", verify, verify * v.verify_remains_share, { rate: verifyShare }),
+    part("engineering", eng.cost, 0, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
     part("key_support", 0, mau * v.key_support_per_mau_year)
   ];
   return { parts };
@@ -782,25 +785,27 @@ function accounts(inputs, v) {
 function graph(inputs, v) {
   const { mau } = inputs;
   const dbGb = mau * v.db_mb_per_mau / 1024 + posts(inputs) * RETENTION_MONTHS * v.db_kb_per_post / 1024 / 1024;
-  const eng = engHoursYear("content", inputs, v) * loadedHourly(v);
+  const eng = engineering("content", inputs, v);
   const parts = [
-    part("database", dbGb * v.db_gb_month * 12, 0, { gb: dbGb }),
+    part("database", dbGb * v.db_gb_month * 12, 0, { gb: dbGb, posts: posts(inputs) }),
     part("feed_compute", mau * v.compute_per_mau_year * v.feed_compute_share, 0),
-    part("engineering", eng, eng * v.graph_eng_remains_share, { defaulted: num(inputs.eng_content) == null }),
+    part("engineering", eng.cost, eng.cost * v.graph_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
     part("ranking", 0, mau * v.ranking_fee_per_mau_year)
   ];
   return { parts };
 }
 function storage(inputs, v) {
   const { mau, mb } = inputs;
-  const blob = mau * mb / 1024 * v.blob_gb_month * 12;
-  const egress = mau * v.egress_gb_per_mau_month * v.egress_gb * 12;
-  const eng = engHoursYear("infra", inputs, v) * loadedHourly(v);
+  const blobGb = mau * mb / 1024;
+  const blob = blobGb * v.blob_gb_month * 12;
+  const egressGb = mau * v.egress_gb_per_mau_month * 12;
+  const egress = egressGb * v.egress_gb;
+  const eng = engineering("infra", inputs, v);
   const parts = [
-    part("blob", blob, blob * v.media_sponsor_share),
-    part("egress", egress, egress * v.media_sponsor_share),
-    part("serving", mau * v.compute_per_mau_year * (1 - v.feed_compute_share), mau * v.cache_per_mau_year),
-    part("engineering", eng, 0, { defaulted: num(inputs.eng_infra) == null }),
+    part("blob", blob, blob * v.media_sponsor_share, { gb: blobGb }),
+    part("egress", egress, egress * v.media_sponsor_share, { gb: egressGb }),
+    part("serving", mau * v.compute_per_mau_year * (1 - v.feed_compute_share), mau * v.cache_per_mau_year, { share: 1 - v.feed_compute_share }),
+    part("engineering", eng.cost, 0, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
     part("relay", 0, v.relay_cost_year)
   ];
   return { parts };
@@ -821,18 +826,18 @@ function compliance(inputs, v) {
   let programsRemain;
   if (reported != null && reported > 0) {
     programs = reported;
-    programsRemain = Math.min(reported, contentLaw) + Math.max(0, reported - contentLaw) * v.privacy_remains_share;
+    programsRemain = Math.min(reported, contentLaw) * v.content_law_remains_share + Math.max(0, reported - contentLaw) * v.privacy_remains_share;
   } else {
     programs = gdpr + usp + contentLaw;
-    programsRemain = contentLaw + (gdpr + usp) * v.privacy_remains_share;
+    programsRemain = contentLaw * v.content_law_remains_share + (gdpr + usp) * v.privacy_remains_share;
   }
-  const legal = engHoursYear("legal", inputs, v) * loadedHourly(v);
+  const legal = engineering("legal", inputs, v);
   const dsar = eu || uk || us ? mau * v.dsar_rate_per_mau_year * v.dsar_cost : 0;
   const breach = v.breach_prob_year * Math.min(v.breach_cost_cap, mau * v.breach_cost_per_user);
   const breachRemains = v.breach_prob_year * Math.min(v.breach_cost_cap, mau * v.retained_data_share * v.breach_cost_per_user);
   const parts = [
-    part("privacy_programs", programs, programsRemain, { us_tier: usTier, reported: reported != null && reported > 0 }),
-    part("legal_labour", legal, legal * v.privacy_remains_share, { defaulted: num(inputs.eng_legal) == null }),
+    part("privacy_programs", programs, programsRemain, { us_tier: usTier, reported: reported != null && reported > 0, gdpr, osa, dsa, usp, content_law: contentLaw }),
+    part("legal_labour", legal.cost, legal.cost * v.privacy_remains_share, { defaulted: legal.defaulted, hours: legal.hours, hourly: legal.hourly }),
     part("dsar", dsar, 0),
     part("insurance", v.cyber_insurance_year, v.cyber_insurance_year * v.insurance_remains_share),
     part("breach", breach, breachRemains)
@@ -845,21 +850,25 @@ function moderation(inputs, v) {
   const vendor = num(inputs.mod_vendor) ?? 0;
   let labour;
   let people;
+  let loaded;
   let implied = false;
   if (inhouse > 0 || vendor > 0) {
-    labour = inhouse * loadedYear(v.ts_base_salary, v) + vendor * v.moderator_seat_outsourced;
+    loaded = loadedYear(v.ts_base_salary, v);
+    labour = inhouse * loaded + vendor * v.moderator_seat_outsourced;
     people = inhouse + vendor;
   } else {
     people = mau / 1e6 * v.mods_per_million_mau;
-    labour = people * loadedYear(v.moderator_base_salary, v);
+    loaded = loadedYear(v.moderator_base_salary, v);
+    labour = people * loaded;
     implied = true;
   }
   const appeals = labour * v.appeals_share;
   const tooling = mau * v.ts_tooling_per_mau_year;
   const parts = [
-    part("labour", labour, labour * v.moderation_remains_share, { implied, people }),
+    part("labour", labour, labour * v.moderation_remains_share, { implied, people, inhouse, vendor, loaded }),
     part("appeals", appeals, appeals * v.moderation_remains_share),
-    part("tooling", tooling, tooling)
+    part("tooling", tooling, tooling * v.tooling_remains_share),
+    part("labels", 0, mau * v.label_provider_per_mau_year)
   ];
   return { parts, implied };
 }
@@ -877,10 +886,10 @@ function payments(inputs, v) {
       parts.push(part(`store_${rail}`, rev * rate, rev * rate, { rate, tier: small ? "small" : "standard", revenue: rev }));
     } else if (rail === "processor") {
       const fee = rev * v.processor_rate + rev / v.avg_ticket * v.processor_fixed;
-      parts.push(part("processor", fee, rev * v.lightning_rate, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev }));
+      parts.push(part("processor", fee, rev * v.lightning_rate, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev, tickets: rev / v.avg_ticket }));
     } else if (rail === "reseller") {
       const fee = rev * v.reseller_rate + rev / v.avg_ticket * v.reseller_fixed;
-      parts.push(part("reseller", fee, rev * v.lightning_rate, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev }));
+      parts.push(part("reseller", fee, rev * v.lightning_rate, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev, tickets: rev / v.avg_ticket }));
     } else {
       const fee = rev * v.lightning_rate;
       parts.push(part("p2p", fee, fee, { rate: v.lightning_rate, revenue: rev }));
@@ -891,6 +900,38 @@ function payments(inputs, v) {
   return { parts, tier: small ? "small" : "standard" };
 }
 var LINE_FN = { accounts, graph, storage, compliance, moderation, payments };
+var PEOPLE = ["eng_base_salary", "loaded_multiplier", "overhead_multiplier"];
+var PART_ASSUMPTIONS = {
+  "accounts.auth": ["auth_per_mau_month"],
+  "accounts.resets": ["reset_rate_per_mau_year", "reset_cost"],
+  "accounts.verify": ["verify_share_uk", "verify_share_us", "verify_share_eu", "verify_share_other", "verify_price", "verify_remains_share"],
+  "accounts.engineering": [...PEOPLE, "default_hours_accounts"],
+  "accounts.key_support": ["key_support_per_mau_year"],
+  "graph.database": ["db_mb_per_mau", "db_kb_per_post", "db_gb_month"],
+  "graph.feed_compute": ["compute_per_mau_year", "feed_compute_share"],
+  "graph.engineering": [...PEOPLE, "default_hours_content", "graph_eng_remains_share"],
+  "graph.ranking": ["ranking_fee_per_mau_year"],
+  "storage.blob": ["blob_gb_month", "media_sponsor_share"],
+  "storage.egress": ["egress_gb_per_mau_month", "egress_gb", "media_sponsor_share"],
+  "storage.serving": ["compute_per_mau_year", "feed_compute_share", "cache_per_mau_year"],
+  "storage.engineering": [...PEOPLE, "default_hours_infra"],
+  "storage.relay": ["relay_cost_year"],
+  "compliance.privacy_programs": ["gdpr_program_year", "uk_osa_year", "dsa_year", "us_privacy_year_small", "us_privacy_year_large", "ccpa_consumer_threshold", "content_law_remains_share", "privacy_remains_share"],
+  "compliance.legal_labour": [...PEOPLE, "default_hours_legal", "privacy_remains_share"],
+  "compliance.dsar": ["dsar_rate_per_mau_year", "dsar_cost"],
+  "compliance.insurance": ["cyber_insurance_year", "insurance_remains_share"],
+  "compliance.breach": ["breach_prob_year", "breach_cost_cap", "breach_cost_per_user", "retained_data_share"],
+  "moderation.labour": ["ts_base_salary", "moderator_base_salary", "moderator_seat_outsourced", "mods_per_million_mau", "loaded_multiplier", "overhead_multiplier", "moderation_remains_share"],
+  "moderation.appeals": ["appeals_share", "moderation_remains_share"],
+  "moderation.tooling": ["ts_tooling_per_mau_year", "tooling_remains_share"],
+  "moderation.labels": ["label_provider_per_mau_year"],
+  "payments.store_apple": ["apple_rate_standard", "apple_rate_small", "store_small_threshold"],
+  "payments.store_google": ["google_rate_standard", "google_rate_small", "store_small_threshold"],
+  "payments.processor": ["processor_rate", "processor_fixed", "avg_ticket", "lightning_rate"],
+  "payments.reseller": ["reseller_rate", "reseller_fixed", "avg_ticket", "lightning_rate"],
+  "payments.p2p": ["lightning_rate"],
+  "payments.money_transmitter": ["mt_avoidance_year", "mt_remains_share"]
+};
 function evaluate(inputs, v) {
   const shares = nostrShares(inputs);
   const lines = {};
@@ -933,7 +974,17 @@ function rampShare(year, months) {
 function project(inputs, v, today = evaluate(inputs, v)) {
   const given = num(inputs.growth);
   let rate = given != null ? given : v.growth_default;
-  const points = [{ year: 0, users: inputs.mau, rate: 0, custodial: today.totals.custodial, noncustodial: today.totals.noncustodial, path: today.totals.custodial, saving: today.totals.saving, share: 0, realised: 0, cumulative: 0 }];
+  const perLine = (r, share) => Object.fromEntries(
+    LINES.map((name) => {
+      const l = r.lines[name];
+      const parts = l.parts.map((q) => {
+        const custodial = q.custodial - l.share * (q.custodial - q.noncustodial);
+        return { id: q.id, custodial, noncustodial: q.noncustodial, realised: (custodial - q.noncustodial) * share };
+      });
+      return [name, { custodial: l.custodial, noncustodial: l.noncustodial, realised: (l.custodial - l.noncustodial) * share, parts }];
+    })
+  );
+  const points = [{ year: 0, users: inputs.mau, rate: 0, custodial: today.totals.custodial, noncustodial: today.totals.noncustodial, path: today.totals.custodial, saving: today.totals.saving, share: 0, realised: 0, cumulative: 0, lines: perLine(today, 0) }];
   let users = inputs.mau;
   let cumulative = 0;
   for (let year = 1; year <= YEARS; year++) {
@@ -944,9 +995,16 @@ function project(inputs, v, today = evaluate(inputs, v)) {
     const share = rampShare(year, v.migration_months);
     const realised = r.totals.saving * share;
     cumulative += realised;
-    points.push({ year, users, rate, custodial: r.totals.custodial, noncustodial: r.totals.noncustodial, path: r.totals.custodial - realised, saving: r.totals.saving, share, realised, cumulative });
+    points.push({ year, users, rate, custodial: r.totals.custodial, noncustodial: r.totals.noncustodial, path: r.totals.custodial - realised, saving: r.totals.saving, share, realised, cumulative, lines: perLine(r, share) });
   }
   return points;
+}
+function nudge(name, inputs, v, line) {
+  if (name !== "payments" || line.none || inputs.rails.includes("p2p")) return null;
+  if (line.custodial - line.noncustodial >= 1) return null;
+  const withP2p = evaluate({ ...inputs, rails: [...inputs.rails, "p2p"] }, v).lines.payments;
+  const amount = line.custodial - withP2p.noncustodial;
+  return amount >= 1 ? { id: "p2p", amount } : null;
 }
 function calculate(rawInputs, data, rawOverrides = {}) {
   const inputs = normalizeInputs(rawInputs);
@@ -958,6 +1016,21 @@ function calculate(rawInputs, data, rawOverrides = {}) {
     r.projection = project(inputs, v, r);
     r.totals.five_year = r.projection[YEARS].cumulative;
     r.totals.marker_year = r.projection[MARKER_YEAR].cumulative;
+    r.totals.average = r.totals.five_year / YEARS;
+    for (const name of LINES) {
+      const line = r.lines[name];
+      const years = r.projection.slice(1);
+      line.five_year = years.reduce((acc, p) => acc + p.lines[name].realised, 0);
+      line.average = line.five_year / YEARS;
+      line.avg_custodial = years.reduce((acc, p) => acc + p.lines[name].custodial, 0) / YEARS;
+      line.avg_noncustodial = years.reduce((acc, p) => acc + p.lines[name].custodial - p.lines[name].realised, 0) / YEARS;
+      for (const part2 of line.parts) {
+        const each = years.map((p) => p.lines[name].parts.find((q) => q.id === part2.id)).filter(Boolean);
+        part2.avg_custodial = each.reduce((acc, q) => acc + q.custodial, 0) / YEARS;
+        part2.avg_noncustodial = each.reduce((acc, q) => acc + q.custodial - q.realised, 0) / YEARS;
+      }
+      line.nudge = nudge(name, inputs, v, line);
+    }
     out[s] = r;
   }
   return out;
@@ -2097,6 +2170,107 @@ async function sendLead({ signer, recipient, subject, content, pow = 0, onProgre
   }
 }
 
+// assets/js/calculator/src/explain.js
+function fill(template, vars) {
+  return String(template).replace(/\{([a-z]\.[a-z_0-9]+)\}/g, (m, key) => vars[key] == null ? m : String(vars[key]));
+}
+function formatValue(v, unit = "") {
+  if (/^ratio/.test(unit)) return percent(v);
+  if (unit === "multiplier") return `${number(v)}\xD7`;
+  if (/^USD/.test(unit)) return v < 100 ? perMau(v) : money(v);
+  if (unit === "months") return `${number(v)} months`;
+  return number(v);
+}
+function variant(line, part2) {
+  if (part2.id === "engineering") return `engineering_${line}`;
+  if (part2.id === "labour") return part2.implied ? "labour_implied" : "labour_given";
+  if (part2.id === "privacy_programs") return part2.reported ? "privacy_programs_reported" : "privacy_programs";
+  if (part2.id === "money_transmitter") return part2.holds ? "money_transmitter_holds" : "money_transmitter";
+  return part2.id;
+}
+var MONEY = /* @__PURE__ */ new Set(["custodial", "noncustodial", "revenue", "loaded", "gdpr", "osa", "dsa", "usp", "content_law"]);
+var PERCENT = /* @__PURE__ */ new Set(["rate", "share"]);
+var CENTS = /* @__PURE__ */ new Set(["hourly", "fixed"]);
+function partVars(part2) {
+  const out = {};
+  for (const [k, v] of Object.entries(part2)) {
+    if (typeof v !== "number") continue;
+    out[`p.${k}`] = MONEY.has(k) ? money(v) : PERCENT.has(k) ? percent(v) : CENTS.has(k) ? perMau(v) : number(v);
+  }
+  return out;
+}
+function relevantKeys(line, part2, inputs) {
+  const keys = PART_ASSUMPTIONS[`${line}.${part2.id}`] || [];
+  const jur = inputs.jur || [];
+  return keys.filter((key) => {
+    const m = key.match(/^verify_share_(\w+)$/);
+    if (m) return jur.includes(m[1]);
+    if (key === "gdpr_program_year") return jur.includes("eu") || jur.includes("uk");
+    if (key === "uk_osa_year") return jur.includes("uk");
+    if (key === "dsa_year") return jur.includes("eu");
+    if (key === "us_privacy_year_small") return part2.us_tier === "small";
+    if (key === "us_privacy_year_large") return part2.us_tier === "large";
+    if (key === "ccpa_consumer_threshold") return jur.includes("us");
+    if (/^default_hours_/.test(key)) return Boolean(part2.defaulted);
+    if (/_rate_small$/.test(key)) return part2.tier === "small";
+    if (/_rate_standard$/.test(key)) return part2.tier === "standard";
+    if (key === "ts_base_salary") return !part2.implied;
+    if (key === "moderator_seat_outsourced") return !part2.implied;
+    if (key === "moderator_base_salary" || key === "mods_per_million_mau") return Boolean(part2.implied);
+    if (key === "mt_avoidance_year" || key === "mt_remains_share") return Boolean(part2.holds);
+    return true;
+  });
+}
+function explain(line, part2, { inputs, values, overrides = {}, data }) {
+  const v = values;
+  const vars = {
+    ...partVars(part2),
+    "i.mau": number(inputs.mau),
+    "i.mb": number(inputs.mb),
+    "i.posts_per_user": number(inputs.posts_per_user),
+    "i.rev": money(inputs.rev || 0),
+    "i.legal_usd": money(inputs.legal_usd || 0),
+    "d.weeks": number(WEEKS_PER_YEAR),
+    "d.retention": number(RETENTION_MONTHS),
+    "d.rev_year": money((inputs.rev || 0) * 12),
+    "d.tier": part2.tier ? t(`details.tier_${part2.tier}`) : "",
+    "d.programs": programsList(part2)
+  };
+  for (const [key, a] of Object.entries(data.assumptions)) vars[`a.${key}`] = formatValue(v[key], a.unit);
+  const which = variant(line, part2);
+  const f = t(`how.formulas.${which}`) || t(`how.formulas.${part2.id}`) || {};
+  const assumptions2 = relevantKeys(line, part2, inputs).map((key) => {
+    const a = data.assumptions[key];
+    return {
+      key,
+      label: a.label,
+      unit: a.unit,
+      value: formatValue(v[key], a.unit),
+      low: formatValue(a.low, a.unit),
+      high: formatValue(a.high, a.unit),
+      confidence: a.confidence,
+      changed: key in overrides
+    };
+  });
+  return {
+    label: t(`parts.${part2.id}`, part2.id),
+    today: fill(f.today || "", vars),
+    nostr: fill(f.nostr || "", vars),
+    // What the savings list shows: the same part averaged over the five projected years.
+    averaged: part2.avg_custodial != null ? fill(t("how.averaged"), { "p.custodial": money(part2.avg_custodial), "p.noncustodial": money(part2.avg_noncustodial) }) : "",
+    assumptions: assumptions2
+  };
+}
+function programsList(part2) {
+  if (part2.id !== "privacy_programs") return "";
+  const items = [];
+  if (part2.gdpr) items.push(`${t("how.programs.gdpr")} ${money(part2.gdpr)}`);
+  if (part2.osa) items.push(`${t("how.programs.osa")} ${money(part2.osa)}`);
+  if (part2.dsa) items.push(`${t("how.programs.dsa")} ${money(part2.dsa)}`);
+  if (part2.usp) items.push(`${t(`how.programs.us_${part2.us_tier}`)} ${money(part2.usp)}`);
+  return items.join(" + ") || t("how.programs.none");
+}
+
 // assets/js/calculator/src/ui.js
 var range = (low, high) => fmt(t("range_short"), { low: compact(low), high: compact(high) });
 function renderResults(result, { own = false } = {}) {
@@ -2105,7 +2279,7 @@ function renderResults(result, { own = false } = {}) {
   const whose = $("#r-whose-text");
   if (whose) whose.textContent = fmt(t(own ? "whose.yours" : "whose.illustrative"), { mau: number(inputs.mau) });
   const link = $("#r-whose-link");
-  if (link) link.textContent = t(own ? "whose.adjust" : "whose.make_yours");
+  if (link) link.textContent = t("whose.link");
   text("#r-permau-c", perMau(T.per_mau_custodial));
   text("#r-permau-c-range", fmt(t("range"), { low: perMau(low.totals.per_mau_custodial), high: perMau(high.totals.per_mau_custodial) }));
   text("#r-permau-nc", perMau(T.per_mau_noncustodial));
@@ -2115,25 +2289,33 @@ function renderResults(result, { own = false } = {}) {
   text("#r-version", fmt(t("version"), { version: result.version }));
   drawCharts({ typical: typical.projection, low: low.projection });
   renderYears(typical.projection);
-  const scale = Math.max(...LINES.map((l) => typical.lines[l].custodial), 1);
+  text("#r-total", compact(T.average));
+  const cut = (c, nc) => c > 0 ? Math.min(1, Math.max(0, 1 - nc / c)) : 0;
+  const total = cut(T.custodial, T.noncustodial);
+  $(".lt-total .share")?.style.setProperty("--w", `${100 * total}%`);
+  text(".lt-total .share__pct", percent(total));
   for (const name of LINES) {
     const line = typical.lines[name];
     const row = $(`.lt-row[data-line="${name}"]`);
     if (!row) continue;
+    const nudged = Boolean(line.nudge) && line.average < 1;
     row.classList.toggle("is-already", Boolean(line.already));
     row.classList.toggle("is-none", Boolean(line.none));
+    row.classList.toggle("is-nudged", nudged);
     show($(".lt-flag--already", row), Boolean(line.already));
     show($(".lt-flag--partly", row), Boolean(line.partly));
-    show($(".lt-flag--implied", row), Boolean(line.implied));
     show($(".lt-flag--none", row), Boolean(line.none));
-    const c = $(".lt-value--c", row);
-    const nc = $(".lt-value--nc", row);
-    c.textContent = money(line.custodial);
-    nc.textContent = money(line.noncustodial);
-    c.nextElementSibling.textContent = line.none ? "" : range(low.lines[name].custodial, high.lines[name].custodial);
-    nc.nextElementSibling.textContent = line.none ? "" : range(low.lines[name].noncustodial, high.lines[name].noncustodial);
-    $(".bar--c", row).style.setProperty("--w", `${100 * line.custodial / scale}%`);
-    $(".bar--nc", row).style.setProperty("--w", `${100 * line.noncustodial / scale}%`);
+    const saving = $(".lt-saving", row);
+    const rangeNode = $(".lt-saving-range", row);
+    const nudgeNode = $(".lt-nudge", row);
+    saving.textContent = line.none ? "" : money(line.average);
+    rangeNode.textContent = line.none || nudged ? "" : range(low.lines[name].average, high.lines[name].average);
+    nudgeNode.textContent = nudged ? fmt(t(`nudges.${line.nudge.id}`), { amount: compact(line.nudge.amount) }) : "";
+    show(saving, !nudged && !line.none);
+    show(nudgeNode, nudged);
+    const share = line.none ? 0 : cut(line.custodial, line.noncustodial);
+    $(".share", row).style.setProperty("--w", `${100 * share}%`);
+    text(`.lt-row[data-line="${name}"] .share__pct`, line.none ? "" : percent(share));
     renderParts(name, line, inputs);
   }
 }
@@ -2153,30 +2335,91 @@ function renderYears(projection) {
 function renderParts(name, line, inputs) {
   const host = $(`.lt-parts[data-line="${name}"] .parts`);
   if (!host) return;
+  text(`.lt-parts[data-line="${name}"] .parts__total-c`, money(line.avg_custodial));
+  text(`.lt-parts[data-line="${name}"] .parts__total-nc`, money(line.avg_noncustodial));
   clear(host);
   for (const p of line.parts) {
     const meta = partMeta(p, inputs);
     host.append(
-      el("li", { class: "part" }, [
-        el("span", { class: "part__label" }, [
-          t(`parts.${p.id}`, p.id),
-          meta ? el("span", { class: "part__meta", text: meta }) : null
-        ]),
-        el("span", { class: "part__nums" }, [
-          money(p.custodial),
-          " \u2192 ",
-          el("b", { text: money(p.noncustodial) })
+      el("li", {}, [
+        // A link-styled button: pressing it explains how the figure was made.
+        el("button", { type: "button", class: "part", "data-line": name, "data-part": p.id, "aria-haspopup": "dialog" }, [
+          el("span", { class: "part__label" }, [
+            t(`parts.${p.id}`, p.id),
+            meta ? el("span", { class: "part__meta", text: meta }) : null
+          ]),
+          el("span", { class: "part__nums" }, [
+            money(p.avg_custodial),
+            " \u2192 ",
+            el("b", { text: money(p.avg_noncustodial) })
+          ])
         ])
       ])
     );
   }
 }
+var howKeys = [];
+var howLabel = "";
+function openHow(line, partId, result, data) {
+  const dialog = $("#how-modal");
+  const part2 = result.typical.lines[line]?.parts.find((p) => p.id === partId);
+  if (!dialog || !part2) return;
+  const values = Object.fromEntries(Object.entries(data.assumptions).map(([k, a]) => [k, k in result.overrides ? result.overrides[k] : a.typical]));
+  const info = explain(line, part2, { inputs: result.inputs, values, overrides: result.overrides, data });
+  howKeys = info.assumptions.map((a) => a.key);
+  howLabel = info.label;
+  text("#how-part", info.label);
+  text("#how-line", $(`.lt-row[data-line="${line}"] .lt-title`)?.textContent.trim() || line);
+  text("#how-today", info.today);
+  text("#how-nostr", info.nostr);
+  text("#how-averaged", info.averaged);
+  const list = $("#how-list");
+  clear(list);
+  for (const a of info.assumptions) {
+    list.append(
+      el("li", { class: "how__item" }, [
+        el("span", { class: "how__label" }, [a.label, a.changed ? el("span", { class: "how__changed", text: t("how.changed") }) : null]),
+        el("span", { class: "how__value" }, [
+          el("b", { text: a.value }),
+          el("span", { class: "how__meta", text: fmt(t("how.meta"), { low: a.low, high: a.high, confidence: t(`how.confidence.${a.confidence}`, a.confidence) }) })
+        ])
+      ])
+    );
+  }
+  show($("#how-adjust"), info.assumptions.length > 0);
+  if (!dialog.open) dialog.showModal();
+}
+function closeHow() {
+  const dialog = $("#how-modal");
+  if (dialog?.open) dialog.close();
+}
+function focusAssumptions() {
+  const panel = $("#calc-assume");
+  if (!panel) return;
+  let first = null;
+  for (const row of $$(".assume-table tr[data-key]")) {
+    const on = howKeys.includes(row.dataset.key);
+    row.classList.toggle("is-focus", on);
+    if (on && !first) first = row;
+  }
+  panel.classList.toggle("is-filtered", howKeys.length > 0);
+  text("#a-filter-text", fmt(t("how.showing"), { n: howKeys.length, part: howLabel }));
+  show($("#a-filter"), howKeys.length > 0);
+  first?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function clearFocus() {
+  const panel = $("#calc-assume");
+  if (!panel) return;
+  for (const row of $$(".assume-table tr.is-focus")) row.classList.remove("is-focus");
+  panel.classList.remove("is-filtered");
+  show($("#a-filter"), false);
+}
 function partMeta(p, inputs) {
   if (p.id.startsWith("store_")) return `${fmt(t("details.rate"), { rate: percent(p.rate) })} \xB7 ${t(`details.tier_${p.tier}`)}`;
   if (p.id === "processor") return fmt(t("details.rate"), { rate: percent(p.rate) });
-  if (p.id === "verify" && p.rate != null) return fmt(t("details.rate"), { rate: percent(p.rate) });
+  if (p.id === "verify" && p.rate != null) return fmt(t("details.checked"), { rate: percent(p.rate) });
   if (p.id === "privacy_programs") return p.reported ? t("details.reported") : p.us_tier ? t(`details.us_${p.us_tier}`) : "";
-  if (p.id === "labour" && p.people != null) return fmt(t("details.people"), { n: number(p.people) });
+  if (p.id === "labour" && p.people != null) return fmt(t(p.implied ? "details.people_implied" : "details.people"), { n: number(p.people) });
   if (p.id === "money_transmitter" && p.holds) return t("details.holds");
   if ((p.id === "engineering" || p.id === "legal_labour") && p.defaulted) return t("details.defaulted");
   if ((p.id === "reseller" || p.id === "p2p") && p.rate != null) return fmt(t("details.rate"), { rate: percent(p.rate) });
@@ -2191,6 +2434,7 @@ function wireToggles() {
       button.textContent = open ? button.dataset.hide : button.dataset.show;
       const row = document.getElementById(button.getAttribute("aria-controls"));
       if (row) row.hidden = !open;
+      button.closest("tr")?.classList.toggle("is-open", open);
     });
   }
 }
@@ -2320,8 +2564,6 @@ function run(raw, overrides, { focus = true } = {}) {
   const query2 = encode2(result.inputs, result.overrides, result.version);
   result.link = `${location.origin}${location.pathname}?${query2}`;
   history.replaceState(null, "", `?${query2}${test ? `&test=${encodeURIComponent(test)}` : ""}`);
-  const contact = $("#r-contact");
-  if (contact) contact.href = `${config.contact_href}?${new URLSearchParams({ subject: t("contact_subject"), calc: query2 })}`;
   showResults(true, { focus });
   return result;
 }
@@ -2641,6 +2883,17 @@ function wire() {
   });
   wireTabs(onTab);
   wireToggles();
+  $("#r-table")?.addEventListener("click", (e) => {
+    const button = e.target.closest("button.part");
+    if (button && current) openHow(button.dataset.line, button.dataset.part, current, assumptions);
+  });
+  $("#how-close")?.addEventListener("click", closeHow);
+  $("#how-adjust")?.addEventListener("click", () => {
+    closeHow();
+    activateTab("assumptions", { focus: true });
+    focusAssumptions();
+  });
+  $("#a-filter-clear")?.addEventListener("click", clearFocus);
 }
 function onReset() {
   writeOverrides({});

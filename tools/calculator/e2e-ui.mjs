@@ -68,7 +68,7 @@ await withBrowser(async (api) => {
     cells: document.querySelectorAll('#r-years tbody td').length,
     width: document.getElementById('chart-custodial-cost-vs-nostr').getAttribute('viewBox').split(' ')[2] + ':' + Math.round(document.getElementById('chart-custodial-cost-vs-nostr').getBoundingClientRect().width),
   })`)
-  check('a fresh page says whose estimate it shows and invites the visitor in', first.whose === 'A typical estimate for an app with 50,000 active users.' && first.link === 'Make it yours', `${first.whose} / ${first.link}`)
+  check('a fresh page says whose estimate it shows and invites the visitor in', first.whose === 'A typical estimate for an app with 50,000 active users.' && first.link === 'Customize App Details', `${first.whose} / ${first.link}`)
   check('the five-year saving is the watermark in the chart\'s gap, and the hero card is gone', /^\$\d+(\.\d+)?[kM]$/.test(first.hero) && first.sub === 'savings over five years' && !first.heroCard && first.gold !== '1px', `${first.hero} / ${first.sub} / rail ${first.gold}`)
   check('the one chart has a custody line and a Nostr path, a point per year, from one start', first.lines.length === 2 && first.lines[0] === 'chart__line chart__line--custodial:6' && first.lines[1] === 'chart__line:6' && first.starts[0] === first.starts[1] && !first.cumulative, `${first.lines.join(' ')} ${first.starts.join(' ')}`)
   check('a marker on every year, and no labels on them: only the watermark', first.markers === 11 && first.labels.length === 2 && first.labels[0] === first.hero && first.labels[1] === first.sub, `${first.markers} | ${first.labels.join(' | ')}`)
@@ -84,7 +84,7 @@ await withBrowser(async (api) => {
   await api.eval(`document.getElementById('chart-custodial-cost-vs-nostr').dispatchEvent(new PointerEvent('pointerleave'))`)
   check('…and leaving hides it', await api.eval(`document.getElementById('tip-chart-custodial-cost-vs-nostr').hidden`))
   await api.eval(`document.getElementById('r-whose-link').click()`)
-  check('Make it yours opens App Info', (await api.eval(`document.getElementById('tab-app').getAttribute('aria-selected')`)) === 'true')
+  check('Customize App Details opens App Info', (await api.eval(`document.getElementById('tab-app').getAttribute('aria-selected')`)) === 'true')
   await api.eval(`document.getElementById('tab-cost').click()`)
   check('…without a results link in the address bar', (await api.eval(`location.search`)) === '')
   check('the other two panels are hidden', await api.eval(`document.getElementById('panel-assumptions').hidden && document.getElementById('panel-app').hidden && !document.getElementById('panel-cost').hidden`))
@@ -105,7 +105,7 @@ await withBrowser(async (api) => {
     const s = document.querySelector('input[name=eng_content]')
     return s.dataset.values.split(',')[s.value] + ':' + s.closest('.slider-row').querySelector('output').textContent
   })()`)) === '5:1 - 10')
-  check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 67)
+  check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 71)
 
   check('number sliders start on their defaults', (await api.eval(`(() => {
     const v = (n) => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.values.split(',')[s.value] + '=' + s.closest('.slider-row').querySelector('output').textContent }
@@ -145,29 +145,37 @@ await withBrowser(async (api) => {
       eyebrows: [...document.querySelectorAll('#panel-cost .stat .eyebrow--gold')].map(e => e.textContent),
       yearTwoUsers: $('#r-years tbody tr[data-row=users] td:nth-child(3)').textContent,
       version: $('#r-version').textContent,
-      accountsC: row('accounts').querySelector('.lt-value--c').textContent,
-      accountsNC: row('accounts').querySelector('.lt-value--nc').textContent,
-      paymentsNC: row('payments').querySelector('.lt-value--nc').textContent,
-      barMax: Math.max(...[...document.querySelectorAll('.bar--c')].map(b => parseFloat(b.style.getPropertyValue('--w')))),
-      barNc: parseFloat(row('moderation').querySelector('.bar--nc').style.getPropertyValue('--w')),
+      accountsSaving: row('accounts').querySelector('.lt-saving').textContent,
+      accountsPct: row('accounts').querySelector('.share__pct').textContent,
+      badges: document.querySelectorAll('#r-table .badge').length,
+      toggle: row('accounts').querySelector('.lt-toggle').textContent,
+      shares: [...document.querySelectorAll('.lt-row .share')].map(b => parseFloat(b.style.getPropertyValue('--w'))),
+      storageCut: row('storage').querySelector('.share__pct').textContent,
+      totalCut: $('.lt-total .share__pct').textContent,
+      editLink: $('#r-edit').className + ':' + getComputedStyle($('.results__actions')).justifyContent,
+      versionAlign: getComputedStyle($('#r-version')).textAlign,
+      tabColor: getComputedStyle($('#tab-cost')).color + '|' + getComputedStyle($('#tab-cost')).borderBottomColor,
+      total: $('#r-total').textContent,
+      tint: getComputedStyle($('.stat--saving')).backgroundColor + '|' + getComputedStyle($('.lt-total td')).backgroundColor,
+      nudges: document.querySelectorAll('.lt-nudge:not([hidden])').length,
+      subtitle: $('.results__sub').textContent,
       link: location.href,
-      contact: $('#r-contact').getAttribute('href'),
       url: location.search,
       error: $('#calc-error').hidden,
-      zeros: [...document.querySelectorAll('.lt-value--nc')].filter(n => n.textContent === '$0').length,
       focused: document.activeElement?.id,
     }
   })()`)
   check('the watermark is the five-year saving, compact', /^\$\d+(\.\d+)?[kM]$/.test(r.hero), r.hero)
   check('the three facts are per user today, per user on Nostr, and the average year, under gold eyebrows', /^\$\d+\.\d\d$/.test(r.permauC) && /^\$\d+\.\d\d$/.test(r.permauNC) && /^\$[\d.]+[kM]$/.test(r.average) && /^Range \$/.test(r.averageRange) && r.eyebrows.join(' | ') === 'Custodial Cost per User/Year | Nostr Cost per User/Year | Average Savings per Year', `${r.permauC} ${r.permauNC} ${r.average} | ${r.eyebrows.join(' | ')}`)
-  check('after Calculate the tab says it is the visitor\'s estimate', r.whose === 'Your estimate, for an app with 50,000 active users.' && r.whoseLink === 'Adjust', `${r.whose} / ${r.whoseLink}`)
+  check('after Calculate the tab says it is the visitor\'s estimate', r.whose === 'Your estimate, for an app with 50,000 active users.' && r.whoseLink === 'Customize App Details', `${r.whose} / ${r.whoseLink}`)
   check('growth compounds in the year-by-year table (50% then decayed)', r.yearTwoUsers === '103,125', r.yearTwoUsers)
-  check('the table shows full figures', /^\$[\d,]+$/.test(r.accountsC) && /^\$[\d,]+$/.test(r.accountsNC), `${r.accountsC} ${r.accountsNC}`)
-  check('no non-custodial line is zero', r.zeros === 0, `${r.zeros} zero lines`)
-  check('the widest custodial bar is the full scale', Math.abs(r.barMax - 100) < 0.01, String(r.barMax))
-  check('non-custodial bars share that scale', r.barNc > 0 && r.barNc < 100, String(r.barNc))
+  check('each line shows its average saving in full, its share as a percentage, and no pills', /^\$[\d,]+$/.test(r.accountsSaving) && /^[\d.]+%$/.test(r.accountsPct) && r.badges === 0 && r.toggle === 'Show the Savings', `${r.accountsSaving} | ${r.accountsPct} | ${r.badges} badges | ${r.toggle}`)
+  check('each bar is the share of that line\'s own cost that goes away', r.shares.length === 6 && r.shares.every(x => x >= 0 && x <= 100) && /^\d+(\.\d+)?%$/.test(r.storageCut) && parseFloat(r.storageCut) > 50 && /^\d+(\.\d+)?%$/.test(r.totalCut), `${r.shares.join(' ')} | storage ${r.storageCut} | total ${r.totalCut}`)
+  check('the bottom link is a centred link, the version sits right, and the Results tab is purple', r.editLink === 'linkbutton results__edit:center' && r.versionAlign === 'right' && r.tabColor.split('|')[0] === r.tabColor.split('|')[1], `${r.editLink} | ${r.versionAlign} | ${r.tabColor}`)
+  check('the foot row names the same figure as the Average Savings fact chip', r.total === r.average && r.subtitle.trim().length > 0, `${r.total} vs ${r.average}`)
+  check('the fact chip and the foot row share one tint', r.tint.split('|')[0] === r.tint.split('|')[1] && !r.tint.startsWith('rgba(0, 0, 0, 0)'), r.tint)
+  check('no nudge where every line with rails already saves', r.nudges === 0, String(r.nudges))
   check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.includes('growth=0.5') && r.link.endsWith('v=1'), r.link)
-  check('the contact door carries a subject and the inputs', r.contact.startsWith('/contact/?subject=') && r.contact.includes('mau%3D50000'), r.contact)
   check('sliders standing on "not given" stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('mod_vendor='), r.link)
   check('the version is named', r.version.includes('1'), r.version)
   check('the results heading took focus', r.focused === 'results-title', r.focused)
@@ -192,13 +200,15 @@ await withBrowser(async (api) => {
   await api.eval(`document.querySelector('.lt-row[data-line="payments"] .lt-toggle').click()`)
   const parts = await api.eval(`(() => {
     const row = document.getElementById('parts-payments')
-    return { hidden: row.hidden, items: [...row.querySelectorAll('.part')].map(p => p.textContent.replace(/\\s+/g, ' ').trim()) }
+    const n = (sel) => Number(row.querySelector(sel).textContent.replace(/[^\\d]/g, ''))
+    const saved = Number(document.querySelector('.lt-row[data-line="payments"] .lt-saving').textContent.replace(/[^\\d]/g, ''))
+    return { hidden: row.hidden, open: document.querySelector('.lt-row[data-line="payments"]').classList.contains('is-open'), totals: row.querySelector('.parts__totals').textContent.replace(/\\s+/g, ' ').trim(), gap: n('.parts__total-c') - n('.parts__total-nc'), saved, items: [...row.querySelectorAll('.part')].map(p => p.textContent.replace(/\\s+/g, ' ').trim()) }
   })()`)
-  check('the parts open under the line', !parts.hidden && parts.items.length === 4, parts.items.join(' | '))
+  check('the savings open under the line, headed by two averaged totals whose difference is the saving beside them', !parts.hidden && parts.open && parts.items.length === 4 && /^Cost of Custody \$[\d,]+ Cost of Nostr \$[\d,]+$/.test(parts.totals) && Math.abs(parts.gap - parts.saved) <= 1, `${parts.totals} | saved ${parts.saved} | ${parts.items.join(' | ')}`)
   check('a store part names its applied rate and tier', parts.items.some(t => /Apple App Store commission.*15%.*small-business tier/.test(t)), parts.items[0])
 
   // ── an assumption edit, then Recalculate ─────────────────────────────────
-  const before = await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent`)
+  const before = await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-saving').textContent`)
   await api.eval(`document.getElementById('tab-assumptions').click()`)
   check('the Our Assumptions tab opens', (await api.eval(`document.getElementById('panel-assumptions').hidden`)) === false)
   await api.eval(`(() => {
@@ -207,11 +217,11 @@ await withBrowser(async (api) => {
     i.dispatchEvent(new Event('change', { bubbles: true }))
   })()`)
   await sleep(100)
-  check('the changed row is marked, and nothing recomputes yet', (await api.eval(`document.querySelector('tr[data-key="egress_gb_per_mau_month"]').classList.contains('is-changed') + ':' + document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent`)) === `true:${before}`)
+  check('the changed row is marked, and nothing recomputes yet', (await api.eval(`document.querySelector('tr[data-key="egress_gb_per_mau_month"]').classList.contains('is-changed') + ':' + document.querySelector('.lt-row[data-line="storage"] .lt-saving').textContent`)) === `true:${before}`)
   await api.eval(`document.getElementById('a-recalc').click()`)
   await sleep(200)
   const after = await api.eval(`({
-    storage: document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent,
+    storage: document.querySelector('.lt-row[data-line="storage"] .lt-saving').textContent,
     link: location.href,
     tab: document.getElementById('tab-cost').getAttribute('aria-selected'),
     status: document.getElementById('r-status').textContent,
@@ -220,9 +230,9 @@ await withBrowser(async (api) => {
   check('the override travels in the link', after.link.includes('a.egress_gb_per_mau_month=5'), after.link)
   await api.eval(`document.getElementById('tab-assumptions').click(); document.getElementById('a-reset').click(); document.getElementById('a-recalc').click()`)
   await sleep(200)
-  check('reset then Recalculate restores the typical value', (await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-value--c').textContent`)) === before)
+  check('reset then Recalculate restores the typical value', (await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-saving').textContent`)) === before)
   await api.eval(`document.getElementById('r-edit').click()`)
-  check('Edit inputs returns to App Info', (await api.eval(`document.getElementById('tab-app').getAttribute('aria-selected')`)) === 'true')
+  check('Customize App Details returns to App Info', (await api.eval(`document.getElementById('tab-app').getAttribute('aria-selected')`)) === 'true')
   // leave the override in place for the shared-link check below
   await api.eval(`{ document.getElementById('tab-assumptions').click(); const i = document.getElementById('a-egress_gb_per_mau_month'); i.value = '5'; i.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('a-recalc').click() }`)
   await sleep(200)
@@ -235,6 +245,66 @@ await withBrowser(async (api) => {
     await snap(api, join(SHOTS, 'calculator-390.png'))
     await api.send('Emulation.clearDeviceMetricsOverride')
   }
+
+  // ── how this is calculated ───────────────────────────────────────────────
+  await api.eval(`document.querySelector('.lt-row[data-line="accounts"] .lt-toggle').click()`)
+  await api.eval(`document.querySelector('.lt-parts[data-line="accounts"] button.part[data-part="verify"]').click()`)
+  const how = await api.eval(`({
+    open: document.getElementById('how-modal').open,
+    part: document.getElementById('how-part').textContent, line: document.getElementById('how-line').textContent,
+    today: document.getElementById('how-today').textContent, nostr: document.getElementById('how-nostr').textContent,
+    items: [...document.querySelectorAll('#how-list .how__item')].map(i => i.textContent.replace(/\\s+/g, ' ').trim()),
+    adjust: document.getElementById('how-adjust').textContent,
+    averaged: document.getElementById('how-averaged').textContent,
+  })`)
+  check('…and says what the averaged figure in the list is', /^Averaged over the five projected years.*\$[\d,]+ of custody becomes \$[\d,]+ on Nostr/.test(how.averaged), how.averaged)
+  if (SHOTS) await snap(api, join(SHOTS, 'how-1440.png'))
+  check('a part opens the how-dialog with the arithmetic filled in', how.open && how.part === 'Identity and age checks' && how.line === 'Accounts & personal data' && /^50,000 users × 25% checked a year × \$1\.50 a check = \$[\d,]+$/.test(how.today) && /^10% of checks remain.*\$[\d,]+$/.test(how.nostr), `${how.today} | ${how.nostr}`)
+  check('…and lists only the assumptions that applied, with value, range and confidence', how.items.length === 5 && how.items.some(i => i.startsWith('Users needing a check per year, UK') && i.includes('25%') && i.includes('10% to 50% · unsourced')) && !how.items.some(i => i.includes('other')), how.items.join(' | '))
+  await api.eval(`document.getElementById('how-adjust').click()`)
+  await sleep(200)
+  const lit = await api.eval(`({
+    tab: document.getElementById('tab-assumptions').getAttribute('aria-selected'), closed: !document.getElementById('how-modal').open,
+    rows: [...document.querySelectorAll('.assume-table tr.is-focus')].map(r => r.dataset.key),
+    strip: document.getElementById('a-filter').hidden + ':' + document.getElementById('a-filter-text').textContent,
+    filtered: document.getElementById('calc-assume').classList.contains('is-filtered'),
+  })`)
+  check('Adjust Assumptions opens the tab with those rows lit and says why', lit.tab === 'true' && lit.closed && lit.filtered && [...lit.rows].sort().join(',') === 'verify_price,verify_remains_share,verify_share_eu,verify_share_uk,verify_share_us' && lit.strip === 'false:Showing the 5 assumptions behind Identity and age checks.', `${lit.rows.join(',')} | ${lit.strip}`)
+  await api.eval(`document.getElementById('a-filter-clear').click()`)
+  check('Show all clears the lights', (await api.eval(`document.querySelectorAll('.assume-table tr.is-focus').length + ':' + document.getElementById('a-filter').hidden + ':' + document.getElementById('calc-assume').classList.contains('is-filtered')`)) === '0:true:false')
+  await api.eval(`document.getElementById('tab-cost').click()`)
+
+  // Every part of every line explains itself without a blank: two input sets walk every branch.
+  for (const query of ['mau=50000&posts_per_user=20&eng_accounts=5&mod_inhouse=5&mod_vendor=5&rails=p2p%2Capple%2Cgoogle%2Cprocessor%2Creseller&rev=50000&balances=yes&jur=eu%2Cuk%2Cus%2Cother&v=1', 'mau=10000000&rails=apple&rev=200000&legal_usd=50000&jur=us&v=1']) {
+    await api.goto(`${BASE}/calculator/?${query}`)
+    await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+    const gaps = await api.eval(`(() => {
+      const problems = []
+      let count = 0
+      for (const row of document.querySelectorAll('.lt-row')) {
+        row.querySelector('.lt-toggle').click()
+        for (const button of document.querySelectorAll('.lt-parts[data-line="' + row.dataset.line + '"] button.part')) {
+          button.click()
+          count++
+          const today = document.getElementById('how-today').textContent, nostr = document.getElementById('how-nostr').textContent
+          const list = document.getElementById('how-list').textContent
+          if (!today || !nostr || /\\{[a-z]\\./.test(today + nostr) || /NaN|undefined/.test(today + nostr + list)) problems.push(row.dataset.line + '.' + button.dataset.part + ': ' + today + ' / ' + nostr)
+          document.getElementById('how-modal').close()
+        }
+      }
+      return { count, problems }
+    })()`)
+    check(`every part explains itself (${gaps.count} parts, ${query.slice(0, 20)}…)`, gaps.count >= 20 && gaps.problems.length === 0, gaps.problems.join(' || '))
+  }
+
+  // ── a nudge in place of a zero ───────────────────────────────────────────
+  await api.goto(`${BASE}/calculator/?mau=50000&rails=apple%2Cgoogle&rev=10000&jur=us&v=1`)
+  await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+  const nudge = await api.eval(`(() => {
+    const row = document.querySelector('.lt-row[data-line="payments"]')
+    return { text: row.querySelector('.lt-nudge').textContent, nudgeHidden: row.querySelector('.lt-nudge').hidden, savingHidden: row.querySelector('.lt-saving').hidden, share: row.querySelector('.share').style.getPropertyValue('--w') }
+  })()`)
+  check('a payments line on store rails alone offers a peer-to-peer nudge instead of a zero', !nudge.nudgeHidden && nudge.savingHidden && /^Adds about \$[\d.]+[kM]? a year with a peer-to-peer rail\.$/.test(nudge.text) && nudge.share === '0%', JSON.stringify(nudge))
 
   // ── a shared link ─────────────────────────────────────────────────────────
   const link = after.link

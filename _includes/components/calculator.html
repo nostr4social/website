@@ -3,8 +3,8 @@ The Cost of Custody Calculator, in three tabs and a modal.
 
   Estimated Cost    the results: whose estimate it is, the cost chart with
                     the five-year saving written in its gap, three facts, the
-                    year-by-year table, then the six-line table with paired
-                    bars, the parts, the doors. The page's front: a fresh
+                    year-by-year table, then the six lines as shares of the
+                    average saving, the parts, the doors. The page's front: a fresh
                     page shows the illustrative app's estimate.
   App Info          the form, rendered from the published form event
                     (_data/forms/calculator.yml) and nothing else: section
@@ -107,6 +107,8 @@ simply stack.
       <h2 class="assume__title">{{ asm.title }}</h2>
       <p class="assume__intro">{{ asm.intro }}</p>
       <noscript><p class="notice notice--inline">{{ asm.noscript }}</p></noscript>
+      {%- comment -%} Set by "Adjust Assumptions" in the how-dialog: which rows are lit, and why. {%- endcomment -%}
+      <p class="assume__filter" id="a-filter" hidden role="status"><span id="a-filter-text"></span> <button type="button" class="linkbutton" id="a-filter-clear">{{ s.strings.how.show_all }}</button></p>
       {%- for group in asm.lines -%}
       {%- assign gid = group[0] -%}
       <h3 class="assume__group">{{ group[1] }}</h3>
@@ -192,7 +194,7 @@ simply stack.
         <span class="stat__value" id="r-permau-nc"></span>
         <span class="stat__range" id="r-permau-nc-range"></span>
       </div>
-      <div class="stat">
+      <div class="stat stat--saving">
         <span class="eyebrow eyebrow--gold">{{ r.stats.average.label }}</span>
         <span class="stat__value" id="r-average"></span>
         <span class="stat__range" id="r-average-range"></span>
@@ -213,18 +215,14 @@ simply stack.
       </table>
     </details>
 
-    <div class="legend" aria-hidden="true">
-      <span class="legend__item"><span class="legend__swatch legend__swatch--c"></span>{{ r.legend.custodial }}</span>
-      <span class="legend__item"><span class="legend__swatch legend__swatch--nc"></span>{{ r.legend.noncustodial }}</span>
-    </div>
-
+    {%- comment -%} Where the saving comes from: each line's average year of saving, as a share of the whole. {%- endcomment -%}
+    <h3 class="results__sub">{{ r.table.title }}</h3>
     <table class="ledger-table" id="r-table">
       <thead>
         <tr>
           <th scope="col" class="lt-line">{{ r.columns.line }}</th>
-          <th scope="col" class="lt-num">{{ r.columns.custodial }}</th>
-          <th scope="col" class="lt-num">{{ r.columns.noncustodial }}</th>
-          <th scope="col" class="lt-bars">{{ r.columns.bars }}</th>
+          <th scope="col" class="lt-num">{{ r.columns.saving }}</th>
+          <th scope="col" class="lt-share">{{ r.columns.share }}</th>
           <th scope="col" class="lt-remains">{{ r.columns.remains }}</th>
         </tr>
       </thead>
@@ -233,34 +231,42 @@ simply stack.
         <tr class="lt-row" data-line="{{ line.id }}">
           <th scope="row" class="lt-line"><div class="lt-cell">
             <span class="lt-title">{% include lib/icon.html name=line.icon class="lt-icon" %}<span>{{ line.title }}</span></span>
-            <span class="lt-flags">
-              <span class="badge badge--live lt-flag lt-flag--already" hidden>{{ r.already }}</span>
-              <span class="badge badge--soon lt-flag lt-flag--partly" hidden>{{ r.partly }}</span>
-              <span class="badge badge--soon lt-flag lt-flag--implied" hidden>{{ r.implied }}</span>
-              <span class="badge badge--soon lt-flag lt-flag--none" hidden>{{ r.no_payments }}</span>
-            </span>
+            <span class="lt-note lt-flag lt-flag--already" hidden>{{ r.already }}</span>
+            <span class="lt-note lt-flag lt-flag--partly" hidden>{{ r.partly }}</span>
+            <span class="lt-note lt-flag lt-flag--none" hidden>{{ r.no_payments }}</span>
             <button type="button" class="linkbutton lt-toggle" aria-expanded="false" aria-controls="parts-{{ line.id }}" data-show="{{ s.strings.details.show }}" data-hide="{{ s.strings.details.hide }}">{{ s.strings.details.show }}</button>
           </div></th>
-          <td class="lt-num" data-label="{{ r.columns.custodial }}"><span class="lt-value lt-value--c"></span><span class="lt-range"></span></td>
-          <td class="lt-num" data-label="{{ r.columns.noncustodial }}"><span class="lt-value lt-value--nc"></span><span class="lt-range"></span></td>
-          <td class="lt-bars" data-label="{{ r.columns.bars }}" aria-hidden="true">
-            <span class="bar bar--c"></span>
-            <span class="bar bar--nc"></span>
+          <td class="lt-num" data-label="{{ r.columns.saving }}">
+            <span class="lt-value lt-saving"></span>
+            <span class="lt-nudge" hidden></span>
+            <span class="lt-range lt-saving-range"></span>
           </td>
+          <td class="lt-share" data-label="{{ r.columns.share }}" aria-hidden="true"><span class="share"></span><span class="share__pct"></span></td>
           <td class="lt-remains" data-label="{{ r.columns.remains }}">{{ line.remains }}</td>
         </tr>
         <tr class="lt-parts" id="parts-{{ line.id }}" data-line="{{ line.id }}" hidden>
-          <td colspan="5"><ul class="parts"></ul></td>
+          <td colspan="4">
+            <div class="parts__totals">
+              <span class="parts__total"><span class="parts__total-label">{{ s.strings.details.today }}</span> <b class="parts__total-c"></b></span>
+              <span class="parts__total"><span class="parts__total-label">{{ s.strings.details.on_nostr }}</span> <b class="parts__total-nc"></b></span>
+            </div>
+            <ul class="parts"></ul>
+          </td>
         </tr>
       {%- endfor -%}
       </tbody>
+      <tfoot>
+        <tr class="lt-total">
+          <th scope="row" class="lt-line"><span class="lt-title">{{ r.stats.average.label }}</span></th>
+          <td class="lt-num" data-label="{{ r.columns.saving }}"><span class="lt-value" id="r-total"></span></td>
+          <td class="lt-share" aria-hidden="true"><span class="share"></span><span class="share__pct"></span></td>
+          <td class="lt-remains"></td>
+        </tr>
+      </tfoot>
     </table>
 
     <div class="results__actions">
-      <div class="actions actions--flush">
-        <a class="btn btn--secondary" id="r-contact" href="{{ s.config.contact_href | relative_url }}">{{ r.actions.contact.label }}</a>
-        <button type="button" class="btn btn--ghost" id="r-edit">{{ r.actions.edit.label }}</button>
-      </div>
+      <button type="button" class="linkbutton results__edit" id="r-edit">{{ r.actions.edit.label }}</button>
     </div>
     <p class="results__status" id="r-status" role="status"></p>
     <p class="results__version" id="r-version"></p>
@@ -323,6 +329,27 @@ simply stack.
     {%- endif -%}
 
   {%- if form %}{% include lib/sign-modal.html copy=s.modal.sign %}{% endif -%}
+
+  {%- comment -%} How this is calculated: one part of one line, filled by the script. {%- endcomment -%}
+  <dialog class="modal modal--how" id="how-modal" aria-labelledby="how-title">
+    <div class="modal__head">
+      <h2 class="modal__title" id="how-title">{{ s.strings.how.title }}</h2>
+      <button type="button" class="linkbutton" id="how-close">{{ s.modal.close }}</button>
+    </div>
+    <p class="how__which"><b id="how-part"></b> <span class="how__line" id="how-line"></span></p>
+    <dl class="how__math">
+      <dt>{{ s.strings.details.today }}</dt>
+      <dd id="how-today"></dd>
+      <dt>{{ s.strings.details.on_nostr }}</dt>
+      <dd id="how-nostr"></dd>
+    </dl>
+    <p class="how__averaged" id="how-averaged"></p>
+    <h3 class="how__sub">{{ s.strings.how.rests_on }}</h3>
+    <ul class="how__list" id="how-list"></ul>
+    <div class="modal__actions">
+      <button type="button" class="btn btn--primary" id="how-adjust">{{ s.strings.how.adjust }}</button>
+    </div>
+  </dialog>
 
   {%- comment -%} Inert data, not executable. {%- endcomment -%}
   <script type="application/json" id="page-shared-strings">{{ site.data.blocks.signin_strings | jsonify }}</script>

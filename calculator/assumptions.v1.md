@@ -1,11 +1,15 @@
 # Cost of Custody Calculator: assumptions, version 1
 
-Dated 2026-10-21. Currency USD; sterling converted at 1.3 USD per GBP where a source is in pounds.
+Dated 2026-10-23. Currency USD; sterling converted at 1.3 USD per GBP where a source is in pounds.
 
 Every number the calculator uses is listed here with its source. Each has a **typical** value, which the
 page shows as the headline, and a **low** and **high** value, which bound the range shown beside every
 line. Low always means the smaller cost. Any value can be overridden on the page or in a results link
 with `a.<key>=<value>`; the machine-readable form of this document is `assumptions.v1.json` beside it.
+
+A few of the unsourced values are not estimates of the world as it is but of the world Nostr4 is building: the
+shares of age checks, moderation, moderation tooling and content-law programs that remain once an app hosts
+nothing of its own. Their notes say so. Treat their ranges, not their typical values, as the claim.
 
 Confidence means:
 
@@ -14,7 +18,7 @@ Confidence means:
 - **low**: a vendor page, a self-reported salary site, or a primary figure relayed second-hand
 - **unsourced**: no public figure exists; a stated default, deliberately conservative
 
-18 high, 35 unsourced, 9 low, 5 medium of 67 in all. The unsourced ones are the model's weakest points; treat the range, not the typical value, as the claim.
+18 high, 39 unsourced, 9 low, 5 medium of 71 in all. The unsourced ones are the model's weakest points; treat the range, not the typical value, as the claim.
 
 ## Used by more than one line
 
@@ -49,6 +53,7 @@ Confidence means:
 | `verify_share_us` | Users needing a check per year, US | 10% | 2% | 30% | ratio of MAU | unsourced | none |
 | `verify_share_eu` | Users needing a check per year, EU | 5% | 1% | 20% | ratio of MAU | unsourced | none |
 | `verify_share_other` | Users needing a check per year, other | 2% | 0% | 10% | ratio of MAU | unsourced | none |
+| `verify_remains_share` | Age checks that remain on Nostr | 10% | 0% | 50% | ratio | unsourced | none |
 | `key_support_per_mau_year` | Supporting users who manage their own keys | 0.02 | 0.005 | 0.1 | USD per MAU per year | unsourced | none |
 
 - `default_hours_accounts`: The form's bands (0, 1 to 10, 11 to 40, over 40) are read as 0, 5, 25 and 60 hours a week. The slider starts on the band nearest this; a results link that gives no band uses it directly.
@@ -60,6 +65,7 @@ Confidence means:
 - `verify_share_us`: State app-store age laws (Utah, Texas) are in live litigation. Editable.
 - `verify_share_eu`: Editable.
 - `verify_share_other`: Editable.
+- `verify_remains_share`: Nostr4's thesis, not a benchmark. Age assurance becomes an external layer the app reads rather than buys: the Texas and Utah laws put it at the app store, the EU is building a device-level age wallet under the DSA. The UK Online Safety Act is the residual: Ofcom's duty attaches to the service a child can use, wherever sign-up happened, so a client showing others' content may still have to check. Low is the ideal; high is the UK duty surviving in full.
 - `key_support_per_mau_year`: Onboarding help, recovery guidance, signer integrations. What remains of the accounts line on Nostr.
 
 ## 2. Social graph and feeds
@@ -110,6 +116,7 @@ Confidence means:
 | `gdpr_program_year` | GDPR program for a small app (EU or UK) | 30,000 | 10,000 | 50,000 | USD per year | low | [Legiscope: GDPR compliance cost ranges for SMEs (vendor estimate)](https://legiscope.com/blog/gdpr-compliance-cost) (2026) |
 | `uk_osa_year` | UK Online Safety Act, small or micro service | 11,000 | 3,000 | 65,000 | USD per year | medium | [DSIT Online Safety Act enactment impact assessment, tables 49 to 52](https://assets.publishing.service.gov.uk/media/6716222b9242eecc6c849b09/Online_Safety_act_enactment_impact_assessment.pdf) (2024-10) |
 | `dsa_year` | EU Digital Services Act, non-VLOP platform | 5,000 | 1,500 | 20,000 | USD per year | unsourced | [ACT position paper citing the Commission's DSA notice-and-action setup floor](https://www.acte.be/) (2021) |
+| `content_law_remains_share` | Content-law programs that remain on Nostr | 50% | 25% | 100% | ratio | unsourced | none |
 | `us_privacy_year_small` | US privacy program, below the CCPA threshold | 3,000 | 1,000 | 10,000 | USD per year | unsourced | none |
 | `us_privacy_year_large` | US privacy program, at or above the CCPA threshold | 15,000 | 5,000 | 50,000 | USD per year | unsourced | none |
 | `ccpa_consumer_threshold` | CCPA consumer threshold | 100,000 | 100,000 | 100,000 | consumers | high | [California Attorney General: CCPA thresholds](https://oag.ca.gov/privacy/ccpa) (2026) |
@@ -127,6 +134,7 @@ Confidence means:
 - `gdpr_program_year`: Vendor ranges: micro 5k to 15k EUR, small 15k to 50k. Outsourced DPO alone runs 1,500 to 8,000 per month.
 - `uk_osa_year`: Impact assessment, 2019 prices: ongoing 6,040 GBP with moderation and risk assessment, plus 7,460 GBP transition spread over three years; low is the 87 GBP basic case; high is a small high-risk service at 50,800 GBP. Converted at 1.30 USD per GBP.
 - `dsa_year`: Point of contact, legal representative outside the EU, notice-and-action, statements of reasons. The only published floor is the Commission's 1,500 EUR setup estimate.
+- `content_law_remains_share`: Nostr4's thesis, not a benchmark. The DSA's notice-and-action duties fall on hosting services, and a client that hosts nothing is a weaker target than a platform; the UK Online Safety Act still reaches a service a child can use. High keeps both programs whole.
 - `us_privacy_year_small`: Policy, COPPA posture, basic counsel.
 - `us_privacy_year_large`: Counsel, opt-out mechanisms, state-law tracking.
 - `ccpa_consumer_threshold`: The law applies above 25M USD revenue, or 100k California consumers, or 50% of revenue from selling personal information. The model uses MAU as the proxy for consumers.
@@ -149,16 +157,20 @@ Confidence means:
 | `moderator_seat_outsourced` | Outsourced moderation seat, all-in | 16,000 | 12,000 | 32,000 | USD per seat per year | low | [365outsource: content moderation outsourcing rates](https://365outsource.com/content-moderation-services/) (2026) |
 | `mods_per_million_mau` | Moderators per million monthly users | 5 | 3 | 15 | people per 1M MAU | high | [Snap DSA transparency report H2 2025 (human resources and AMAR files)](https://values.snap.com/privacy/transparency/european-union-h2-2025) (2026-04) |
 | `ts_tooling_per_mau_year` | Moderation tooling | 0.05 | 0.01 | 0.2 | USD per MAU per year | unsourced | none |
+| `tooling_remains_share` | Moderation tooling that remains on Nostr | 20% | 10% | 50% | ratio | unsourced | none |
+| `label_provider_per_mau_year` | A label or web-of-trust provider | 0.01 | 0.005 | 0.05 | USD per MAU per year | unsourced | none |
 | `appeals_share` | Appeals and escalation on top of review labour | 10% | 5% | 20% | ratio | unsourced | none |
-| `moderation_remains_share` | Moderation that remains on Nostr | 40% | 25% | 60% | ratio | unsourced | none |
+| `moderation_remains_share` | Moderation that remains on Nostr | 10% | 5% | 40% | ratio | unsourced | none |
 
 - `ts_base_salary`: Payscale median 70,480; Glassdoor average 101,409 (small samples, self-reported).
 - `moderator_base_salary`: Payscale median 20.44 per hour over 2,080 hours.
 - `moderator_seat_outsourced`: Offshore list price about 8 per hour over 2,000 hours; US BPO 15 to 25 per hour. List prices, not contracts.
 - `mods_per_million_mau`: From DSA transparency reports: LinkedIn about 3, Pinterest at most 5, Snap about 15 per million EU users. Used when the form gives no reviewers at all.
 - `ts_tooling_per_mau_year`: Classifiers, queues, hash matching. Vendor pricing is per item and unpublished at small scale.
+- `tooling_remains_share`: Nostr4's thesis, not a benchmark. Classifiers, queues and hash matching give way to label providers and web of trust; what remains is hash matching on anything the app itself hosts.
+- `label_provider_per_mau_year`: Labels and trust scores as a service, the moderation line's Nostr-native cost. No public price list exists yet, including ours.
 - `appeals_share`: Editable.
-- `moderation_remains_share`: Illegal-content reports, app-store policy, appeals on what the app hosts. Ranking and discovery move to web of trust.
+- `moderation_remains_share`: Nostr4's thesis, not a benchmark. Review and ranking move to the network: web-of-trust weighting, interoperable algorithm configs and label events let users curate what they see, so an app that hosts nothing moderates nothing of 'its own'. What remains is illegal-content handling for any relay or media host the app runs, and app-store filter, report and block rules, which are engineering rather than labour.
 
 ## 6. Payments
 

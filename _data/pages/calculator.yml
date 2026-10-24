@@ -22,7 +22,7 @@ sections:
       eyebrow_tone: gold
       title: Non-Custodial Savings Calculator
       lede: >-
-        User custody is a cost center that is often overlooked, and for good reason. Most businesses have no choice but to control user accounts and their content. Selling access to these is one means of recouping the cost, but what if non-custody itself was simply ... a profitable option? 
+        User custody is a cost center that is often overlooked, and for good reason. Most businesses have no choice but to hold custody of user accounts and their content. Selling access to these is one means of recouping the cost, but what if non-custody itself was actually ... a more profitable option? 
         This calculator exposes the misunderstood cost center of holding custody, and the savings to be had by releasing custody, of user accounts and data in social apps.
 
   - type: calculator
@@ -118,8 +118,8 @@ sections:
     # ── the tabs ─────────────────────────────────────────────────────────────
     tabs:
       cost: Results
-      app: App Input
-      assumptions: Other Input
+      app: App Details
+      assumptions: Assumptions
       # What the cost tab shows before anything has been calculated.
       empty: Fill in App Info and press Calculate.
 
@@ -145,7 +145,7 @@ sections:
 
     # ── the results ──────────────────────────────────────────────────────────
     results:
-      title: Calculated Savings
+      title: Estimated Savings
       # The pictures, in order, full width. The ids are the chart module's;
       # it also draws chart-cumulative-savings (cumulative saving by year
       # with the low case as a floor) if listed here.
@@ -180,22 +180,22 @@ sections:
           path: Cost of Nostr
           realised: Saved
           cumulative: Cumulative Savings
-      legend:
-        custodial: Custodial today
-        noncustodial: On Nostr
+      # Where the saving comes from: the six lines as shares of the average
+      # saving a year, which the foot row and the tinted fact chip both name.
+      table:
+        title: Non-Custody Savings in Detail
       columns:
         line: Cost line
-        custodial: Custodial today
-        noncustodial: On Nostr
-        bars: Compared
+        saving: Saved per year
+        share: Percent of Cost
         remains: What remains
       lines:
         - id: accounts
           icon: lock-closed
           title: Accounts & personal data
           remains: >-
-            Age checks where the law demands them, and support for users who
-            manage their own keys.
+            An age signal from the store or wallet where the law still asks
+            for one, and support for users who manage their own keys.
         - id: graph
           icon: hub
           title: Social graph & feeds
@@ -212,14 +212,15 @@ sections:
           icon: doc
           title: Compliance & liability
           remains: >-
-            Platform-content duties under the DSA and the Online Safety Act
-            stay, and a privacy program for whatever you still retain.
+            Part of the DSA and Online Safety Act programs, for whatever you
+            still host, and a privacy program for whatever you still retain.
         - id: moderation
           icon: gavel
           title: Moderation
           remains: >-
-            Illegal-content reports, app-store policy, and appeals on what your
-            app itself hosts. Ranking and discovery move to web of trust.
+            Illegal-content handling for any relay you run, app-store filter
+            and report rules, and a label or web-of-trust provider. Review and
+            ranking move to the network.
         - id: payments
           icon: card
           title: Payments
@@ -227,15 +228,13 @@ sections:
             Store rules still apply to what is sold inside the app. Your own
             revenue can move to peer-to-peer rails at about 1% instead of
             3% plus 15 to 30%.
+      # Quiet notes under a line's name, where one applies.
       already: Already on Nostr
       partly: Partly on Nostr
-      implied: Benchmark-implied; nobody was given
       no_payments: No in-app payments
       actions:
-        contact:
-          label: Sanity-check this number with us
         edit:
-          label: Edit inputs
+          label: Customize App Details
 
     # ── the assumptions panel ────────────────────────────────────────────────
     assumptions:
@@ -282,12 +281,135 @@ sections:
       range: "Range {low} to {high}"
       range_short: "{low} to {high}"
       per_mau_pair: "{custodial} today, {noncustodial} on Nostr"
+      # In place of a zero, where a line could save but does not yet.
+      nudges:
+        p2p: "Adds about {amount} a year with a peer-to-peer rail."
+      # "How this is calculated": the dialog a part opens. {a.key} is an
+      # assumption's value in use, {i.key} an input, {p.key} the part's own
+      # number, {d.key} a derived one. Each formula has a today and a Nostr line.
+      how:
+        title: How this is calculated
+        rests_on: Rests on
+        adjust: Adjust Assumptions
+        changed: changed
+        meta: "{low} to {high} · {confidence}"
+        averaged: "Averaged over the five projected years, with growth and the ramp: {p.custodial} of custody becomes {p.noncustodial} on Nostr. That is the figure in the savings list."
+        showing: "Showing the {n} assumptions behind {part}."
+        show_all: Show all
+        confidence:
+          high: sourced
+          medium: derived
+          low: weak source
+          unsourced: unsourced
+        programs:
+          gdpr: GDPR program
+          osa: UK Online Safety Act
+          dsa: Digital Services Act
+          us_small: US privacy program, below the CCPA threshold
+          us_large: US privacy program, at or above the CCPA threshold
+          none: no program applies in the regions given
+        formulas:
+          auth:
+            today: "{i.mau} users × {a.auth_per_mau_month} a month × 12 = {p.custodial}"
+            nostr: "Nothing. Keys replace accounts, so there is no authentication service to pay for."
+          resets:
+            today: "{i.mau} users × {a.reset_rate_per_mau_year} resets a year × {a.reset_cost} a reset = {p.custodial}"
+            nostr: "Nothing. There are no passwords to reset."
+          verify:
+            today: "{i.mau} users × {p.rate} checked a year × {a.verify_price} a check = {p.custodial}"
+            nostr: "{a.verify_remains_share} of checks remain, where the law still reaches the client: {p.noncustodial}"
+          engineering_accounts:
+            today: "{p.hours} hours a week × {d.weeks} weeks × {p.hourly} an hour, fully loaded = {p.custodial}"
+            nostr: "Nothing. The accounts this time managed are gone."
+          key_support:
+            today: "Nothing today."
+            nostr: "{i.mau} users × {a.key_support_per_mau_year} a year for onboarding, recovery guidance and signer support = {p.noncustodial}"
+          database:
+            today: "{p.gb} GB ({i.mau} users × {a.db_mb_per_mau} MB, plus {p.posts} posts a month kept {d.retention} months at {a.db_kb_per_post} KB) × {a.db_gb_month} a GB-month × 12 = {p.custodial}"
+            nostr: "Nothing. The graph lives on relays."
+          feed_compute:
+            today: "{i.mau} users × {a.compute_per_mau_year} a year × {a.feed_compute_share} of it on feeds = {p.custodial}"
+            nostr: "Nothing. Feeds assemble on the client."
+          engineering_graph:
+            today: "{p.hours} hours a week × {d.weeks} weeks × {p.hourly} an hour, fully loaded = {p.custodial}"
+            nostr: "{a.graph_eng_remains_share} remains, for the client's own feed logic: {p.noncustodial}"
+          ranking:
+            today: "Nothing today."
+            nostr: "{i.mau} users × {a.ranking_fee_per_mau_year} a year for a ranking or discovery provider = {p.noncustodial}"
+          blob:
+            today: "{i.mau} users × {i.mb} MB = {p.gb} GB × {a.blob_gb_month} a GB-month × 12 = {p.custodial}"
+            nostr: "{a.media_sponsor_share} remains, for media you still choose to host: {p.noncustodial}"
+          egress:
+            today: "{i.mau} users × {a.egress_gb_per_mau_month} GB a month × 12 = {p.gb} GB × {a.egress_gb} a GB = {p.custodial}"
+            nostr: "{a.media_sponsor_share} remains, for the media you still host: {p.noncustodial}"
+          serving:
+            today: "{i.mau} users × {a.compute_per_mau_year} a year × {p.share} of it on serving = {p.custodial}"
+            nostr: "{i.mau} users × {a.cache_per_mau_year} a year for a thin cache = {p.noncustodial}"
+          engineering_storage:
+            today: "{p.hours} hours a week × {d.weeks} weeks × {p.hourly} an hour, fully loaded = {p.custodial}"
+            nostr: "Nothing. There is no fleet of your own to run."
+          relay:
+            today: "Nothing today."
+            nostr: "A relay or two of your own: {a.relay_cost_year} a year."
+          privacy_programs:
+            today: "{d.programs} = {p.custodial}"
+            nostr: "{a.content_law_remains_share} of the content-law programs remain, for whatever you still host, and {a.privacy_remains_share} of the privacy programs, for whatever you still retain: {p.noncustodial}"
+          privacy_programs_reported:
+            today: "Your reported legal, privacy and compliance spend, {p.custodial}, replaces the estimate."
+            nostr: "Of that, the content-law part ({p.content_law}) remains at {a.content_law_remains_share} and the rest at {a.privacy_remains_share}: {p.noncustodial}"
+          legal_labour:
+            today: "{p.hours} hours a week × {d.weeks} weeks × {p.hourly} an hour, fully loaded = {p.custodial}"
+            nostr: "{a.privacy_remains_share} remains, for whatever you still retain: {p.noncustodial}"
+          dsar:
+            today: "{i.mau} users × {a.dsar_rate_per_mau_year} access requests a year × {a.dsar_cost} each = {p.custodial}"
+            nostr: "Nothing. There is no personal data to serve requests on."
+          insurance:
+            today: "A small company's cyber policy: {a.cyber_insurance_year} a year."
+            nostr: "{a.insurance_remains_share} remains: {p.noncustodial}"
+          breach:
+            today: "{a.breach_prob_year} chance a year × the lesser of {a.breach_cost_cap} and {i.mau} users × {a.breach_cost_per_user} = {p.custodial}"
+            nostr: "The same chance, on the {a.retained_data_share} of personal data still held: {p.noncustodial}"
+          labour_implied:
+            today: "No reviewers were given, so {a.mods_per_million_mau} per million users gives {p.people} people × {p.loaded} a year, fully loaded = {p.custodial}"
+            nostr: "{a.moderation_remains_share} remains, for whatever you host yourself: {p.noncustodial}"
+          labour_given:
+            today: "{p.inhouse} in-house × {p.loaded} a year, fully loaded, plus {p.vendor} vendor seats × {a.moderator_seat_outsourced} = {p.custodial}"
+            nostr: "{a.moderation_remains_share} remains, for whatever you host yourself: {p.noncustodial}"
+          appeals:
+            today: "{a.appeals_share} of review labour, for appeals and escalation = {p.custodial}"
+            nostr: "{a.moderation_remains_share} remains: {p.noncustodial}"
+          tooling:
+            today: "{i.mau} users × {a.ts_tooling_per_mau_year} a year for classifiers, queues and hash matching = {p.custodial}"
+            nostr: "{a.tooling_remains_share} remains, for hash matching on what you host: {p.noncustodial}"
+          labels:
+            today: "Nothing today."
+            nostr: "{i.mau} users × {a.label_provider_per_mau_year} a year for a label or web-of-trust provider = {p.noncustodial}"
+          store_apple:
+            today: "{p.revenue} a year through the App Store × {p.rate} ({d.tier}) = {p.custodial}"
+            nostr: "The same. Store rules still apply to what is sold inside the app."
+          store_google:
+            today: "{p.revenue} a year through Google Play × {p.rate} ({d.tier}) = {p.custodial}"
+            nostr: "The same. Store rules still apply to what is sold inside the app."
+          processor:
+            today: "{p.revenue} a year × {p.rate}, plus {p.tickets} payments × {p.fixed} = {p.custodial}"
+            nostr: "{p.revenue} × {a.lightning_rate} on a peer-to-peer rail = {p.noncustodial}"
+          reseller:
+            today: "{p.revenue} a year × {p.rate}, plus {p.tickets} payments × {p.fixed} = {p.custodial}"
+            nostr: "{p.revenue} × {a.lightning_rate} on a peer-to-peer rail = {p.noncustodial}"
+          p2p:
+            today: "{p.revenue} a year × {a.lightning_rate} = {p.custodial}"
+            nostr: "The same: {p.noncustodial}"
+          money_transmitter_holds:
+            today: "Holding balances means staying out of money-transmitter rules: {a.mt_avoidance_year} a year."
+            nostr: "{a.mt_remains_share} remains: {p.noncustodial}"
+          money_transmitter:
+            today: "Nothing. No balances are held."
+            nostr: "Nothing."
       # Whose estimate the tab shows: the illustrative app's, or the visitor's.
       whose:
         illustrative: "A typical estimate for an app with {mau} active users."
         yours: "Your estimate, for an app with {mau} active users."
-        make_yours: Make it yours
-        adjust: Adjust
+        link: Customize App Details
       chart:
         today: Today
         year: "Year {n}"
@@ -321,14 +443,18 @@ sections:
         saved: "Sent · {ok} of {total} relays · event {id}"
       changed: changed
       details:
-        show: Show the parts
-        hide: Hide the parts
+        show: Show the Savings
+        hide: Hide the Savings
+        today: Cost of Custody
+        on_nostr: Cost of Nostr
         tier_small: small-business tier
         tier_standard: standard tier
         us_small: below the CCPA threshold
         us_large: at or above the CCPA threshold
         people: "{n} people"
+        people_implied: "about {n} people, from benchmarks"
         rate: "{rate} applied"
+        checked: "{rate} of users checked a year"
         gb: "{gb} GB"
         defaulted: default hours
         reported: as reported
@@ -354,6 +480,7 @@ sections:
         labour: Review labour
         appeals: Appeals and escalation
         tooling: Moderation tooling
+        labels: Label or web-of-trust provider
         store_apple: Apple App Store commission
         store_google: Google Play commission
         processor: Payment processing

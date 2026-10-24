@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "date": "2026-10-21",
+  "date": "2026-10-23",
   "currency": "USD",
   "gbp_usd": 1.3,
   "scenarios": [
@@ -429,6 +429,18 @@
       "line": "accounts",
       "group": "accounts"
     },
+    "verify_remains_share": {
+      "label": "Age checks that remain on Nostr",
+      "unit": "ratio",
+      "typical": 0.1,
+      "low": 0,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Nostr4's thesis, not a benchmark. Age assurance becomes an external layer the app reads rather than buys: the Texas and Utah laws put it at the app store, the EU is building a device-level age wallet under the DSA. The UK Online Safety Act is the residual: Ofcom's duty attaches to the service a child can use, wherever sign-up happened, so a client showing others' content may still have to check. Low is the ideal; high is the UK duty surviving in full.",
+      "line": "accounts",
+      "group": "accounts"
+    },
     "key_support_per_mau_year": {
       "label": "Supporting users who manage their own keys",
       "unit": "USD per MAU per year",
@@ -510,6 +522,18 @@
         "date": "2021"
       },
       "note": "Point of contact, legal representative outside the EU, notice-and-action, statements of reasons. The only published floor is the Commission's 1,500 EUR setup estimate.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "content_law_remains_share": {
+      "label": "Content-law programs that remain on Nostr",
+      "unit": "ratio",
+      "typical": 0.5,
+      "low": 0.25,
+      "high": 1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Nostr4's thesis, not a benchmark. The DSA's notice-and-action duties fall on hosting services, and a client that hosts nothing is a weaker target than a platform; the UK Online Safety Act still reaches a service a child can use. High keeps both programs whole.",
       "line": "compliance",
       "group": "compliance"
     },
@@ -693,6 +717,30 @@
       "line": "moderation",
       "group": "moderation"
     },
+    "tooling_remains_share": {
+      "label": "Moderation tooling that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.2,
+      "low": 0.1,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Nostr4's thesis, not a benchmark. Classifiers, queues and hash matching give way to label providers and web of trust; what remains is hash matching on anything the app itself hosts.",
+      "line": "moderation",
+      "group": "moderation"
+    },
+    "label_provider_per_mau_year": {
+      "label": "A label or web-of-trust provider",
+      "unit": "USD per MAU per year",
+      "typical": 0.01,
+      "low": 0.005,
+      "high": 0.05,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Labels and trust scores as a service, the moderation line's Nostr-native cost. No public price list exists yet, including ours.",
+      "line": "moderation",
+      "group": "moderation"
+    },
     "appeals_share": {
       "label": "Appeals and escalation on top of review labour",
       "unit": "ratio",
@@ -708,12 +756,12 @@
     "moderation_remains_share": {
       "label": "Moderation that remains on Nostr",
       "unit": "ratio",
-      "typical": 0.4,
-      "low": 0.25,
-      "high": 0.6,
+      "typical": 0.1,
+      "low": 0.05,
+      "high": 0.4,
       "confidence": "unsourced",
       "source": null,
-      "note": "Illegal-content reports, app-store policy, appeals on what the app hosts. Ranking and discovery move to web of trust.",
+      "note": "Nostr4's thesis, not a benchmark. Review and ranking move to the network: web-of-trust weighting, interoperable algorithm configs and label events let users curate what they see, so an app that hosts nothing moderates nothing of 'its own'. What remains is illegal-content handling for any relay or media host the app runs, and app-store filter, report and block rules, which are engineering rather than labour.",
       "line": "moderation",
       "group": "moderation"
     },

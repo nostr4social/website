@@ -51,9 +51,11 @@
   color: var(--ink-0);
 }
 
+// Each tab's active colour is its own: Results in the lifted purple, App
+// Details in gold, Assumptions in the grey of its text.
 .tab[aria-selected="true"] {
   border-bottom-color: var(--purple-lift);
-  color: var(--ink-0);
+  color: var(--purple-lift);
 }
 
 // The form's tab is the one to notice: the inputs are where the estimate comes from.
@@ -64,6 +66,11 @@
 .tab--lit[aria-selected="true"] {
   border-bottom-color: var(--gold);
   color: var(--gold);
+}
+
+#tab-assumptions[aria-selected="true"] {
+  border-bottom-color: var(--ink-2);
+  color: var(--ink-2);
 }
 
 .tab:focus-visible {
@@ -730,53 +737,87 @@
   width: 18px;
 }
 
-.legend__swatch--c,
-.bar--c {
-  background: var(--line-raised);
+// The saving's tint: the fact chip that names the average saving and the
+// table's foot row share it, so the eye links the two.
+.stat--saving {
+  background: color-mix(in srgb, var(--purple-lift) 16%, var(--bg-1));
+  border-color: color-mix(in srgb, var(--purple-lift) 40%, var(--line));
 }
 
-.legend__swatch--nc,
-.bar--nc {
-  background: var(--purple-lift);
+.results__sub {
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-heading);
+  margin: var(--s-3) 0 calc(-1 * var(--s-3));
 }
 
-// The ledger as a table. Values in tabular figures so they align; ranges
-// beneath them in the quiet ink; the bars share one scale across all rows.
+// The lines as a table of cards: each row a raised band with a gap above it,
+// its costs folding out beneath as a sunk continuation. Values in tabular
+// figures; ranges in the quiet ink; one bar per row on a full-width track.
 .ledger-table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   width: 100%;
 }
 
 .ledger-table th,
 .ledger-table td {
-  border-top: 1px solid var(--line);
-  padding: var(--s-4) var(--s-3);
+  padding: var(--s-4) var(--s-4);
   text-align: left;
   vertical-align: top;
 }
 
 .ledger-table thead th {
-  border-top: 0;
   color: var(--ink-3);
   font-size: var(--fs-xs);
   font-weight: var(--fw-ui);
   letter-spacing: 0.04em;
+  padding-bottom: var(--s-2);
   padding-top: 0;
   text-transform: uppercase;
 }
 
-.ledger-table th:first-child,
-.ledger-table td:first-child {
-  padding-left: 0;
+// A row's cells share one card: a page-coloured top border is the gap.
+.lt-row th,
+.lt-row td,
+.lt-total th,
+.lt-total td {
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line);
+  border-top: var(--s-2) solid var(--bg-0);
+  box-shadow: 0 -1px 0 var(--line);
 }
 
-.ledger-table th:last-child,
-.ledger-table td:last-child {
-  padding-right: 0;
+.lt-row th:first-child,
+.lt-total th:first-child {
+  border-left: 1px solid var(--line);
+  border-radius: var(--r-card) 0 0 var(--r-card);
+}
+
+.lt-row td:last-child,
+.lt-total td:last-child {
+  border-radius: 0 var(--r-card) var(--r-card) 0;
+  border-right: 1px solid var(--line);
+}
+
+// With its costs open, the row squares off and the sunk band continues it.
+.lt-row.is-open th,
+.lt-row.is-open td {
+  border-bottom: 0;
+}
+
+.lt-row.is-open th:first-child {
+  border-radius: var(--r-card) 0 0 0;
+}
+
+.lt-row.is-open td:last-child {
+  border-radius: 0 var(--r-card) 0 0;
 }
 
 .lt-line {
-  width: 24%;
+  width: 26%;
 }
 
 .lt-cell {
@@ -802,14 +843,10 @@
   width: 18px;
 }
 
-.lt-flags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-1);
-}
-
-.lt-flags:empty {
-  display: none;
+.lt-note {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-card);
 }
 
 .lt-toggle {
@@ -822,7 +859,7 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
-  width: 15%;
+  width: 16%;
 }
 
 .lt-value {
@@ -840,24 +877,52 @@
   margin-top: var(--s-1);
 }
 
-.lt-bars {
-  width: 20%;
+.lt-share {
+  width: 22%;
 }
 
-// Thin marks, 4px rounded data end, square at the baseline, a 2px surface gap
-// between the pair. Width is the series value on the table's shared scale.
-.bar {
+// One thin mark per line: its share of the average saving, on a track that
+// is the whole, with the share written beside it.
+.share {
   --w: 0%;
-  border-radius: 0 var(--r-ui) var(--r-ui) 0;
-  display: block;
+  background: var(--line);
+  border-radius: var(--r-ui);
+  display: inline-block;
   height: 10px;
-  margin-top: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  vertical-align: top;
+  width: calc(100% - 3.4em);
+}
+
+.share::after {
+  background: var(--purple-lift);
+  border-radius: 0 var(--r-ui) var(--r-ui) 0;
+  content: "";
+  display: block;
+  height: 100%;
   min-width: 2px;
   width: var(--w);
 }
 
-.bar + .bar {
-  margin-top: 2px;
+.share__pct {
+  color: var(--ink-3);
+  display: inline-block;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 22px;
+  text-align: right;
+  vertical-align: top;
+  width: 3.4em;
+}
+
+.lt-nudge {
+  color: var(--ink-1);
+  display: block;
+  font-size: var(--fs-s);
+  line-height: var(--lh-card);
+  text-align: right;
+  white-space: normal;
 }
 
 .lt-remains {
@@ -866,37 +931,112 @@
   line-height: var(--lh-body);
 }
 
-// A line that is already non-custodial, or a payments line with nothing in it.
-.lt-row.is-already .lt-value--c,
-.lt-row.is-none .lt-value {
+// A line that is already non-custodial.
+.lt-row.is-already .lt-value {
   color: var(--ink-3);
 }
 
+// The foot row: the whole, in the saving's tint.
+.lt-total th,
+.lt-total td {
+  background: color-mix(in srgb, var(--purple-lift) 16%, var(--bg-1));
+  border-bottom-color: color-mix(in srgb, var(--purple-lift) 40%, var(--line));
+  box-shadow: 0 -1px 0 color-mix(in srgb, var(--purple-lift) 40%, var(--line));
+}
+
+.lt-total th:first-child {
+  border-left-color: color-mix(in srgb, var(--purple-lift) 40%, var(--line));
+}
+
+.lt-total td:last-child {
+  border-right-color: color-mix(in srgb, var(--purple-lift) 40%, var(--line));
+}
+
+.lt-total .lt-title {
+  font-size: var(--fs-s);
+}
+
+.lt-total .lt-value {
+  font-size: var(--fs-l);
+}
+
+// The costs beneath a line: the two totals, then one part per row.
 .lt-parts td {
   background: var(--bg-sunk);
+  border: 1px solid var(--line);
+  border-radius: 0 0 var(--r-card) var(--r-card);
   border-top: 0;
-  padding: var(--s-3) var(--s-4) var(--s-4);
+  padding: var(--s-4) var(--s-6) var(--s-5);
+}
+
+.parts__totals {
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-6);
+  margin-bottom: var(--s-3);
+  padding-bottom: var(--s-3);
+}
+
+.parts__total {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+}
+
+.parts__total-label {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  margin-right: var(--s-1);
+  text-transform: uppercase;
+}
+
+.parts__total b {
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-ui);
 }
 
 .parts {
-  display: grid;
-  gap: var(--s-2) var(--s-5);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
+// A part is a link-styled button: pressing it explains the figure.
 .part {
   align-items: baseline;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
   display: flex;
+  font: inherit;
   font-size: var(--fs-s);
-  gap: var(--s-3);
+  gap: var(--s-4);
   justify-content: space-between;
+  padding: 0;
+  text-align: left;
+  width: 100%;
 }
 
 .part__label {
-  color: var(--ink-2);
+  color: var(--purple-lift);
+}
+
+.part:hover .part__label,
+.part:focus-visible .part__label {
+  text-decoration: underline;
+}
+
+.part:focus-visible {
+  border-radius: var(--r-hairline);
+  outline: 2px solid var(--purple-lift);
+  outline-offset: 4px;
 }
 
 .part__meta {
@@ -917,12 +1057,14 @@
 }
 
 .results__actions {
-  align-items: flex-start;
   border-top: 1px solid var(--line);
   display: flex;
-  flex-direction: column;
-  gap: var(--s-5);
+  justify-content: center;
   padding-top: var(--s-5);
+}
+
+.results__edit {
+  font-size: var(--fs-m);
 }
 
 
@@ -935,6 +1077,13 @@
   line-height: var(--lh-card);
 }
 
+// The version, small and to the right, as the tab's last line.
+.results__version {
+  font-size: var(--fs-xs);
+  margin-top: calc(-1 * var(--s-3));
+  text-align: right;
+}
+
 .results__status:empty,
 .results__version:empty {
   display: none;
@@ -945,7 +1094,8 @@
 // A closed dialog stays hidden (the browser's own rule); an open one lays
 // its parts out in a column.
 .modal--save[open],
-.modal--sign[open] {
+.modal--sign[open],
+.modal--how[open] {
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
@@ -957,6 +1107,134 @@
 
 .modal--sign {
   max-width: 36em;
+}
+
+// ── how this is calculated ───────────────────────────────────────────────────
+
+.modal--how {
+  max-width: 40em;
+}
+
+.how__which {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  margin: calc(-1 * var(--s-2)) 0 0;
+}
+
+.how__which b {
+  color: var(--ink-0);
+  font-size: var(--fs-m);
+}
+
+.how__line::before {
+  content: "· ";
+}
+
+.how__math {
+  background: var(--bg-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--r-ui);
+  display: grid;
+  gap: var(--s-2) var(--s-4);
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+  padding: var(--s-4);
+}
+
+.how__math dt {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  padding-top: 2px;
+  text-transform: uppercase;
+}
+
+.how__math dd {
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-body);
+  margin: 0;
+}
+
+.how__sub {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-ui);
+  letter-spacing: 0.04em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.how__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  list-style: none;
+  margin: calc(-1 * var(--s-2)) 0 0;
+  padding: 0;
+}
+
+.how__item {
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  display: flex;
+  font-size: var(--fs-s);
+  gap: var(--s-4);
+  justify-content: space-between;
+  padding-top: var(--s-2);
+}
+
+.how__item:first-child {
+  border-top: 0;
+}
+
+.how__label {
+  color: var(--ink-2);
+}
+
+.how__changed {
+  color: var(--gold);
+  font-size: var(--fs-xs);
+  margin-left: var(--s-2);
+}
+
+.how__value {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  text-align: right;
+}
+
+.how__value b {
+  color: var(--ink-0);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-ui);
+}
+
+.how__meta {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+
+// The assumptions table with a part's rows lit up, and the strip that says so.
+.assume__filter {
+  background: color-mix(in srgb, var(--purple-lift) 16%, var(--bg-1));
+  border: 1px solid color-mix(in srgb, var(--purple-lift) 40%, var(--line));
+  border-radius: var(--r-ui);
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+}
+
+.assume.is-filtered .assume-table tr[data-key]:not(.is-focus) {
+  opacity: 0.4;
+}
+
+.assume-table tr.is-focus th,
+.assume-table tr.is-focus td {
+  background: color-mix(in srgb, var(--purple-lift) 12%, var(--bg-0));
 }
 
 .modal--save .modal__head {
@@ -1333,6 +1611,7 @@ tr.is-changed .assume-input {
 
   .ledger-table,
   .ledger-table tbody,
+  .ledger-table tfoot,
   .ledger-table tr,
   .ledger-table th,
   .ledger-table td,
@@ -1358,6 +1637,42 @@ tr.is-changed .assume-input {
     padding-inline: 0;
   }
 
+  // Each line is one card; its cells stack inside it, its costs attach beneath.
+  .ledger-table .lt-row,
+  .ledger-table .lt-total {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    margin-top: var(--s-2);
+    padding: var(--s-3) var(--s-4);
+  }
+
+  .ledger-table .lt-total {
+    background: color-mix(in srgb, var(--purple-lift) 16%, var(--bg-1));
+    border-color: color-mix(in srgb, var(--purple-lift) 40%, var(--line));
+  }
+
+  .ledger-table .lt-row.is-open {
+    border-bottom: 0;
+    border-radius: var(--r-card) var(--r-card) 0 0;
+  }
+
+  .ledger-table .lt-row th,
+  .ledger-table .lt-row td,
+  .ledger-table .lt-total th,
+  .ledger-table .lt-total td {
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .ledger-table .lt-parts td {
+    border-radius: 0 0 var(--r-card) var(--r-card);
+    border-top: 0;
+    padding: var(--s-3) var(--s-4) var(--s-4);
+  }
+
   .ledger-table td[data-label]::before,
   .assume-table td[data-label]::before {
     color: var(--ink-3);
@@ -1367,8 +1682,13 @@ tr.is-changed .assume-input {
     text-transform: uppercase;
   }
 
-  .lt-bars {
-    max-width: 60%;
+  .lt-share {
+    max-width: 70%;
+  }
+
+  .ledger-table tfoot,
+  .ledger-table tfoot tr {
+    display: block;
   }
 
   // A slider row on a phone: the name above, the slider across, the band beneath.
@@ -1384,12 +1704,17 @@ tr.is-changed .assume-input {
     display: block;
   }
 
-  .lt-parts td {
-    padding-inline: var(--s-3);
-  }
-
   .lt-parts[hidden] {
     display: none;
+  }
+
+  .lt-nudge,
+  .ledger-table .lt-num {
+    text-align: left;
+  }
+
+  .share {
+    width: calc(100% - 3.4em);
   }
 
   .assume-input {
