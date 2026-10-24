@@ -10,6 +10,8 @@ Save & Share modal, so a question is drawn the same way wherever it sits.
   stops     for a number drawn as a slider: { value: label }
   form_id   when the question sits outside the form element (the modal),
             the id of the form its answers belong to
+  scale     true to draw a single-choice question as a stepped slider
+  opener    true for a section's opening question: its choices run inline
 {%- endcomment -%}
 {%- assign field = include.field -%}
 {%- assign key = include.key -%}
@@ -47,10 +49,30 @@ Save & Share modal, so a question is drawn the same way wherever it sits.
     </div>
   </fieldset>
 
+{%- elsif field.type == "option" and include.scale -%}
+  {%- comment -%} a single-choice question whose options are a scale: one stepped slider, the options as stops {%- endcomment -%}
+  {%- assign stops_n = 0 -%}
+  {%- capture values %}{% for opt in field.options %}{% for o in mapping.options %}{% if o[1] == opt.id %}{% if stops_n > 0 %},{% endif %}{{ o[0] }}{% assign stops_n = stops_n | plus: 1 %}{% endif %}{% endfor %}{% endfor %}{% endcapture -%}
+  {%- assign stops_n = 0 -%}
+  {%- capture labels %}{% for opt in field.options %}{% for o in mapping.options %}{% if o[1] == opt.id %}{% if stops_n > 0 %}|{% endif %}{{ opt.label }}{% assign stops_n = stops_n | plus: 1 %}{% endif %}{% endfor %}{% endfor %}{% endcapture -%}
+  <div class="field field--slider" id="field-{{ key }}">
+    <div class="slider-row slider-row--single">
+      <label class="slider-row__label field__label" for="f-{{ key }}">{% include lib/label.html text=field.label %}</label>
+      <div class="slider-row__control">
+        <input class="slider" type="range" id="f-{{ key }}" name="{{ key }}" min="0" max="{{ stops_n | minus: 1 }}" step="1" value="0"
+               data-values="{{ values }}" data-labels="{{ labels }}" aria-valuetext="{{ field.options.first.label }}">
+        <div class="slider__ticks" aria-hidden="true">
+          {%- for opt in field.options -%}{%- for o in mapping.options -%}{%- if o[1] == opt.id -%}<span class="slider__tick">{{ opt.label }}</span>{%- endif -%}{%- endfor -%}{%- endfor -%}
+        </div>
+      </div>
+      <output class="slider-row__value" for="f-{{ key }}">{{ field.options.first.label }}</output>
+    </div>
+  </div>
+
 {%- elsif field.type == "option" -%}
   {%- assign multi = true -%}
   {%- if field.render == "radioButton" or field.render == "dropdown" %}{% assign multi = false %}{% endif -%}
-  <fieldset class="field field--choices" id="field-{{ key }}">
+  <fieldset class="field field--choices{% if include.opener %} field--inline{% endif %}" id="field-{{ key }}">
     <legend class="field__label">{% include lib/label.html text=field.label %}</legend>
     <div class="choices">
     {%- for opt in field.options -%}

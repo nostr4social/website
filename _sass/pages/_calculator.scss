@@ -17,64 +17,146 @@
 // Three panels, one shown at a time once the script runs; without it all
 // three stack, in order. The Save & Share button sits on the same rule.
 
+// The tab bar: a segmented control at the left, Send & Share at the right,
+// stuck to the top of the viewport on a translucent band as the page scrolls.
 .tabbar {
-  align-items: flex-end;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--bg-0) 88%, transparent);
   border-bottom: 1px solid var(--line);
   display: flex;
   gap: var(--s-4);
   justify-content: space-between;
-}
-
-.tabbar .btn {
-  margin-bottom: var(--s-2);
+  padding: var(--s-3) 0;
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .tabs {
-  display: flex;
-  gap: var(--s-2);
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: var(--s-1);
+  padding: var(--s-1);
 }
 
+// Each tab carries its own accent: Results the lifted purple, App Details
+// gold, Assumptions the grey of its text. The active one is a filled segment.
 .tab {
+  --accent: var(--purple-lift);
+  align-items: center;
   background: none;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 999px;
   color: var(--ink-2);
   cursor: pointer;
+  display: inline-flex;
   font-size: var(--fs-m);
   font-weight: var(--fw-ui);
-  margin-bottom: -1px;
-  padding: var(--s-3) var(--s-4);
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  position: relative;
+  transition: background-color 120ms, color 120ms, box-shadow 120ms;
   white-space: nowrap;
+}
+
+.tab__icon {
+  color: var(--accent);
+  flex: none;
+  height: 18px;
+  opacity: 0.85;
+  width: 18px;
 }
 
 .tab:hover {
   color: var(--ink-0);
 }
 
-// Each tab's active colour is its own: Results in the lifted purple, App
-// Details in gold, Assumptions in the grey of its text.
 .tab[aria-selected="true"] {
-  border-bottom-color: var(--purple-lift);
-  color: var(--purple-lift);
+  background: var(--bg-2);
+  box-shadow: inset 0 -2px 0 var(--accent);
+  color: var(--ink-0);
 }
 
-// The form's tab is the one to notice: the inputs are where the estimate comes from.
+// The form's tab is the one to notice: gold, selected or not.
 .tab--lit {
+  --accent: var(--gold);
   color: var(--gold);
 }
 
+.tab--lit:hover,
 .tab--lit[aria-selected="true"] {
-  border-bottom-color: var(--gold);
   color: var(--gold);
 }
 
-#tab-assumptions[aria-selected="true"] {
-  border-bottom-color: var(--ink-2);
-  color: var(--ink-2);
+// The quiet third: the appendix.
+.tab--quiet {
+  --accent: var(--ink-2);
+  color: var(--ink-3);
+  font-size: var(--fs-s);
+}
+
+.tab--quiet[aria-selected="true"] {
+  color: var(--ink-1);
 }
 
 .tab:focus-visible {
-  border-radius: var(--r-hairline);
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+// The phone row: the active tab and a caret. Hidden at full width, where the
+// whole track shows.
+.tabs__current {
+  --accent: var(--purple-lift);
+  align-items: center;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-ui);
+  box-shadow: inset 0 -2px 0 var(--accent);
+  color: var(--ink-0);
+  cursor: pointer;
+  display: none;
+  font-size: var(--fs-m);
+  font-weight: var(--fw-ui);
+  gap: var(--s-2);
+  justify-content: space-between;
+  padding: var(--s-3) var(--s-4);
+  width: 100%;
+}
+
+.tabs__current[data-tab="app"] {
+  --accent: var(--gold);
+  color: var(--gold);
+}
+
+.tabs__current[data-tab="assumptions"] {
+  --accent: var(--ink-2);
+  color: var(--ink-1);
+}
+
+.tabs__current-tab {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--s-2);
+}
+
+.tabs__caret {
+  color: var(--ink-3);
+  flex: none;
+  height: 16px;
+  transform: rotate(90deg);
+  transition: transform 120ms;
+  width: 16px;
+}
+
+.tabbar.is-open .tabs__caret {
+  transform: rotate(-90deg);
+}
+
+.tabs__current:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-offset);
 }
@@ -90,14 +172,11 @@
 
 // ── the form ─────────────────────────────────────────────────────────────────
 
+// No card of its own: the sections are the cards, as the lines are on the results tab.
 .calc-form {
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: var(--r-panel);
   display: flex;
   flex-direction: column;
-  gap: var(--s-6);
-  padding: var(--pad-panel);
+  gap: var(--s-4);
 }
 
 .calc-form__head {
@@ -120,25 +199,76 @@
   max-width: var(--measure-card);
 }
 
+// A tab's title and lede, above its card: the same shape on every tab.
+.panel__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-bottom: var(--s-5);
+}
+
+.panel__title {
+  color: var(--ink-0);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-title);
+  letter-spacing: var(--ls-heading);
+  line-height: var(--lh-heading);
+}
+
+.panel__title:focus {
+  outline: none;
+}
+
+.panel__lede {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-card);
+  margin: 0;
+  max-width: var(--measure-card);
+}
+
+// Each section is a card, like a line in the results: a numbered title, the
+// opener, then the details folding out as a sunk band at its foot.
 .group {
-  border: 0;
-  border-top: 1px solid var(--line);
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
   margin: 0;
   min-width: 0;
-  padding: var(--s-5) 0 0;
+  padding: var(--pad-card);
 }
 
 .group__legend {
+  align-items: center;
   color: var(--ink-0);
+  display: flex;
+  float: left;
   font-size: var(--fs-l);
   font-weight: var(--fw-title);
+  gap: var(--s-3);
   line-height: var(--lh-heading);
-  padding: 0;
-  // A legend sits in the border; pushing it down keeps the rule above it clean.
   margin-bottom: var(--s-2);
+  padding: 0;
+  width: 100%;
+}
+
+.group__step {
+  align-items: center;
+  background: var(--bg-2);
+  border: 1px solid var(--line-raised);
+  border-radius: 50%;
+  color: var(--ink-2);
+  display: inline-flex;
+  flex: none;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-ui);
+  height: 24px;
+  justify-content: center;
+  width: 24px;
 }
 
 .group__note {
@@ -154,22 +284,96 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.group__more {
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  padding: var(--s-3) var(--s-4);
-}
-
-.group__more-label {
-  color: var(--purple-lift);
-  cursor: pointer;
+// The questions behind a section's opener: folded by default, a link to
+// open them; open, they run as a sunk band across the foot of the card.
+.group__toggle {
+  align-self: flex-start;
+  color: var(--gold);
   font-size: var(--fs-s);
-  font-weight: var(--fw-ui);
 }
 
-.group__more[open] .group__more-label {
-  margin-bottom: var(--s-4);
+.group__toggle:hover {
+  color: var(--gold);
+  text-decoration: underline;
 }
+
+.group__more {
+  background: var(--bg-sunk);
+  border-radius: 0 0 var(--r-card) var(--r-card);
+  border-top: 1px solid var(--line);
+  margin: 0 calc(-1 * var(--pad-card)) calc(-1 * var(--pad-card));
+  padding: var(--s-4) var(--pad-card) var(--s-5);
+}
+
+.group__more[hidden] {
+  display: none;
+}
+
+// An opener's choices run inline as equal pills across the row; the details
+// keep one native control per line. The input stays in the page for focus
+// and assistive tech; the pill shows its state.
+.field--inline .choices {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+
+.field--inline .choice {
+  align-items: center;
+  background: var(--bg-1);
+  border: 1px solid var(--line-raised);
+  border-radius: 999px;
+  color: var(--ink-1);
+  flex: 1 1 0;
+  font-size: var(--fs-xs);
+  justify-content: center;
+  min-width: 6em;
+  padding: var(--s-2) var(--s-4);
+  position: relative;
+  text-align: center;
+  transition: border-color 120ms, background-color 120ms, color 120ms;
+}
+
+.field--inline .choice input {
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.field--inline .choice:hover {
+  border-color: var(--purple-lift);
+}
+
+.field--inline .choice:has(input:checked) {
+  background: color-mix(in srgb, var(--purple-lift) 18%, var(--bg-1));
+  border-color: var(--purple-lift);
+  color: var(--ink-0);
+}
+
+.field--inline .choice:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+// Openers take the full width of the card.
+.group > .group__fields > .field--slider,
+.group > .group__fields > .field--inline {
+  grid-column: 1 / -1;
+}
+
+// A slider standing where the opener put it: dimmed, and named as a
+// suggestion, until the founder moves it.
+.slider-row.is-suggested .slider {
+  opacity: 0.55;
+}
+
+.slider-row.is-suggested .slider-row__value {
+  color: var(--ink-3);
+}
+
 
 .field--choices {
   border: 0;
@@ -315,7 +519,7 @@
 
 .slider-row--single {
   border-top: 0;
-  grid-template-columns: minmax(0, 1fr) 7em;
+  grid-template-columns: minmax(0, 1fr) 8em;
   padding-top: 0;
 }
 
@@ -343,11 +547,13 @@
   padding-left: var(--s-4);
 }
 
+// Reset at the left, Calculate at the right.
 .calc-form__submit {
   align-items: center;
   border-top: 1px solid var(--line);
   display: flex;
   gap: var(--s-5);
+  justify-content: space-between;
   padding-top: var(--s-5);
 }
 
@@ -402,8 +608,26 @@
   margin: 0;
 }
 
-.whose__link {
+.whose__link,
+.results__edit {
+  color: var(--gold);
   font-size: inherit;
+}
+
+.whose__link:hover,
+.results__edit:hover {
+  color: var(--gold);
+  text-decoration: underline;
+}
+
+// Every fact is bold; one the visitor gave is bright, one the openers assumed stays in the body ink.
+.whose__fact {
+  color: var(--ink-0);
+  font-weight: var(--fw-ui);
+}
+
+.whose__fact--assumed {
+  color: var(--ink-2);
 }
 
 .stat {
@@ -781,23 +1005,19 @@
 
 // A row's cells share one card: a page-coloured top border is the gap.
 .lt-row th,
-.lt-row td,
-.lt-total th,
-.lt-total td {
+.lt-row td {
   background: var(--bg-1);
   border-bottom: 1px solid var(--line);
   border-top: var(--s-2) solid var(--bg-0);
   box-shadow: 0 -1px 0 var(--line);
 }
 
-.lt-row th:first-child,
-.lt-total th:first-child {
+.lt-row th:first-child {
   border-left: 1px solid var(--line);
   border-radius: var(--r-card) 0 0 var(--r-card);
 }
 
-.lt-row td:last-child,
-.lt-total td:last-child {
+.lt-row td:last-child {
   border-radius: 0 var(--r-card) var(--r-card) 0;
   border-right: 1px solid var(--line);
 }
@@ -934,30 +1154,6 @@
 // A line that is already non-custodial.
 .lt-row.is-already .lt-value {
   color: var(--ink-3);
-}
-
-// The foot row: the whole, in the saving's tint.
-.lt-total th,
-.lt-total td {
-  background: color-mix(in srgb, var(--purple-lift) 16%, var(--bg-1));
-  border-bottom-color: color-mix(in srgb, var(--purple-lift) 40%, var(--line));
-  box-shadow: 0 -1px 0 color-mix(in srgb, var(--purple-lift) 40%, var(--line));
-}
-
-.lt-total th:first-child {
-  border-left-color: color-mix(in srgb, var(--purple-lift) 40%, var(--line));
-}
-
-.lt-total td:last-child {
-  border-right-color: color-mix(in srgb, var(--purple-lift) 40%, var(--line));
-}
-
-.lt-total .lt-title {
-  font-size: var(--fs-s);
-}
-
-.lt-total .lt-value {
-  font-size: var(--fs-l);
 }
 
 // The costs beneath a line: the two totals, then one part per row.
@@ -1534,10 +1730,6 @@ tr.is-changed .assume-input {
 // ── breakpoints ──────────────────────────────────────────────────────────────
 
 @include below($bp-mid) {
-  .calc-form {
-    padding: var(--pad-card);
-  }
-
   .chart__watermark {
     font-size: 30px;
   }
@@ -1575,22 +1767,44 @@ tr.is-changed .assume-input {
   .tabbar {
     align-items: stretch;
     flex-direction: column;
-    gap: 0;
+    gap: var(--s-3);
+  }
+
+  // On a phone the track collapses to the active tab's row; pressing it
+  // drops the full track, stacked, beneath.
+  .tabs__current {
+    display: flex;
   }
 
   .tabs {
-    gap: 0;
-    justify-content: space-between;
+    border-radius: var(--r-card);
+    display: none;
+    flex-direction: column;
+    gap: var(--s-1);
+    padding: var(--s-1);
+  }
+
+  .tabbar.is-open .tabs {
+    display: flex;
+  }
+
+  // The row above already names the active tab; the dropped track offers only the others.
+  .tabbar.is-open .tab[aria-selected="true"] {
+    display: none;
   }
 
   .tab {
+    border-radius: var(--r-ui);
+    justify-content: flex-start;
+    padding: var(--s-3) var(--s-4);
+  }
+
+  .tab--quiet {
     font-size: var(--fs-s);
-    padding: var(--s-3) var(--s-2);
   }
 
   .tabbar .btn {
     align-self: stretch;
-    margin: var(--s-3) 0;
   }
 
   .modal__actions {
@@ -1611,7 +1825,6 @@ tr.is-changed .assume-input {
 
   .ledger-table,
   .ledger-table tbody,
-  .ledger-table tfoot,
   .ledger-table tr,
   .ledger-table th,
   .ledger-table td,
@@ -1638,18 +1851,12 @@ tr.is-changed .assume-input {
   }
 
   // Each line is one card; its cells stack inside it, its costs attach beneath.
-  .ledger-table .lt-row,
-  .ledger-table .lt-total {
+  .ledger-table .lt-row {
     background: var(--bg-1);
     border: 1px solid var(--line);
     border-radius: var(--r-card);
     margin-top: var(--s-2);
     padding: var(--s-3) var(--s-4);
-  }
-
-  .ledger-table .lt-total {
-    background: color-mix(in srgb, var(--purple-lift) 16%, var(--bg-1));
-    border-color: color-mix(in srgb, var(--purple-lift) 40%, var(--line));
   }
 
   .ledger-table .lt-row.is-open {
@@ -1658,9 +1865,7 @@ tr.is-changed .assume-input {
   }
 
   .ledger-table .lt-row th,
-  .ledger-table .lt-row td,
-  .ledger-table .lt-total th,
-  .ledger-table .lt-total td {
+  .ledger-table .lt-row td {
     background: none;
     border: 0;
     border-radius: 0;
@@ -1686,10 +1891,6 @@ tr.is-changed .assume-input {
     max-width: 70%;
   }
 
-  .ledger-table tfoot,
-  .ledger-table tfoot tr {
-    display: block;
-  }
 
   // A slider row on a phone: the name above, the slider across, the band beneath.
   .slider-row {

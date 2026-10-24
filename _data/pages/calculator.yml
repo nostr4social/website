@@ -104,9 +104,22 @@ sections:
           "5000000": $5M
       # Grid columns are bands; the band's value is in the map. A column's
       # name comes from the form; nothing to add here.
+      # Single-choice questions whose options are a scale, drawn as stepped
+      # sliders rather than radio buttons. A list (kind of app, who moderates)
+      # stays a list.
+      scales: [nostr_now, growth, team, mod_heads]
+      # Above the form card, as the results tab has its title and line.
+      title: Your App Details
+      intro: >-
+        Seven questions is enough for a rough estimate. Add more details if you have them. The rest remains an assumption.
       honeypot_label: Leave this field empty
+      # Each section opens with one question; these fold the rest in and out.
+      more: Add more details
+      less: Fewer details
       submit:
         label: Calculate
+      # Back to the illustrative app: every answer cleared, every section folded.
+      reset: Reset Values
       sign:
         guest_note: >-
           Saved with a one-time key, generated in this browser and discarded
@@ -117,7 +130,7 @@ sections:
 
     # ── the tabs ─────────────────────────────────────────────────────────────
     tabs:
-      cost: Results
+      cost: Calculator Results
       app: App Details
       assumptions: Assumptions
       # What the cost tab shows before anything has been calculated.
@@ -187,7 +200,7 @@ sections:
       columns:
         line: Cost line
         saving: Saved per year
-        share: Percent of Cost
+        share: Percent Saved
         remains: What remains
       lines:
         - id: accounts
@@ -372,8 +385,11 @@ sections:
           labour_implied:
             today: "No reviewers were given, so {a.mods_per_million_mau} per million users gives {p.people} people × {p.loaded} a year, fully loaded = {p.custodial}"
             nostr: "{a.moderation_remains_share} remains, for whatever you host yourself: {p.noncustodial}"
-          labour_given:
-            today: "{p.inhouse} in-house × {p.loaded} a year, fully loaded, plus {p.vendor} vendor seats × {a.moderator_seat_outsourced} = {p.custodial}"
+          labour_team:
+            today: "{p.people} on your team × {p.loaded} a year, fully loaded = {p.custodial}"
+            nostr: "{a.moderation_remains_share} remains, for whatever you host yourself: {p.noncustodial}"
+          labour_vendor:
+            today: "{p.people} vendor seats × {a.moderator_seat_outsourced} a year, all-in = {p.custodial}"
             nostr: "{a.moderation_remains_share} remains, for whatever you host yourself: {p.noncustodial}"
           appeals:
             today: "{a.appeals_share} of review labour, for appeals and escalation = {p.custodial}"
@@ -406,9 +422,42 @@ sections:
             today: "Nothing. No balances are held."
             nostr: "Nothing."
       # Whose estimate the tab shows: the illustrative app's, or the visitor's.
+      # The line under the title: whose estimate, and the app it describes,
+      # one piece per section, all bold. A piece the visitor answered is
+      # bright; one the openers assumed stays in the body ink.
       whose:
-        illustrative: "A typical estimate for an app with {mau} active users."
-        yours: "Your estimate, for an app with {mau} active users."
+        illustrative: Estimated
+        yours: Your estimate
+        frame: "{lead} for {kind} {reach} that is {nostr} and has {mau} active users, with a team of {team}, {moderation}, and processes {payments} in-app payments."
+        kind:
+          none: an app
+          messaging: a messaging app
+          feed: a media feed
+          community: a community
+          marketplace: a marketplace
+        team:
+          one: one founder
+          ten: up to 10 rockstars
+          fifty: up to 50 winners
+          more: more than 50 employees
+        moderation:
+          nobody: no moderation
+          team: in-house moderation
+          vendor: third-party moderation
+        payments:
+          none: $0
+          some: "{rev} per month"
+        reach:
+          in: "in {list}"
+          join: " and "
+          eu: the EU
+          uk: the UK
+          us: the US
+          other: other regions
+        nostr:
+          "0": not on Nostr
+          "0.5": partially Nostr integrated
+          "1": fully Nostr integrated
         link: Customize App Details
       chart:
         today: Today
@@ -452,11 +501,15 @@ sections:
         us_small: below the CCPA threshold
         us_large: at or above the CCPA threshold
         people: "{n} people"
+        people_default: "{n} people, a default count"
+        seats: "{n} vendor seats"
+        seats_default: "{n} vendor seats, a default count"
         people_implied: "about {n} people, from benchmarks"
         rate: "{rate} applied"
         checked: "{rate} of users checked a year"
         gb: "{gb} GB"
         defaulted: default hours
+        defaulted_team: default hours for your team size
         reported: as reported
         holds: holds balances
       parts:

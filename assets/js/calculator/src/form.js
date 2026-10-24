@@ -38,13 +38,17 @@ export function announceSlider(slider) {
   if (out) out.textContent = label
 }
 
-/** Raw values, as strings and arrays, ready for normalizeInputs. */
+/**
+ * Raw values, as strings and arrays, ready for normalizeInputs. A slider is
+ * an answer only once it has been moved or written; one left where it was,
+ * or standing on a suggestion, reads as blank.
+ */
 export function readInputs(form) {
   const out = {}
   for (const [key, spec] of Object.entries(INPUTS)) {
     const slider = $(`input[type="range"][name="${key}"]`, form)
     if (slider) {
-      out[key] = sliderValue(slider)
+      out[key] = slider.dataset.touched && !slider.dataset.suggested ? sliderValue(slider) : ''
     } else if (spec.type === 'multi') {
       out[key] = $$(`input[name="${key}"]:checked`, form).map((i) => i.value)
     } else if (spec.type === 'option') {
@@ -77,6 +81,7 @@ export function writeInputs(form, inputs) {
     const slider = $(`input[type="range"][name="${key}"]`, form)
     if (slider) {
       setSlider(slider, v)
+      answered(slider)
     } else if (spec.type === 'multi') {
       const list = Array.isArray(v) ? v : String(v).split(',')
       for (const box of $$(`input[name="${key}"]`, form)) box.checked = list.includes(box.value)
@@ -88,23 +93,98 @@ export function writeInputs(form, inputs) {
   }
 }
 
-/**
- * The form's starting values: the required inputs' defaults, and each
- * engineering slider on the band nearest the default hours the model would
- * use for a blank row, so what the founder sees is what the model assumes.
- */
-export function writeDefaults(form, defaultHours = {}) {
+/** The form's starting values: the required inputs' defaults. */
+export function writeDefaults(form) {
   const starting = {}
   for (const [key, spec] of Object.entries(INPUTS)) {
     if (spec.type === 'multi' || ((spec.type === 'number' || spec.type === 'integer') && spec.default != null)) starting[key] = spec.default
   }
-  for (const [area, hours] of Object.entries(defaultHours)) starting[`eng_${area}`] = hours
   writeInputs(form, starting)
   for (const slider of $$('input[type="range"]', form)) announceSlider(slider)
 }
 
+/** A slider the founder has answered, or a link has set: no longer a suggestion. */
+function answered(slider) {
+  slider.dataset.touched = '1'
+  delete slider.dataset.suggested
+  slider.classList.remove('is-suggested')
+  slider.closest('.slider-row')?.classList.remove('is-suggested')
+}
+
+/**
+ * Show what the openers imply: every slider the founder has not touched is
+ * put on the band nearest the derived value and drawn as a suggestion. It
+ * reads as blank until moved, so a link carries only what was said.
+ */
+export function suggest(form, effective, derived = {}) {
+  for (const key of Object.keys(derived)) {
+    const slider = $(`input[type="range"][name="${key}"]`, form)
+    if (!slider || slider.dataset.touched) continue
+    setSlider(slider, effective[key])
+    slider.dataset.suggested = '1'
+    slider.classList.add('is-suggested')
+    slider.closest('.slider-row')?.classList.add('is-suggested')
+  }
+}
+
 export function wireSliders(form) {
-  for (const slider of $$('input[type="range"]', form)) slider.addEventListener('input', () => announceSlider(slider))
+  for (const slider of $$('input[type="range"]', form)) {
+    slider.addEventListener('input', () => {
+      answered(slider)
+      announceSlider(slider)
+    })
+  }
+}
+
+/**
+ * Back to the illustrative app: every answer cleared, every slider untouched
+ * again (so the openers' suggestions return), every section folded.
+ */
+export function resetForm(form) {
+  form.reset()
+  for (const slider of $$('input[type="range"]', form)) {
+    delete slider.dataset.touched
+    delete slider.dataset.suggested
+    slider.classList.remove('is-suggested')
+    slider.closest('.slider-row')?.classList.remove('is-suggested')
+    announceSlider(slider)
+  }
+  writeDefaults(form)
+  for (const button of $$('.group__toggle', form)) setDetails(button, false)
+  markInvalid(form, null)
+}
+
+// ── the sections' details ────────────────────────────────────────────────────
+
+/** "Add more details" on each section shows the questions behind its opener. */
+export function wireDetails(form) {
+  for (const button of $$('.group__toggle', form)) {
+    button.addEventListener('click', () => {
+      const open = button.getAttribute('aria-expanded') !== 'true'
+      setDetails(button, open)
+    })
+  }
+}
+
+function setDetails(button, open) {
+  button.setAttribute('aria-expanded', String(open))
+  button.textContent = open ? button.dataset.hide : button.dataset.show
+  const more = document.getElementById(button.getAttribute('aria-controls'))
+  if (more) more.hidden = !open
+}
+
+/** Open any section whose hidden questions already carry an answer (from a link or a saved response). */
+export function revealDetails(form) {
+  for (const button of $$('.group__toggle', form)) {
+    const more = document.getElementById(button.getAttribute('aria-controls'))
+    if (!more) continue
+    const answered = $$('input, select, textarea', more).some((i) => {
+      if (i.type === 'range') return !i.dataset.suggested && i.dataset.touched
+      if (i.type === 'checkbox' || i.type === 'radio') return i.checked
+      return i.value.trim() !== ''
+    })
+    if (answered) setDetails(button, true)
+  }
 }
 
 export function markInvalid(form, key) {

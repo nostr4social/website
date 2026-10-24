@@ -5,7 +5,7 @@
 
 import { t } from '../../shared/src/config.js'
 import { compact, money, number, percent, perMau } from './format.js'
-import { PART_ASSUMPTIONS, RETENTION_MONTHS, WEEKS_PER_YEAR } from './model.js'
+import { PART_ASSUMPTIONS, RETENTION_MONTHS, WEEKS_PER_YEAR, derivedAssumptions } from './model.js'
 
 /** Fill {a.key}, {i.key}, {p.key} and {d.key} from a flat map; anything unknown stays visible. */
 export function fill(template, vars) {
@@ -24,7 +24,7 @@ export function formatValue(v, unit = '') {
 /** Which template a part uses: most have one, a few branch on what applied. */
 function variant(line, part) {
   if (part.id === 'engineering') return `engineering_${line}`
-  if (part.id === 'labour') return part.implied ? 'labour_implied' : 'labour_given'
+  if (part.id === 'labour') return part.implied ? 'labour_implied' : `labour_${part.who}`
   if (part.id === 'privacy_programs') return part.reported ? 'privacy_programs_reported' : 'privacy_programs'
   if (part.id === 'money_transmitter') return part.holds ? 'money_transmitter_holds' : 'money_transmitter'
   return part.id
@@ -46,7 +46,18 @@ function partVars(part) {
 
 /** Only the assumptions that applied: a jurisdiction's share, a store's tier, a default band. */
 export function relevantKeys(line, part, inputs) {
-  const keys = PART_ASSUMPTIONS[`${line}.${part.id}`] || []
+  const keys = [...(PART_ASSUMPTIONS[`${line}.${part.id}`] || [])]
+  // What an opener's default rests on, where this part used one.
+  const derived = inputs.derived || {}
+  if (part.id === 'engineering' || part.id === 'legal_labour') {
+    const area = part.id === 'legal_labour' ? 'legal' : { accounts: 'accounts', graph: 'content', storage: 'infra' }[line]
+    if (derived[`eng_${area}`]) keys.push(...derivedAssumptions(`eng_${area}`, derived[`eng_${area}`], inputs))
+  }
+  if (part.id === 'database' && derived.posts_per_user) keys.push(...derivedAssumptions('posts_per_user', derived.posts_per_user, inputs))
+  if (part.id === 'blob' && derived.mb) keys.push(...derivedAssumptions('mb', derived.mb, inputs))
+  if (part.id === 'labour' && derived.mod_heads) keys.push(...derivedAssumptions('mod_heads', derived.mod_heads, inputs))
+  if (part.id === 'egress' && derived.egress_gb_per_mau_month) keys.push(...derivedAssumptions('egress_gb_per_mau_month', 'kind', inputs))
+  if ((part.id === 'serving' || part.id === 'feed_compute') && derived.compute_per_mau_year) keys.push(...derivedAssumptions('compute_per_mau_year', 'kind', inputs))
   const jur = inputs.jur || []
   return keys.filter((key) => {
     const m = key.match(/^verify_share_(\w+)$/)
@@ -58,11 +69,13 @@ export function relevantKeys(line, part, inputs) {
     if (key === 'us_privacy_year_large') return part.us_tier === 'large'
     if (key === 'ccpa_consumer_threshold') return jur.includes('us')
     if (/^default_hours_/.test(key)) return Boolean(part.defaulted)
+    if (/^team_factor_/.test(key)) return Boolean(part.defaulted)
     if (/_rate_small$/.test(key)) return part.tier === 'small'
     if (/_rate_standard$/.test(key)) return part.tier === 'standard'
-    if (key === 'ts_base_salary') return !part.implied
-    if (key === 'moderator_seat_outsourced') return !part.implied
+    if (key === 'ts_base_salary') return part.who === 'team'
+    if (key === 'moderator_seat_outsourced') return part.who === 'vendor'
     if (key === 'moderator_base_salary' || key === 'mods_per_million_mau') return Boolean(part.implied)
+    if (part.id === 'labour' && (key === 'loaded_multiplier' || key === 'overhead_multiplier')) return part.who !== 'vendor'
     if (key === 'mt_avoidance_year' || key === 'mt_remains_share') return Boolean(part.holds)
     return true
   })

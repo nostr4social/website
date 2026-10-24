@@ -14,16 +14,20 @@
 //             the model reads, so "1 to 10 hours" arrives as "5".
 
 const HOURS = ['0', '5', '25', '60'] // 0 · 1 to 10 · 11 to 40 · over 40 hours a week
-const HEADS = ['0', '5', '50', '500', '2000'] // 0 · 1 to 10 · 11 to 100 · 101 to 1000 · over 1000 people
 const NOSTR = ['0', '0.5', '1'] // never · somewhat · always
 const GROWTH = ['0', '0.25', '0.5', '1'] // Flat / Steady / Fast / Doubling
+const HEADS_BAND = ['1', '3', '15', '140', '500', '2000'] // one · up to 3 · up to 15 · up to 140 · up to 500 · more
+const WHO = ['nobody', 'team', 'vendor'] // who moderates
+const TEAM = ['one', 'ten', 'fifty', 'more'] // people on the team
+const KIND = ['messaging', 'feed', 'community', 'marketplace'] // what kind of app
 
 //   omit      a value that means the same as "not given"; the results link
 //             leaves it out so a link only carries what was said
 const band = (options, omit) => ({ type: 'option', required: false, default: null, options, omit })
 
 export const INPUTS = {
-  // Non Custody: "Our app already uses Nostr"
+  // Nostr: the opener, then "Your app uses Nostr for the following"
+  nostr_now: band(NOSTR), // does the app already use Nostr: not at all / somewhat / fully
   n_keys: band(NOSTR, '0'), // user accounts are private keys
   n_raw_keys: band(NOSTR, '0'), // app handles raw private keys (the inverse)
   n_signed_events: band(NOSTR, '0'), // user data stored as signed events
@@ -35,36 +39,44 @@ export const INPUTS = {
   n_p2p: band(NOSTR, '0'), // peer to peer in-app payments
   n_nips: band(NOSTR, '0'), // NIP standards published publicly (read, not priced)
 
-  // Accounts & Storage
+  // Users: the opener, then growth
   mau: { type: 'integer', required: true, default: 50000, min: 1, max: 2e9 },
-  posts_per_user: { type: 'number', required: false, default: 20, min: 0, max: 1e6 },
-  mb: { type: 'number', required: false, default: 50, min: 0, max: 1e6 },
+  growth: band(GROWTH), // users a year from now, as a share of today's; blank means the assumptions' default
 
-  // Staffing Costs
-  eng_accounts: band(HOURS), // engineering hours a week: managing user accounts
+  // Content: the opener, then the two per-user numbers (blank means derived from the kind of app)
+  kind: band(KIND),
+  posts_per_user: { type: 'number', required: false, default: null, min: 0, max: 1e6 },
+  mb: { type: 'number', required: false, default: null, min: 0, max: 1e6 },
+
+  // Moderation: the opener, then the head count (blank means the default count)
+  mod_who: band(WHO),
+  mod_heads: band(HEADS_BAND),
+
+  // Team: the opener, then engineering hours a week per area (blank means derived from the team size) and legal spend
+  team: band(TEAM),
+  eng_accounts: band(HOURS), // managing user accounts
   eng_content: band(HOURS), // managing user content
   eng_infra: band(HOURS), // managing infrastructure
   eng_legal: band(HOURS), // legal and compliance
-  mod_inhouse: band(HEADS, '0'), // content review and moderation: in-house employees
-  mod_vendor: band(HEADS, '0'), // outside vendor seats
   legal_usd: { type: 'number', required: false, default: null, min: 0, max: 1e12, omit: '0' }, // 0 means not given
 
-  // Payment Gateway
-  rails: { type: 'multi', required: false, default: [], options: ['p2p', 'apple', 'google', 'processor', 'reseller'] },
+  // Payments: the opener (0 means no payments), then the rails (blank means derived from distribution) and balances
   rev: { type: 'number', required: false, default: 0, min: 0, max: 1e12 },
+  rails: { type: 'multi', required: false, default: [], options: ['p2p', 'apple', 'google', 'processor', 'reseller'] },
   balances: { type: 'multi', required: false, default: [], options: ['yes'] },
 
-  // Availability & Growth
-  distribution: { type: 'multi', required: false, default: [], options: ['apple', 'google', 'web'] },
+  // Reach: the opener, then distribution
   jur: { type: 'multi', required: true, default: ['us'], options: ['eu', 'uk', 'us', 'other'] },
-  growth: band(GROWTH), // users a year from now, as a share of today's; blank means the assumptions' default
+  distribution: { type: 'multi', required: false, default: [], options: ['apple', 'google', 'web'] },
 }
+
+/** The first question of each section: answering it sets the section's defaults. */
+export const OPENERS = ['nostr_now', 'mau', 'kind', 'mod_who', 'team', 'rev', 'jur']
 
 /** The keys that are grid rows, by grid, for the submission and the form. */
 export const GRIDS = {
   nostr: ['n_keys', 'n_raw_keys', 'n_signed_events', 'n_event_storage', 'n_media_storage', 'n_labels', 'n_feeds', 'n_algos', 'n_p2p', 'n_nips'],
   engineering: ['eng_accounts', 'eng_content', 'eng_infra', 'eng_legal'],
-  moderation: ['mod_inhouse', 'mod_vendor'],
 }
 
 export function defaultsFor() {
@@ -121,6 +133,5 @@ export function normalizeInputs(raw = {}) {
       out[key] = n
     }
   }
-  if (out.rails.length && !(out.rev > 0)) throw new InputError('rev', 'required')
   return out
 }

@@ -10,8 +10,9 @@
 // and non-custodial, and the parts they add up from, so the page can show
 // the applied rates beside the result.
 //
-// "Our app already uses Nostr" gives each line a share between 0 and 1; the
-// custodial figure then moves that far toward the non-custodial one.
+// "Your app uses Nostr for the following" gives each line a share between 0
+// and 1; the custodial figure then moves that far toward the non-custodial
+// one. deriveInputs() fills what the form's opening questions imply.
 //
 // Units: USD per year unless a name says otherwise.
 
@@ -56,21 +57,154 @@ const loadedHourly = (v) => (v.eng_base_salary * v.loaded_multiplier * v.overhea
 const loadedYear = (base, v) => base * v.loaded_multiplier * v.overhead_multiplier
 const num = (x) => (x == null || x === '' ? null : Number(x))
 
-/** Engineering hours a week on one area: the band given, else the default for that area. */
-function engHoursWeek(area, inputs, v) {
-  const given = num(inputs[`eng_${area}`])
-  if (given != null) return given
+/** The default engineering hours a week on one area. */
+function defaultHours(area, v) {
   if (area === 'accounts') return v.default_hours_accounts
   if (area === 'content') return v.default_hours_content
   if (area === 'infra') return v.default_hours_infra
   return v.default_hours_legal
 }
 
+/** Engineering hours a week on one area: the band given (or derived), else the default for that area. */
+function engHoursWeek(area, inputs, v) {
+  const given = num(inputs[`eng_${area}`])
+  return given != null ? given : defaultHours(area, v)
+}
+
 /** The engineering part of a line: hours a week × weeks × the loaded hour. */
 function engineering(area, inputs, v) {
   const hours = engHoursWeek(area, inputs, v)
   const hourly = loadedHourly(v)
-  return { cost: hours * WEEKS_PER_YEAR * hourly, hours, hourly, defaulted: num(inputs[`eng_${area}`]) == null }
+  const from = inputs.derived?.[`eng_${area}`]
+  return { cost: hours * WEEKS_PER_YEAR * hourly, hours, hourly, defaulted: num(inputs[`eng_${area}`]) == null || Boolean(from), from }
+}
+
+// ── the openers' defaults ───────────────────────────────────────────────────
+//
+// Each section of the form opens with one question; answering it sets the
+// section's defaults here. The hidden questions stay unanswered until the
+// founder touches them, so a response and a link carry only what was said.
+// What was derived is listed in `derived`, key → where it came from, and the
+// page shows those values as suggestions.
+
+function kindPosts(kind, v) {
+  if (kind === 'messaging') return v.kind_messaging_posts
+  if (kind === 'feed') return v.kind_feed_posts
+  if (kind === 'community') return v.kind_community_posts
+  if (kind === 'marketplace') return v.kind_marketplace_posts
+  return v.posts_default
+}
+
+function kindMb(kind, v) {
+  if (kind === 'messaging') return v.kind_messaging_mb
+  if (kind === 'feed') return v.kind_feed_mb
+  if (kind === 'community') return v.kind_community_mb
+  if (kind === 'marketplace') return v.kind_marketplace_mb
+  return v.mb_default
+}
+
+function teamFactor(team, v) {
+  if (team === 'one') return v.team_factor_one
+  if (team === 'ten') return v.team_factor_ten
+  if (team === 'fifty') return v.team_factor_fifty
+  if (team === 'more') return v.team_factor_more
+  return null
+}
+
+/** The kind of app sets how many bytes and how much compute a user costs; an override in Other Info still wins. */
+function kindEgress(kind, v) {
+  if (kind === 'messaging') return v.kind_messaging_egress_gb
+  if (kind === 'feed') return v.kind_feed_egress_gb
+  if (kind === 'community') return v.kind_community_egress_gb
+  if (kind === 'marketplace') return v.kind_marketplace_egress_gb
+  return null
+}
+
+function kindCompute(kind, v) {
+  if (kind === 'messaging') return v.kind_messaging_compute
+  if (kind === 'feed') return v.kind_feed_compute
+  if (kind === 'community') return v.kind_community_compute
+  if (kind === 'marketplace') return v.kind_marketplace_compute
+  return null
+}
+
+/**
+ * Assumption values with the kind of app applied: egress and compute per
+ * user follow the kind unless the visitor overrode them. Returns the values
+ * and which keys the kind set.
+ */
+export function applyKind(v, kind, overrides = {}) {
+  const out = { ...v }
+  const set = {}
+  const egress = kindEgress(kind, v)
+  if (egress != null && !('egress_gb_per_mau_month' in overrides)) {
+    out.egress_gb_per_mau_month = egress
+    set.egress_gb_per_mau_month = 'kind'
+  }
+  const compute = kindCompute(kind, v)
+  if (compute != null && !('compute_per_mau_year' in overrides)) {
+    out.compute_per_mau_year = compute
+    set.compute_per_mau_year = 'kind'
+  }
+  return { values: out, set }
+}
+
+const NOSTR_ROWS = ['n_keys', 'n_raw_keys', 'n_signed_events', 'n_event_storage', 'n_media_storage', 'n_labels', 'n_feeds', 'n_algos', 'n_p2p', 'n_nips']
+const RAIL_FOR = { apple: 'apple', google: 'google', web: 'processor' }
+
+/** Clean inputs → the inputs the model runs on, with the openers' defaults filled in and listed. */
+export function deriveInputs(inputs, v) {
+  const eff = { ...inputs }
+  const derived = {}
+  // Openers left blank stand on the model's own default, so the page can show it.
+  if (eff.growth == null) {
+    eff.growth = String(v.growth_default)
+    derived.growth = 'default'
+  }
+  if (eff.team == null) {
+    eff.team = 'ten'
+    derived.team = 'default'
+  }
+  if (eff.nostr_now == null) {
+    eff.nostr_now = '0'
+    derived.nostr_now = 'default'
+  }
+  // Content: per-user numbers from the kind of app.
+  if (eff.posts_per_user == null) {
+    eff.posts_per_user = kindPosts(inputs.kind, v)
+    derived.posts_per_user = inputs.kind ? 'kind' : 'default'
+  }
+  if (eff.mb == null) {
+    eff.mb = kindMb(inputs.kind, v)
+    derived.mb = inputs.kind ? 'kind' : 'default'
+  }
+  // Team: default hours scaled by the team size, for every area left blank.
+  const factor = teamFactor(eff.team, v)
+  for (const area of ['accounts', 'content', 'infra', 'legal']) {
+    const key = `eng_${area}`
+    if (num(inputs[key]) != null) continue
+    eff[key] = defaultHours(area, v) * factor
+    derived[key] = inputs.team != null ? 'team' : 'default'
+  }
+  // Moderation: a team or a vendor without a head count gets the default count.
+  if ((inputs.mod_who === 'team' || inputs.mod_who === 'vendor') && num(inputs.mod_heads) == null) {
+    eff.mod_heads = v.mod_heads_default
+    derived.mod_heads = 'default'
+  }
+  // Payments: rails follow where the app is distributed (everywhere, if unsaid).
+  if (eff.rev > 0 && !inputs.rails.length) {
+    const places = inputs.distribution.length ? inputs.distribution : ['apple', 'google', 'web']
+    eff.rails = [...new Set(places.map((d) => RAIL_FOR[d]))]
+    derived.rails = 'distribution'
+  }
+  // Nostr: the grid follows the opener, except that a Nostr app is assumed not to handle raw keys.
+  for (const key of NOSTR_ROWS) {
+    if (num(inputs[key]) != null) continue
+    eff[key] = key === 'n_raw_keys' ? '0' : eff.nostr_now
+    derived[key] = 'nostr_now'
+  }
+  eff.derived = derived
+  return eff
 }
 
 /** 0 to 1: how far a line is already non-custodial, from the Nostr grid. */
@@ -188,16 +322,19 @@ function compliance(inputs, v) {
 
 function moderation(inputs, v) {
   const { mau } = inputs
-  const inhouse = num(inputs.mod_inhouse) ?? 0
-  const vendor = num(inputs.mod_vendor) ?? 0
+  const who = inputs.mod_who === 'team' || inputs.mod_who === 'vendor' ? inputs.mod_who : 'nobody'
   let labour
   let people
   let loaded
   let implied = false
-  if (inhouse > 0 || vendor > 0) {
+  if (who === 'team') {
+    people = num(inputs.mod_heads) ?? 0
     loaded = loadedYear(v.ts_base_salary, v)
-    labour = inhouse * loaded + vendor * v.moderator_seat_outsourced
-    people = inhouse + vendor
+    labour = people * loaded
+  } else if (who === 'vendor') {
+    people = num(inputs.mod_heads) ?? 0
+    loaded = v.moderator_seat_outsourced
+    labour = people * loaded
   } else {
     people = (mau / 1e6) * v.mods_per_million_mau
     loaded = loadedYear(v.moderator_base_salary, v)
@@ -209,7 +346,7 @@ function moderation(inputs, v) {
   // Review and ranking move to the network; what remains is for anything the
   // app itself hosts, plus a label or web-of-trust provider as the Nostr-native cost.
   const parts = [
-    part('labour', labour, labour * v.moderation_remains_share, { implied, people, inhouse, vendor, loaded }),
+    part('labour', labour, labour * v.moderation_remains_share, { implied, who, people, loaded, heads_from: inputs.derived?.mod_heads }),
     part('appeals', appeals, appeals * v.moderation_remains_share),
     part('tooling', tooling, tooling * v.tooling_remains_share),
     part('labels', 0, mau * v.label_provider_per_mau_year),
@@ -220,6 +357,7 @@ function moderation(inputs, v) {
 function payments(inputs, v) {
   const rails = inputs.rails
   if (!rails.length || !(inputs.rev > 0)) return { parts: [], none: true }
+  // (rails_from marks rails the openers derived from distribution)
   const annual = inputs.rev * 12
   const share = 1 / rails.length
   const small = annual < v.store_small_threshold
@@ -242,7 +380,7 @@ function payments(inputs, v) {
   }
   const holds = inputs.balances.includes('yes')
   parts.push(part('money_transmitter', holds ? v.mt_avoidance_year : 0, holds ? v.mt_avoidance_year * v.mt_remains_share : 0, { holds }))
-  return { parts, tier: small ? 'small' : 'standard' }
+  return { parts, tier: small ? 'small' : 'standard', rails_from: inputs.derived?.rails }
 }
 
 const LINE_FN = { accounts, graph, storage, compliance, moderation, payments }
@@ -253,6 +391,17 @@ export const LINE_FUNCTIONS = LINE_FN
 // table; a test runs every line with a recording proxy and fails if this map
 // and the code disagree. Conditional keys (a jurisdiction's share, a store's
 // tier, a default hours band) are listed in full and narrowed on the page.
+/** The assumptions an opener's default rests on, by what was derived and from what. */
+export function derivedAssumptions(key, from, inputs) {
+  if (/^eng_/.test(key)) return [`team_factor_${inputs.team}`]
+  if (key === 'posts_per_user') return [from === 'kind' ? `kind_${inputs.kind}_posts` : 'posts_default']
+  if (key === 'mb') return [from === 'kind' ? `kind_${inputs.kind}_mb` : 'mb_default']
+  if (key === 'mod_heads') return ['mod_heads_default']
+  if (key === 'egress_gb_per_mau_month') return [`kind_${inputs.kind}_egress_gb`]
+  if (key === 'compute_per_mau_year') return [`kind_${inputs.kind}_compute`]
+  return []
+}
+
 const PEOPLE = ['eng_base_salary', 'loaded_multiplier', 'overhead_multiplier']
 export const PART_ASSUMPTIONS = {
   'accounts.auth': ['auth_per_mau_month'],
@@ -407,9 +556,15 @@ export function calculate(rawInputs, data, rawOverrides = {}) {
   const overrides = cleanOverrides(data, rawOverrides)
   const out = { version: data.version, inputs, overrides }
   for (const s of SCENARIOS) {
-    const v = resolveAssumptions(data, s, overrides)
-    const r = evaluate(inputs, v)
-    r.projection = project(inputs, v, r)
+    const resolved = resolveAssumptions(data, s, overrides)
+    const { values: v, set } = applyKind(resolved, inputs.kind, overrides)
+    const eff = deriveInputs(inputs, v)
+    Object.assign(eff.derived, set)
+    const r = evaluate(eff, v)
+    r.effective = eff
+    r.derived = eff.derived
+    r.values = v
+    r.projection = project(eff, v, r)
     r.totals.five_year = r.projection[YEARS].cumulative
     r.totals.marker_year = r.projection[MARKER_YEAR].cumulative
     r.totals.average = r.totals.five_year / YEARS
@@ -426,7 +581,7 @@ export function calculate(rawInputs, data, rawOverrides = {}) {
         part.avg_custodial = each.reduce((acc, q) => acc + q.custodial, 0) / YEARS
         part.avg_noncustodial = each.reduce((acc, q) => acc + q.custodial - q.realised, 0) / YEARS
       }
-      line.nudge = nudge(name, inputs, v, line)
+      line.nudge = nudge(name, eff, v, line)
     }
     out[s] = r
   }

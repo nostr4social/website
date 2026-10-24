@@ -96,7 +96,7 @@ try {
   const bad = m.prepareForm({ ...snapshot, fields: snapshot.fields.slice(1) }, map)
   check('a template missing a mapped question is refused', bad === null)
 
-  const values = { mau: 50000, posts_per_user: 20, rails: ['apple', 'processor'], rev: 20000, jur: ['eu', 'us'], growth: '0.5', balances: [], engineering: { accounts: 5, infra: 25 }, moderation: { inhouse: 5 }, nostr: { keys: 1, media_storage: 0.5 }, legal_usd: '', result_custodial: 967914, result_noncustodial: 266254, link: 'https://nostr4.social/calculator/?mau=50000', overrides: '', version: '1', email: 'founder@example.com', test: '' }
+  const values = { mau: 50000, posts_per_user: 20, rails: ['apple', 'processor'], rev: 20000, jur: ['eu', 'us'], growth: '0.5', balances: [], engineering: { accounts: 5, infra: 25 }, mod_who: 'team', mod_heads: '3', team: 'ten', kind: 'feed', nostr_now: '0.5', nostr: { keys: 1, media_storage: 0.5 }, legal_usd: '', result_custodial: 967914, result_noncustodial: 266254, link: 'https://nostr4.social/calculator/?mau=50000', overrides: '', version: '1', email: 'founder@example.com', test: '' }
   const signer = m.createGuestSigner()
   const started = Date.now()
   const { event, relays, ok } = await m.submitResponse(form, { signer, values, pow: 12 })
@@ -133,7 +133,7 @@ try {
 
   // ── reading a response back ───────────────────────────────────────────────
   const back = m.readResponses(map, answers)
-  check('response tags read back into values keyed like the map', back.mau === '50000' && back.growth.join() === '0.5' && back.rails.join() === 'apple,processor' && back.engineering.accounts === '5' && back.engineering.infra === '25' && back.nostr.media_storage === '0.5' && back.email === 'founder@example.com', JSON.stringify(back))
+  check('response tags read back into values keyed like the map', back.mau === '50000' && back.growth.join() === '0.5' && back.mod_who.join() === 'team' && back.mod_heads.join() === '3' && back.kind.join() === 'feed' && back.rails.join() === 'apple,processor' && back.engineering.accounts === '5' && back.engineering.infra === '25' && back.nostr.media_storage === '0.5' && back.email === 'founder@example.com', JSON.stringify(back))
 
   // The responder opens it with the key that sent it.
   const asResponder = await m.restore.openResponse(got, { signer, snapshot, map })

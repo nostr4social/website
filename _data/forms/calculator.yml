@@ -3,7 +3,7 @@
 # the build when the live template no longer matches it. The page submits
 # responses against the ids here and never fetches the template itself.
 
-naddr: naddr1qvzqqqr4mqpzp85tguhd488hwe52qaf4xnk39fa3ua8fwu65tvwdqtl8wm0ssz2eqy2hwumn8ghj7un9d3shjtnyv9kh2uewd9hj7qgwwaehxw309ahx7uewd3hkctcpzamhxue69uhhyetvv9ujuurjd9kkzmpwdejhgtcpr9mhxue69uhhyetvv9ujuumwdae8gtnnda3kjctv9uq3uamnwvaz7tmjv4kxz7fwdehhxarj9emkjun9v3hx2apwdfcz7qgawaehxw309ahx7um5wgknqvfw09skk6tgdahxuefwvdhk6tcprpmhxue69uhhyetvv9ujuen0wfkhxarj9eshqup0qqfxxatnw3hkg7fdvdskccm4d3shgmmjwxu5ly
+naddr: naddr1qvzqqqr4mqpzp85tguhd488hwe52qaf4xnk39fa3ua8fwu65tvwdqtl8wm0ssz2eqy2hwumn8ghj7un9d3shjtnyv9kh2uewd9hj7qgwwaehxw309ahx7uewd3hkctcpr9mhxue69uhhyetvv9ujuumwdae8gtnnda3kjctv9uq3samnwvaz7tmjv4kxz7fwvehhymtnw3ezuctswqhsz8nhwden5te0wfjkccte9ehx7um5wgh8w6tjv4jxuet59e48qtcpr4mhxue69uhkummnw3ez6vp39eukz6mfdphkumn99e3k7mf0qqfxxatnw3hkg7fdvdskccm4d3shgmmjjxekjq
 pubkey: 9e8b472eda9cf77668a0753534ed12a7b1e74e9773545b1cd02fe776df080959
 d: custody-calculator
 name: "Nostr4 : Calculate The Cost of Custody"
@@ -23,44 +23,52 @@ relays:
   - wss://nostr21.com
 sections:
   - id: hr87rqI9
-    title: "Non Custody"
+    title: "Nostr"
     description: ""
-    questions: [8H7dN3]
+    questions: [8H7dN3, e1kIdv]
   - id: eRvRZFir
-    title: "Accounts & Storage"
+    title: "Users"
     description: ""
-    questions: [OKIJzE, mSsJdP, BwgQbZ]
+    questions: [OKIJzE, Oa0uzB]
   - id: QWFEpsyB
-    title: "Staffing Costs"
+    title: "Content"
     description: ""
-    questions: [koRqow, fIVb03, 05IgYp]
+    questions: [BwgQbZ, mSsJdP, mMPSYS]
   - id: HdCZeRq0
-    title: "Payment Gateway"
+    title: "Moderation"
     description: ""
-    questions: [YdT6dC, 88UlKt, 5VlKkm]
+    questions: [koRqow, dFnzzy]
   - id: otjtEBA3
-    title: "Availability & Growth"
+    title: "Team"
     description: ""
-    questions: [ePAdxW, 4F44bp, Oa0uzB]
+    questions: [05IgYp, fIVb03, XM2l0a]
   - id: ccwHtpN8
-    title: "Calculated Results"
+    title: "Payments"
     description: ""
-    questions: [qPZrNj, C93CmL, iHHHuZ, LxmN8x, OHi8fq, XU5x6e]
+    questions: [5VlKkm, YdT6dC, 88UlKt]
   - id: 2vnN8v0y
+    title: "Reach"
+    description: ""
+    questions: [ePAdxW, 4F44bp]
+  - id: JJGD6dnD
     title: "Send & Share"
     description: "Send your calculated results to us as a Nostr event, encrypted with your private key and visible only to Nostr4. We will follow up to schedule a free consult call and discuss your cost saving opportunities. Sign with your existing Nostr key to follow up with these results later."
-    questions: [t3pia5, 5UFMyH, BBZoy9, PgP68U]
+    questions: [PgP68U, BBZoy9, 5UFMyH, t3pia5]
+  - id: TEXS3eNF
+    title: "Results"
+    description: ""
+    questions: [XU5x6e, OHi8fq, LxmN8x, iHHHuZ, C93CmL, qPZrNj]
 fields:
   - id: OKIJzE
     type: number
     render: number
     required: true
-    label: "Number of Monthly Active Users (MAU)"
+    label: "How many Monthly Active Users (MAU)"
     options: []
   - id: mSsJdP
     type: number
     render: number
-    required: true
+    required: false
     label: "Average number of Posts or Messages per month per user"
     options: []
   - id: BwgQbZ
@@ -70,24 +78,27 @@ fields:
     label: "Average storage per user (in MB)"
     options: []
   - id: koRqow
-    type: grid
-    render: multipleChoiceGrid
+    type: option
+    render: radioButton
     required: false
-    label: "Content review & moderation (head count)"
+    label: "Number of moderators (in house or vendor seats)"
+    options:
+      - { id: 7TxVFB, label: "one" }
+      - { id: sorkQ0, label: "up to 3" }
+      - { id: 0GDcor, label: "up to 15" }
+      - { id: 3jBEAT, label: "up to 140" }
+      - { id: RdpVRf, label: "up to 500" }
+      - { id: yL5I09, label: "more" }
+  - id: YdT6dC
+    type: number
+    render: number
+    required: false
+    label: "What is your approximate in-app revenue (gross monthly USD)"
     options: []
-    rows:
-      - { id: 8PeqEx, label: "In house (employees)" }
-      - { id: nC71IR, label: "Outside Vendor (seats)" }
-    columns:
-      - { id: 8VtN8o, label: "0" }
-      - { id: 3Lgs1E, label: "1 - 10" }
-      - { id: CiCpnA, label: "11 - 100" }
-      - { id: v1ZTFU, label: "101 - 1000" }
-      - { id: 9ujHYA, label: "> 1000" }
   - id: 88UlKt
     type: option
     render: checkboxes
-    required: true
+    required: false
     label: "What in-app payments do you facilitate in your app?"
     options:
       - { id: Q9rNXl, label: "Peer to Peer (bitcoin, lightning, or other crypto)" }
@@ -98,39 +109,27 @@ fields:
   - id: 4F44bp
     type: option
     render: checkboxes
-    required: true
+    required: false
     label: "How is your app distributed?"
     options:
       - { id: dZHVfs, label: "Apple App Store" }
       - { id: rq31GJ, label: "Google Play" }
       - { id: QwlqB5, label: "Web or direct" }
-  - id: YdT6dC
-    type: number
-    render: number
-    required: false
-    label: "What is your approximate in-app revenue (gross monthly USD)"
-    options: []
-  - id: fIVb03
-    type: grid
-    render: multipleChoiceGrid
-    required: false
-    label: "Software Engineering (hours per week)"
-    options: []
-    rows:
-      - { id: r4poWN, label: "Managing user accounts" }
-      - { id: kRSm6z, label: "Managing user content" }
-      - { id: VAbmsc, label: "Managing Infrastructure" }
-      - { id: Bf2zG1, label: "Legal and compliance" }
-    columns:
-      - { id: CW1BOL, label: "0" }
-      - { id: ark9hI, label: "1 - 10" }
-      - { id: Zp1lRi, label: "11 - 40" }
-      - { id: 82oxXo, label: "> 40" }
+  - id: ePAdxW
+    type: option
+    render: checkboxes
+    required: true
+    label: "What regions hold primary jurisdiction?"
+    options:
+      - { id: 3YfIJX, label: "EU" }
+      - { id: pq8Wgs, label: "UK" }
+      - { id: gVmoP3, label: "US" }
+      - { id: 1667Tr, label: "Other" }
   - id: 05IgYp
     type: number
     render: number
     required: false
-    label: "Legal, privacy and compliance (in USD, approximate per year)"
+    label: "What is your approximate yearly spend on legal, privacy and compliance (in USD)"
     options:
       - { id: 5dsrFl, label: "0" }
       - { id: rQ6Pqi, label: "Add option" }
@@ -138,7 +137,7 @@ fields:
     type: grid
     render: multipleChoiceGrid
     required: false
-    label: "Our app already uses Nostr:"
+    label: "Your app uses Nostr for the following:"
     options: []
     rows:
       - { id: 8BpUSF, label: "User accounts are private keys" }
@@ -162,16 +161,22 @@ fields:
     label: "Do you hold user balances, credits or wallets?"
     options:
       - { id: eh05HT, label: "Yes" }
-  - id: ePAdxW
-    type: option
-    render: checkboxes
-    required: true
-    label: "What regions hold primary jurisdiction?"
-    options:
-      - { id: 3YfIJX, label: "EU" }
-      - { id: pq8Wgs, label: "UK" }
-      - { id: gVmoP3, label: "US" }
-      - { id: 1667Tr, label: "Other" }
+  - id: fIVb03
+    type: grid
+    render: multipleChoiceGrid
+    required: false
+    label: "How many developer hours per week spent on the following:"
+    options: []
+    rows:
+      - { id: r4poWN, label: "Managing user accounts" }
+      - { id: kRSm6z, label: "Managing user content" }
+      - { id: VAbmsc, label: "Managing Infrastructure" }
+      - { id: Bf2zG1, label: "Legal and compliance" }
+    columns:
+      - { id: CW1BOL, label: "0" }
+      - { id: ark9hI, label: "1 - 10" }
+      - { id: Zp1lRi, label: "11 - 40" }
+      - { id: 82oxXo, label: "> 40" }
   - id: qPZrNj
     type: number
     render: number
@@ -218,6 +223,16 @@ fields:
       - { id: AyAW8J, label: "Steady, around 25%" }
       - { id: IxM6Xo, label: "Fast, around 50%" }
       - { id: ftLXDP, label: "Doubling or more" }
+  - id: XM2l0a
+    type: option
+    render: radioButton
+    required: false
+    label: "How many people on your team?"
+    options:
+      - { id: LnmmkQ, label: "only one" }
+      - { id: oxUuFg, label: "up to 10" }
+      - { id: ZF1WiC, label: "up to 50" }
+      - { id: 0UDUBh, label: "more" }
   - id: 5UFMyH
     type: text
     render: shortText
@@ -230,12 +245,40 @@ fields:
     required: false
     label: "Contact Name"
     options: []
+  - id: e1kIdv
+    type: option
+    render: radioButton
+    required: false
+    label: "Does your app already use Nostr?"
+    options:
+      - { id: yCVhVv, label: "Not at all" }
+      - { id: 5hTX0I, label: "Somewhat" }
+      - { id: BABOJV, label: "Fully Integrated" }
   - id: PgP68U
     type: text
     render: shortText
     required: false
     label: "Contact Email"
     options: []
+  - id: dFnzzy
+    type: option
+    render: radioButton
+    required: false
+    label: "Who moderates users and content?"
+    options:
+      - { id: 0ehfSv, label: "Nobody" }
+      - { id: s1DE1s, label: "Our team" }
+      - { id: 9s6kIr, label: "A vendor" }
+  - id: mMPSYS
+    type: option
+    render: radioButton
+    required: false
+    label: "What type best describes your app?"
+    options:
+      - { id: Npc5Rk, label: "Messaging" }
+      - { id: tE7DgT, label: "Media feed" }
+      - { id: qNOkWO, label: "Community" }
+      - { id: 8vnLkw, label: "Marketplace" }
   - id: XU5x6e
     type: text
     render: shortText

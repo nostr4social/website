@@ -7,50 +7,17 @@
 # option id in the form. A grid maps row keys to row ids and column *values*
 # (what the model reads: hours, people, a share) to column ids.
 
+# The opener of each section: the page draws it first and folds the rest of
+# the section under "Add more details". Answering it sets the section's
+# defaults in the model; the hidden questions stay unanswered until touched.
+openers: [nostr_now, mau, kind, mod_who, team, rev, jur]
+
 fields:
-  # ── Accounts & Storage ────────────────────────────────────────────────────
-  mau: { id: OKIJzE }                      # Number of Monthly Active Users
-  posts_per_user: { id: mSsJdP }           # Average posts or messages per month per user
-  mb: { id: BwgQbZ }                       # Average storage per user (MB)
-
-  # ── Staffing Costs ────────────────────────────────────────────────────────
-  # Content review & moderation (head count): rows in-house / vendor seats,
-  # columns are bands; the value is the band's midpoint.
-  moderation:
-    id: koRqow
-    rows: { inhouse: 8PeqEx, vendor: nC71IR }
-    columns: { "0": 8VtN8o, "5": 3Lgs1E, "50": CiCpnA, "500": v1ZTFU, "2000": 9ujHYA }
-  # Software engineering (hours per week): rows are the cost areas; the value
-  # is hours a week at the band's midpoint.
-  engineering:
-    id: fIVb03
-    rows: { accounts: r4poWN, content: kRSm6z, infra: VAbmsc, legal: Bf2zG1 }
-    columns: { "0": CW1BOL, "5": ark9hI, "25": Zp1lRi, "60": 82oxXo }
-  legal_usd: { id: 05IgYp }                # Legal, privacy and compliance, USD per year
-
-  # ── Payment Gateway ───────────────────────────────────────────────────────
-  rails:
-    id: 88UlKt
-    options: { p2p: Q9rNXl, apple: sO56FE, google: pQBEbj, processor: vp18O4, reseller: mlhsBh }
-  rev: { id: YdT6dC }                      # gross monthly in-app revenue, USD
-  balances:
-    id: 5VlKkm
-    options: { "yes": eh05HT }             # holds user balances, credits or wallets
-
-  # ── Availability & Growth ─────────────────────────────────────────────────
-  distribution:
-    id: 4F44bp
-    options: { apple: dZHVfs, google: rq31GJ, web: QwlqB5 }
-  jur:
-    id: ePAdxW
-    options: { eu: 3YfIJX, uk: pq8Wgs, us: gVmoP3, other: 1667Tr }
-  # User growth over the next year, as a share: Flat / Steady / Fast / Doubling.
-  growth:
-    id: Oa0uzB
-    options: { "0": Y5qAsA, "0.25": AyAW8J, "0.5": IxM6Xo, "1": ftLXDP }
-
-  # ── Non Custody ───────────────────────────────────────────────────────────
-  # "Our app already uses Nostr": Never / Somewhat / Always as 0, 0.5 and 1.
+  # ── Nostr ─────────────────────────────────────────────────────────────────
+  nostr_now:
+    id: e1kIdv
+    options: { "0": yCVhVv, "0.5": 5hTX0I, "1": BABOJV }   # Not at all / Somewhat / Fully Integrated
+  # "Your app uses Nostr for the following": Never / Somewhat / Always as 0, 0.5 and 1.
   nostr:
     id: 8H7dN3
     rows:
@@ -62,11 +29,61 @@ fields:
       labels: fJVpOZ          # Content tags and labels as signed events
       feeds: 0L5VFM           # User configurable feeds & algos
       algos: bVCrfA           # User choice for algo processing
-      p2p: AdjiqB             # Peer to peer in-app payments
+      p2p: AdjiqB             # Peer to peer in app payments
       nips: CK5CCl            # NIP standards published publicly (read, not priced)
     columns: { "0": CzJFM6, "0.5": WUHYyN, "1": jF8mep }
 
-  # ── Calculated Results (filled by the page) ───────────────────────────────
+  # ── Users ─────────────────────────────────────────────────────────────────
+  mau: { id: OKIJzE }                      # How many Monthly Active Users
+  growth:
+    id: Oa0uzB
+    options: { "0": Y5qAsA, "0.25": AyAW8J, "0.5": IxM6Xo, "1": ftLXDP }
+
+  # ── Content ───────────────────────────────────────────────────────────────
+  kind:
+    id: mMPSYS
+    options: { messaging: Npc5Rk, feed: tE7DgT, community: qNOkWO, marketplace: 8vnLkw }
+  posts_per_user: { id: mSsJdP }           # Average posts or messages per month per user
+  mb: { id: BwgQbZ }                       # Average storage per user (MB)
+
+  # ── Moderation ────────────────────────────────────────────────────────────
+  mod_who:
+    id: dFnzzy
+    options: { nobody: 0ehfSv, team: s1DE1s, vendor: 9s6kIr }
+  # Head count bands, as the number of people they stand for.
+  mod_heads:
+    id: koRqow
+    options: { "1": 7TxVFB, "3": sorkQ0, "15": 0GDcor, "140": 3jBEAT, "500": RdpVRf, "2000": yL5I09 }
+
+  # ── Team ──────────────────────────────────────────────────────────────────
+  team:
+    id: XM2l0a
+    options: { one: LnmmkQ, ten: oxUuFg, fifty: ZF1WiC, more: 0UDUBh }
+  # Developer hours a week: rows are the cost areas; the value is hours a week at the band's midpoint.
+  engineering:
+    id: fIVb03
+    rows: { accounts: r4poWN, content: kRSm6z, infra: VAbmsc, legal: Bf2zG1 }
+    columns: { "0": CW1BOL, "5": ark9hI, "25": Zp1lRi, "60": 82oxXo }
+  legal_usd: { id: 05IgYp }                # Legal, privacy and compliance, USD per year
+
+  # ── Payments ──────────────────────────────────────────────────────────────
+  rev: { id: YdT6dC }                      # gross monthly in-app revenue, USD
+  rails:
+    id: 88UlKt
+    options: { p2p: Q9rNXl, apple: sO56FE, google: pQBEbj, processor: vp18O4, reseller: mlhsBh }
+  balances:
+    id: 5VlKkm
+    options: { "yes": eh05HT }             # holds user balances, credits or wallets
+
+  # ── Reach ─────────────────────────────────────────────────────────────────
+  jur:
+    id: ePAdxW
+    options: { eu: 3YfIJX, uk: pq8Wgs, us: gVmoP3, other: 1667Tr }
+  distribution:
+    id: 4F44bp
+    options: { apple: dZHVfs, google: rq31GJ, web: QwlqB5 }
+
+  # ── Results (filled by the page) ──────────────────────────────────────────
   result_custodial: { id: qPZrNj }
   result_noncustodial: { id: C93CmL }
   link: { id: iHHHuZ }
@@ -74,7 +91,7 @@ fields:
   version: { id: OHi8fq }
   test: { id: XU5x6e }                     # set only from ?test= in the URL
 
-  # ── Save & Share (the contact details) ────────────────────────────────────
+  # ── Send & Share (the contact details) ────────────────────────────────────
   app_name: { id: t3pia5 }                 # App Name
   company: { id: 5UFMyH }                  # Company Name
   contact_name: { id: BBZoy9 }             # Contact Name

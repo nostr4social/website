@@ -592,12 +592,17 @@ function pickRecipient(recipients, wanted) {
 
 // assets/js/calculator/src/inputs.js
 var HOURS = ["0", "5", "25", "60"];
-var HEADS = ["0", "5", "50", "500", "2000"];
 var NOSTR = ["0", "0.5", "1"];
 var GROWTH = ["0", "0.25", "0.5", "1"];
+var HEADS_BAND = ["1", "3", "15", "140", "500", "2000"];
+var WHO = ["nobody", "team", "vendor"];
+var TEAM = ["one", "ten", "fifty", "more"];
+var KIND = ["messaging", "feed", "community", "marketplace"];
 var band = (options, omit) => ({ type: "option", required: false, default: null, options, omit });
 var INPUTS = {
-  // Non Custody: "Our app already uses Nostr"
+  // Nostr: the opener, then "Your app uses Nostr for the following"
+  nostr_now: band(NOSTR),
+  // does the app already use Nostr: not at all / somewhat / fully
   n_keys: band(NOSTR, "0"),
   // user accounts are private keys
   n_raw_keys: band(NOSTR, "0"),
@@ -618,39 +623,40 @@ var INPUTS = {
   // peer to peer in-app payments
   n_nips: band(NOSTR, "0"),
   // NIP standards published publicly (read, not priced)
-  // Accounts & Storage
+  // Users: the opener, then growth
   mau: { type: "integer", required: true, default: 5e4, min: 1, max: 2e9 },
-  posts_per_user: { type: "number", required: false, default: 20, min: 0, max: 1e6 },
-  mb: { type: "number", required: false, default: 50, min: 0, max: 1e6 },
-  // Staffing Costs
+  growth: band(GROWTH),
+  // users a year from now, as a share of today's; blank means the assumptions' default
+  // Content: the opener, then the two per-user numbers (blank means derived from the kind of app)
+  kind: band(KIND),
+  posts_per_user: { type: "number", required: false, default: null, min: 0, max: 1e6 },
+  mb: { type: "number", required: false, default: null, min: 0, max: 1e6 },
+  // Moderation: the opener, then the head count (blank means the default count)
+  mod_who: band(WHO),
+  mod_heads: band(HEADS_BAND),
+  // Team: the opener, then engineering hours a week per area (blank means derived from the team size) and legal spend
+  team: band(TEAM),
   eng_accounts: band(HOURS),
-  // engineering hours a week: managing user accounts
+  // managing user accounts
   eng_content: band(HOURS),
   // managing user content
   eng_infra: band(HOURS),
   // managing infrastructure
   eng_legal: band(HOURS),
   // legal and compliance
-  mod_inhouse: band(HEADS, "0"),
-  // content review and moderation: in-house employees
-  mod_vendor: band(HEADS, "0"),
-  // outside vendor seats
   legal_usd: { type: "number", required: false, default: null, min: 0, max: 1e12, omit: "0" },
   // 0 means not given
-  // Payment Gateway
-  rails: { type: "multi", required: false, default: [], options: ["p2p", "apple", "google", "processor", "reseller"] },
+  // Payments: the opener (0 means no payments), then the rails (blank means derived from distribution) and balances
   rev: { type: "number", required: false, default: 0, min: 0, max: 1e12 },
+  rails: { type: "multi", required: false, default: [], options: ["p2p", "apple", "google", "processor", "reseller"] },
   balances: { type: "multi", required: false, default: [], options: ["yes"] },
-  // Availability & Growth
-  distribution: { type: "multi", required: false, default: [], options: ["apple", "google", "web"] },
+  // Reach: the opener, then distribution
   jur: { type: "multi", required: true, default: ["us"], options: ["eu", "uk", "us", "other"] },
-  growth: band(GROWTH)
-  // users a year from now, as a share of today's; blank means the assumptions' default
+  distribution: { type: "multi", required: false, default: [], options: ["apple", "google", "web"] }
 };
 var GRIDS = {
   nostr: ["n_keys", "n_raw_keys", "n_signed_events", "n_event_storage", "n_media_storage", "n_labels", "n_feeds", "n_algos", "n_p2p", "n_nips"],
-  engineering: ["eng_accounts", "eng_content", "eng_infra", "eng_legal"],
-  moderation: ["mod_inhouse", "mod_vendor"]
+  engineering: ["eng_accounts", "eng_content", "eng_infra", "eng_legal"]
 };
 function defaultsFor() {
   const out = {};
@@ -698,7 +704,6 @@ function normalizeInputs(raw = {}) {
       out[key] = n;
     }
   }
-  if (out.rails.length && !(out.rev > 0)) throw new InputError("rev", "required");
   return out;
 }
 
@@ -731,18 +736,120 @@ function cleanOverrides(data, overrides = {}) {
 var loadedHourly = (v) => v.eng_base_salary * v.loaded_multiplier * v.overhead_multiplier / HOURS_PER_YEAR;
 var loadedYear = (base, v) => base * v.loaded_multiplier * v.overhead_multiplier;
 var num = (x) => x == null || x === "" ? null : Number(x);
-function engHoursWeek(area, inputs, v) {
-  const given = num(inputs[`eng_${area}`]);
-  if (given != null) return given;
+function defaultHours(area, v) {
   if (area === "accounts") return v.default_hours_accounts;
   if (area === "content") return v.default_hours_content;
   if (area === "infra") return v.default_hours_infra;
   return v.default_hours_legal;
 }
+function engHoursWeek(area, inputs, v) {
+  const given = num(inputs[`eng_${area}`]);
+  return given != null ? given : defaultHours(area, v);
+}
 function engineering(area, inputs, v) {
   const hours = engHoursWeek(area, inputs, v);
   const hourly = loadedHourly(v);
-  return { cost: hours * WEEKS_PER_YEAR * hourly, hours, hourly, defaulted: num(inputs[`eng_${area}`]) == null };
+  const from = inputs.derived?.[`eng_${area}`];
+  return { cost: hours * WEEKS_PER_YEAR * hourly, hours, hourly, defaulted: num(inputs[`eng_${area}`]) == null || Boolean(from), from };
+}
+function kindPosts(kind, v) {
+  if (kind === "messaging") return v.kind_messaging_posts;
+  if (kind === "feed") return v.kind_feed_posts;
+  if (kind === "community") return v.kind_community_posts;
+  if (kind === "marketplace") return v.kind_marketplace_posts;
+  return v.posts_default;
+}
+function kindMb(kind, v) {
+  if (kind === "messaging") return v.kind_messaging_mb;
+  if (kind === "feed") return v.kind_feed_mb;
+  if (kind === "community") return v.kind_community_mb;
+  if (kind === "marketplace") return v.kind_marketplace_mb;
+  return v.mb_default;
+}
+function teamFactor(team, v) {
+  if (team === "one") return v.team_factor_one;
+  if (team === "ten") return v.team_factor_ten;
+  if (team === "fifty") return v.team_factor_fifty;
+  if (team === "more") return v.team_factor_more;
+  return null;
+}
+function kindEgress(kind, v) {
+  if (kind === "messaging") return v.kind_messaging_egress_gb;
+  if (kind === "feed") return v.kind_feed_egress_gb;
+  if (kind === "community") return v.kind_community_egress_gb;
+  if (kind === "marketplace") return v.kind_marketplace_egress_gb;
+  return null;
+}
+function kindCompute(kind, v) {
+  if (kind === "messaging") return v.kind_messaging_compute;
+  if (kind === "feed") return v.kind_feed_compute;
+  if (kind === "community") return v.kind_community_compute;
+  if (kind === "marketplace") return v.kind_marketplace_compute;
+  return null;
+}
+function applyKind(v, kind, overrides = {}) {
+  const out = { ...v };
+  const set = {};
+  const egress = kindEgress(kind, v);
+  if (egress != null && !("egress_gb_per_mau_month" in overrides)) {
+    out.egress_gb_per_mau_month = egress;
+    set.egress_gb_per_mau_month = "kind";
+  }
+  const compute = kindCompute(kind, v);
+  if (compute != null && !("compute_per_mau_year" in overrides)) {
+    out.compute_per_mau_year = compute;
+    set.compute_per_mau_year = "kind";
+  }
+  return { values: out, set };
+}
+var NOSTR_ROWS = ["n_keys", "n_raw_keys", "n_signed_events", "n_event_storage", "n_media_storage", "n_labels", "n_feeds", "n_algos", "n_p2p", "n_nips"];
+var RAIL_FOR = { apple: "apple", google: "google", web: "processor" };
+function deriveInputs(inputs, v) {
+  const eff = { ...inputs };
+  const derived = {};
+  if (eff.growth == null) {
+    eff.growth = String(v.growth_default);
+    derived.growth = "default";
+  }
+  if (eff.team == null) {
+    eff.team = "ten";
+    derived.team = "default";
+  }
+  if (eff.nostr_now == null) {
+    eff.nostr_now = "0";
+    derived.nostr_now = "default";
+  }
+  if (eff.posts_per_user == null) {
+    eff.posts_per_user = kindPosts(inputs.kind, v);
+    derived.posts_per_user = inputs.kind ? "kind" : "default";
+  }
+  if (eff.mb == null) {
+    eff.mb = kindMb(inputs.kind, v);
+    derived.mb = inputs.kind ? "kind" : "default";
+  }
+  const factor = teamFactor(eff.team, v);
+  for (const area of ["accounts", "content", "infra", "legal"]) {
+    const key = `eng_${area}`;
+    if (num(inputs[key]) != null) continue;
+    eff[key] = defaultHours(area, v) * factor;
+    derived[key] = inputs.team != null ? "team" : "default";
+  }
+  if ((inputs.mod_who === "team" || inputs.mod_who === "vendor") && num(inputs.mod_heads) == null) {
+    eff.mod_heads = v.mod_heads_default;
+    derived.mod_heads = "default";
+  }
+  if (eff.rev > 0 && !inputs.rails.length) {
+    const places = inputs.distribution.length ? inputs.distribution : ["apple", "google", "web"];
+    eff.rails = [...new Set(places.map((d) => RAIL_FOR[d]))];
+    derived.rails = "distribution";
+  }
+  for (const key of NOSTR_ROWS) {
+    if (num(inputs[key]) != null) continue;
+    eff[key] = key === "n_raw_keys" ? "0" : eff.nostr_now;
+    derived[key] = "nostr_now";
+  }
+  eff.derived = derived;
+  return eff;
 }
 function nostrShares(inputs) {
   const g = (k) => num(inputs[k]) ?? 0;
@@ -846,16 +953,19 @@ function compliance(inputs, v) {
 }
 function moderation(inputs, v) {
   const { mau } = inputs;
-  const inhouse = num(inputs.mod_inhouse) ?? 0;
-  const vendor = num(inputs.mod_vendor) ?? 0;
+  const who = inputs.mod_who === "team" || inputs.mod_who === "vendor" ? inputs.mod_who : "nobody";
   let labour;
   let people;
   let loaded;
   let implied = false;
-  if (inhouse > 0 || vendor > 0) {
+  if (who === "team") {
+    people = num(inputs.mod_heads) ?? 0;
     loaded = loadedYear(v.ts_base_salary, v);
-    labour = inhouse * loaded + vendor * v.moderator_seat_outsourced;
-    people = inhouse + vendor;
+    labour = people * loaded;
+  } else if (who === "vendor") {
+    people = num(inputs.mod_heads) ?? 0;
+    loaded = v.moderator_seat_outsourced;
+    labour = people * loaded;
   } else {
     people = mau / 1e6 * v.mods_per_million_mau;
     loaded = loadedYear(v.moderator_base_salary, v);
@@ -865,7 +975,7 @@ function moderation(inputs, v) {
   const appeals = labour * v.appeals_share;
   const tooling = mau * v.ts_tooling_per_mau_year;
   const parts = [
-    part("labour", labour, labour * v.moderation_remains_share, { implied, people, inhouse, vendor, loaded }),
+    part("labour", labour, labour * v.moderation_remains_share, { implied, who, people, loaded, heads_from: inputs.derived?.mod_heads }),
     part("appeals", appeals, appeals * v.moderation_remains_share),
     part("tooling", tooling, tooling * v.tooling_remains_share),
     part("labels", 0, mau * v.label_provider_per_mau_year)
@@ -897,9 +1007,18 @@ function payments(inputs, v) {
   }
   const holds = inputs.balances.includes("yes");
   parts.push(part("money_transmitter", holds ? v.mt_avoidance_year : 0, holds ? v.mt_avoidance_year * v.mt_remains_share : 0, { holds }));
-  return { parts, tier: small ? "small" : "standard" };
+  return { parts, tier: small ? "small" : "standard", rails_from: inputs.derived?.rails };
 }
 var LINE_FN = { accounts, graph, storage, compliance, moderation, payments };
+function derivedAssumptions(key, from, inputs) {
+  if (/^eng_/.test(key)) return [`team_factor_${inputs.team}`];
+  if (key === "posts_per_user") return [from === "kind" ? `kind_${inputs.kind}_posts` : "posts_default"];
+  if (key === "mb") return [from === "kind" ? `kind_${inputs.kind}_mb` : "mb_default"];
+  if (key === "mod_heads") return ["mod_heads_default"];
+  if (key === "egress_gb_per_mau_month") return [`kind_${inputs.kind}_egress_gb`];
+  if (key === "compute_per_mau_year") return [`kind_${inputs.kind}_compute`];
+  return [];
+}
 var PEOPLE = ["eng_base_salary", "loaded_multiplier", "overhead_multiplier"];
 var PART_ASSUMPTIONS = {
   "accounts.auth": ["auth_per_mau_month"],
@@ -1011,9 +1130,15 @@ function calculate(rawInputs, data, rawOverrides = {}) {
   const overrides = cleanOverrides(data, rawOverrides);
   const out = { version: data.version, inputs, overrides };
   for (const s of SCENARIOS) {
-    const v = resolveAssumptions(data, s, overrides);
-    const r = evaluate(inputs, v);
-    r.projection = project(inputs, v, r);
+    const resolved = resolveAssumptions(data, s, overrides);
+    const { values: v, set } = applyKind(resolved, inputs.kind, overrides);
+    const eff = deriveInputs(inputs, v);
+    Object.assign(eff.derived, set);
+    const r = evaluate(eff, v);
+    r.effective = eff;
+    r.derived = eff.derived;
+    r.values = v;
+    r.projection = project(eff, v, r);
     r.totals.five_year = r.projection[YEARS].cumulative;
     r.totals.marker_year = r.projection[MARKER_YEAR].cumulative;
     r.totals.average = r.totals.five_year / YEARS;
@@ -1029,7 +1154,7 @@ function calculate(rawInputs, data, rawOverrides = {}) {
         part2.avg_custodial = each.reduce((acc, q) => acc + q.custodial, 0) / YEARS;
         part2.avg_noncustodial = each.reduce((acc, q) => acc + q.custodial - q.realised, 0) / YEARS;
       }
-      line.nudge = nudge(name, inputs, v, line);
+      line.nudge = nudge(name, eff, v, line);
     }
     out[s] = r;
   }
@@ -1358,7 +1483,7 @@ function readInputs(form2) {
   for (const [key, spec] of Object.entries(INPUTS)) {
     const slider = $(`input[type="range"][name="${key}"]`, form2);
     if (slider) {
-      out[key] = sliderValue(slider);
+      out[key] = slider.dataset.touched && !slider.dataset.suggested ? sliderValue(slider) : "";
     } else if (spec.type === "multi") {
       out[key] = $$(`input[name="${key}"]:checked`, form2).map((i) => i.value);
     } else if (spec.type === "option") {
@@ -1387,6 +1512,7 @@ function writeInputs(form2, inputs) {
     const slider = $(`input[type="range"][name="${key}"]`, form2);
     if (slider) {
       setSlider(slider, v);
+      answered(slider);
     } else if (spec.type === "multi") {
       const list = Array.isArray(v) ? v : String(v).split(",");
       for (const box of $$(`input[name="${key}"]`, form2)) box.checked = list.includes(box.value);
@@ -1397,17 +1523,76 @@ function writeInputs(form2, inputs) {
     }
   }
 }
-function writeDefaults(form2, defaultHours = {}) {
+function writeDefaults(form2) {
   const starting2 = {};
   for (const [key, spec] of Object.entries(INPUTS)) {
     if (spec.type === "multi" || (spec.type === "number" || spec.type === "integer") && spec.default != null) starting2[key] = spec.default;
   }
-  for (const [area, hours] of Object.entries(defaultHours)) starting2[`eng_${area}`] = hours;
   writeInputs(form2, starting2);
   for (const slider of $$('input[type="range"]', form2)) announceSlider(slider);
 }
+function answered(slider) {
+  slider.dataset.touched = "1";
+  delete slider.dataset.suggested;
+  slider.classList.remove("is-suggested");
+  slider.closest(".slider-row")?.classList.remove("is-suggested");
+}
+function suggest(form2, effective, derived = {}) {
+  for (const key of Object.keys(derived)) {
+    const slider = $(`input[type="range"][name="${key}"]`, form2);
+    if (!slider || slider.dataset.touched) continue;
+    setSlider(slider, effective[key]);
+    slider.dataset.suggested = "1";
+    slider.classList.add("is-suggested");
+    slider.closest(".slider-row")?.classList.add("is-suggested");
+  }
+}
 function wireSliders(form2) {
-  for (const slider of $$('input[type="range"]', form2)) slider.addEventListener("input", () => announceSlider(slider));
+  for (const slider of $$('input[type="range"]', form2)) {
+    slider.addEventListener("input", () => {
+      answered(slider);
+      announceSlider(slider);
+    });
+  }
+}
+function resetForm(form2) {
+  form2.reset();
+  for (const slider of $$('input[type="range"]', form2)) {
+    delete slider.dataset.touched;
+    delete slider.dataset.suggested;
+    slider.classList.remove("is-suggested");
+    slider.closest(".slider-row")?.classList.remove("is-suggested");
+    announceSlider(slider);
+  }
+  writeDefaults(form2);
+  for (const button of $$(".group__toggle", form2)) setDetails(button, false);
+  markInvalid(form2, null);
+}
+function wireDetails(form2) {
+  for (const button of $$(".group__toggle", form2)) {
+    button.addEventListener("click", () => {
+      const open = button.getAttribute("aria-expanded") !== "true";
+      setDetails(button, open);
+    });
+  }
+}
+function setDetails(button, open) {
+  button.setAttribute("aria-expanded", String(open));
+  button.textContent = open ? button.dataset.hide : button.dataset.show;
+  const more = document.getElementById(button.getAttribute("aria-controls"));
+  if (more) more.hidden = !open;
+}
+function revealDetails(form2) {
+  for (const button of $$(".group__toggle", form2)) {
+    const more = document.getElementById(button.getAttribute("aria-controls"));
+    if (!more) continue;
+    const answered2 = $$("input, select, textarea", more).some((i) => {
+      if (i.type === "range") return !i.dataset.suggested && i.dataset.touched;
+      if (i.type === "checkbox" || i.type === "radio") return i.checked;
+      return i.value.trim() !== "";
+    });
+    if (answered2) setDetails(button, true);
+  }
 }
 function markInvalid(form2, key) {
   for (const node2 of $$(".is-invalid", form2)) node2.classList.remove("is-invalid");
@@ -2183,7 +2368,7 @@ function formatValue(v, unit = "") {
 }
 function variant(line, part2) {
   if (part2.id === "engineering") return `engineering_${line}`;
-  if (part2.id === "labour") return part2.implied ? "labour_implied" : "labour_given";
+  if (part2.id === "labour") return part2.implied ? "labour_implied" : `labour_${part2.who}`;
   if (part2.id === "privacy_programs") return part2.reported ? "privacy_programs_reported" : "privacy_programs";
   if (part2.id === "money_transmitter") return part2.holds ? "money_transmitter_holds" : "money_transmitter";
   return part2.id;
@@ -2200,7 +2385,17 @@ function partVars(part2) {
   return out;
 }
 function relevantKeys(line, part2, inputs) {
-  const keys = PART_ASSUMPTIONS[`${line}.${part2.id}`] || [];
+  const keys = [...PART_ASSUMPTIONS[`${line}.${part2.id}`] || []];
+  const derived = inputs.derived || {};
+  if (part2.id === "engineering" || part2.id === "legal_labour") {
+    const area = part2.id === "legal_labour" ? "legal" : { accounts: "accounts", graph: "content", storage: "infra" }[line];
+    if (derived[`eng_${area}`]) keys.push(...derivedAssumptions(`eng_${area}`, derived[`eng_${area}`], inputs));
+  }
+  if (part2.id === "database" && derived.posts_per_user) keys.push(...derivedAssumptions("posts_per_user", derived.posts_per_user, inputs));
+  if (part2.id === "blob" && derived.mb) keys.push(...derivedAssumptions("mb", derived.mb, inputs));
+  if (part2.id === "labour" && derived.mod_heads) keys.push(...derivedAssumptions("mod_heads", derived.mod_heads, inputs));
+  if (part2.id === "egress" && derived.egress_gb_per_mau_month) keys.push(...derivedAssumptions("egress_gb_per_mau_month", "kind", inputs));
+  if ((part2.id === "serving" || part2.id === "feed_compute") && derived.compute_per_mau_year) keys.push(...derivedAssumptions("compute_per_mau_year", "kind", inputs));
   const jur = inputs.jur || [];
   return keys.filter((key) => {
     const m = key.match(/^verify_share_(\w+)$/);
@@ -2212,11 +2407,13 @@ function relevantKeys(line, part2, inputs) {
     if (key === "us_privacy_year_large") return part2.us_tier === "large";
     if (key === "ccpa_consumer_threshold") return jur.includes("us");
     if (/^default_hours_/.test(key)) return Boolean(part2.defaulted);
+    if (/^team_factor_/.test(key)) return Boolean(part2.defaulted);
     if (/_rate_small$/.test(key)) return part2.tier === "small";
     if (/_rate_standard$/.test(key)) return part2.tier === "standard";
-    if (key === "ts_base_salary") return !part2.implied;
-    if (key === "moderator_seat_outsourced") return !part2.implied;
+    if (key === "ts_base_salary") return part2.who === "team";
+    if (key === "moderator_seat_outsourced") return part2.who === "vendor";
     if (key === "moderator_base_salary" || key === "mods_per_million_mau") return Boolean(part2.implied);
+    if (part2.id === "labour" && (key === "loaded_multiplier" || key === "overhead_multiplier")) return part2.who !== "vendor";
     if (key === "mt_avoidance_year" || key === "mt_remains_share") return Boolean(part2.holds);
     return true;
   });
@@ -2276,8 +2473,7 @@ var range = (low, high) => fmt(t("range_short"), { low: compact(low), high: comp
 function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result;
   const T = typical.totals;
-  const whose = $("#r-whose-text");
-  if (whose) whose.textContent = fmt(t(own ? "whose.yours" : "whose.illustrative"), { mau: number(inputs.mau) });
+  renderWhose(result, own);
   const link = $("#r-whose-link");
   if (link) link.textContent = t("whose.link");
   text("#r-permau-c", perMau(T.per_mau_custodial));
@@ -2289,11 +2485,7 @@ function renderResults(result, { own = false } = {}) {
   text("#r-version", fmt(t("version"), { version: result.version }));
   drawCharts({ typical: typical.projection, low: low.projection });
   renderYears(typical.projection);
-  text("#r-total", compact(T.average));
   const cut = (c, nc) => c > 0 ? Math.min(1, Math.max(0, 1 - nc / c)) : 0;
-  const total = cut(T.custodial, T.noncustodial);
-  $(".lt-total .share")?.style.setProperty("--w", `${100 * total}%`);
-  text(".lt-total .share__pct", percent(total));
   for (const name of LINES) {
     const line = typical.lines[name];
     const row = $(`.lt-row[data-line="${name}"]`);
@@ -2317,6 +2509,29 @@ function renderResults(result, { own = false } = {}) {
     $(".share", row).style.setProperty("--w", `${100 * share}%`);
     text(`.lt-row[data-line="${name}"] .share__pct`, line.none ? "" : percent(share));
     renderParts(name, line, inputs);
+  }
+}
+function renderWhose(result, own) {
+  const host = $("#r-whose-text");
+  if (!host) return;
+  const { inputs, typical } = result;
+  const eff = typical.effective;
+  const piece = (text2, answered2) => el("span", { class: answered2 ? "whose__fact" : "whose__fact whose__fact--assumed", text: text2 });
+  const regions = (inputs.jur || []).map((j) => t(`whose.reach.${j}`, j));
+  const pieces = {
+    lead: document.createTextNode(t(own ? "whose.yours" : "whose.illustrative")),
+    kind: piece(t(`whose.kind.${inputs.kind || "none"}`), inputs.kind != null),
+    mau: piece(number(inputs.mau), true),
+    team: piece(t(`whose.team.${eff.team}`), inputs.team != null),
+    moderation: piece(t(`whose.moderation.${inputs.mod_who || "nobody"}`), inputs.mod_who != null),
+    payments: piece(inputs.rev > 0 ? fmt(t("whose.payments.some"), { rev: compact(inputs.rev) }) : t("whose.payments.none"), inputs.rev > 0),
+    reach: piece(fmt(t("whose.reach.in"), { list: regions.join(t("whose.reach.join")) }), true),
+    nostr: piece(t(`whose.nostr.${eff.nostr_now}`), inputs.nostr_now != null)
+  };
+  clear(host);
+  for (const token of t("whose.frame").split(/(\{\w+\})/)) {
+    const m = token.match(/^\{(\w+)\}$/);
+    host.append(m ? pieces[m[1]] || document.createTextNode(token) : document.createTextNode(token));
   }
 }
 function renderYears(projection) {
@@ -2364,8 +2579,7 @@ function openHow(line, partId, result, data) {
   const dialog = $("#how-modal");
   const part2 = result.typical.lines[line]?.parts.find((p) => p.id === partId);
   if (!dialog || !part2) return;
-  const values = Object.fromEntries(Object.entries(data.assumptions).map(([k, a]) => [k, k in result.overrides ? result.overrides[k] : a.typical]));
-  const info = explain(line, part2, { inputs: result.inputs, values, overrides: result.overrides, data });
+  const info = explain(line, part2, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data });
   howKeys = info.assumptions.map((a) => a.key);
   howLabel = info.label;
   text("#how-part", info.label);
@@ -2419,9 +2633,13 @@ function partMeta(p, inputs) {
   if (p.id === "processor") return fmt(t("details.rate"), { rate: percent(p.rate) });
   if (p.id === "verify" && p.rate != null) return fmt(t("details.checked"), { rate: percent(p.rate) });
   if (p.id === "privacy_programs") return p.reported ? t("details.reported") : p.us_tier ? t(`details.us_${p.us_tier}`) : "";
-  if (p.id === "labour" && p.people != null) return fmt(t(p.implied ? "details.people_implied" : "details.people"), { n: number(p.people) });
+  if (p.id === "labour" && p.people != null) {
+    if (p.implied) return fmt(t("details.people_implied"), { n: number(p.people) });
+    const which = p.who === "vendor" ? "seats" : "people";
+    return fmt(t(p.heads_from ? `details.${which}_default` : `details.${which}`), { n: number(p.people) });
+  }
   if (p.id === "money_transmitter" && p.holds) return t("details.holds");
-  if ((p.id === "engineering" || p.id === "legal_labour") && p.defaulted) return t("details.defaulted");
+  if ((p.id === "engineering" || p.id === "legal_labour") && p.defaulted) return t(p.from === "team" ? "details.defaulted_team" : "details.defaulted");
   if ((p.id === "reseller" || p.id === "p2p") && p.rate != null) return fmt(t("details.rate"), { rate: percent(p.rate) });
   if (p.id === "database" && p.gb != null) return fmt(t("details.gb"), { gb: number(p.gb) });
   return "";
@@ -2450,12 +2668,27 @@ function activateTab(name, { focus = false } = {}) {
     }
     if (panel) panel.hidden = !on;
   }
-  if (focus) {
-    $(".tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    $(`#tab-${name}`)?.focus({ preventScroll: true });
+  const current2 = $("#tabs-current .tabs__current-tab");
+  const active = $(`#tab-${name}`);
+  if (current2 && active) {
+    clear(current2);
+    for (const child of active.childNodes) current2.append(child.cloneNode(true));
+    $("#tabs-current").dataset.tab = name;
   }
+  openTabMenu(false);
+  $("#calc")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (focus) $(`#tab-${name}`)?.focus({ preventScroll: true });
+}
+function openTabMenu(open) {
+  const bar = $("#tabbar");
+  const button = $("#tabs-current");
+  if (!bar || !button) return;
+  const next = open ?? !bar.classList.contains("is-open");
+  bar.classList.toggle("is-open", next);
+  button.setAttribute("aria-expanded", String(next));
 }
 function wireTabs(onSelect) {
+  $("#tabs-current")?.addEventListener("click", () => openTabMenu());
   const buttons = TABS.map((t2) => $(`#tab-${t2}`)).filter(Boolean);
   for (const button of buttons) {
     const name = button.id.replace("tab-", "");
@@ -2542,12 +2775,13 @@ function labelFor(key) {
   const node2 = document.querySelector(`#field-${key} .field__label, label[for="f-${key}"]`);
   return node2 ? node2.textContent.replace(/\s+/g, " ").replace(/\s*\*\s*$/, "").trim() : key;
 }
-function run(raw, overrides, { focus = true } = {}) {
+function run(raw, overrides, { focus = true, show: show2 = true } = {}) {
   let result;
   try {
     result = calculate(raw, assumptions, overrides);
   } catch (err) {
     if (err instanceof InputError) {
+      if (!show2) return null;
       activateTab("app");
       markInvalid($("#calc-form"), err.key);
       setError2(err.code, labelFor(err.key));
@@ -2560,11 +2794,19 @@ function run(raw, overrides, { focus = true } = {}) {
   setError2(null);
   current = result;
   dirty = false;
-  renderResults(result, { own: !sameAsDefaults(result.inputs) });
+  const own = !sameAsDefaults(result.inputs);
+  renderResults(result, { own });
+  $("#tabbar")?.classList.toggle("is-illustrative", !own);
+  const share = $("#save-open");
+  if (share) {
+    share.classList.toggle("btn--primary", own);
+    share.classList.toggle("btn--secondary", !own);
+  }
+  suggest($("#calc-form"), result.typical.effective, result.typical.derived);
   const query2 = encode2(result.inputs, result.overrides, result.version);
   result.link = `${location.origin}${location.pathname}?${query2}`;
   history.replaceState(null, "", `?${query2}${test ? `&test=${encodeURIComponent(test)}` : ""}`);
-  showResults(true, { focus });
+  if (show2) showResults(true, { focus });
   return result;
 }
 var starting = "";
@@ -2589,7 +2831,12 @@ function onTab(name, opts) {
 function onDirty() {
   dirty = true;
   syncUrl();
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    run(readInputs($("#calc-form")), readOverrides(), { focus: false, show: false });
+  }, 150);
 }
+var previewTimer = null;
 function currentQuery() {
   try {
     const inputs = normalizeInputs(readInputs($("#calc-form")));
@@ -2667,19 +2914,23 @@ function valuesFor(result, contact) {
     return cells;
   };
   return {
-    mau: i.mau,
-    posts_per_user: i.posts_per_user,
-    mb: i.mb,
-    engineering: grid("engineering", "eng_"),
-    moderation: grid("moderation", "mod_"),
-    legal_usd: i.legal_usd ?? "",
-    rails: i.rails,
-    rev: i.rev,
-    balances: i.balances,
-    distribution: i.distribution,
-    jur: i.jur,
-    growth: i.growth ?? "",
+    nostr_now: i.nostr_now ?? "",
     nostr: grid("nostr", "n_"),
+    mau: i.mau,
+    growth: i.growth ?? "",
+    kind: i.kind ?? "",
+    posts_per_user: i.posts_per_user ?? "",
+    mb: i.mb ?? "",
+    mod_who: i.mod_who ?? "",
+    mod_heads: i.mod_heads ?? "",
+    team: i.team ?? "",
+    engineering: grid("engineering", "eng_"),
+    legal_usd: i.legal_usd ?? "",
+    rev: i.rev,
+    rails: i.rails,
+    balances: i.balances,
+    jur: i.jur,
+    distribution: i.distribution,
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
     link: result.link,
@@ -2824,9 +3075,25 @@ async function restore(pointer, signer) {
   const opened = await openResponse(event, { signer, snapshot, map });
   if (opened.error) return setStatus2(t(`errors.${opened.error}`));
   const v = opened.values;
-  const inputs = { mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, rev: v.rev, rails: v.rails, balances: v.balances, distribution: v.distribution, jur: v.jur, growth: Array.isArray(v.growth) ? v.growth[0] : v.growth };
+  const one = (x) => Array.isArray(x) ? x[0] : x;
+  const inputs = {
+    mau: v.mau,
+    posts_per_user: v.posts_per_user,
+    mb: v.mb,
+    legal_usd: v.legal_usd,
+    rev: v.rev,
+    rails: v.rails,
+    balances: v.balances,
+    distribution: v.distribution,
+    jur: v.jur,
+    growth: one(v.growth),
+    nostr_now: one(v.nostr_now),
+    kind: one(v.kind),
+    mod_who: one(v.mod_who),
+    mod_heads: one(v.mod_heads),
+    team: one(v.team)
+  };
   for (const [area, hours] of Object.entries(v.engineering || {})) inputs[`eng_${area}`] = hours;
-  for (const [row, n] of Object.entries(v.moderation || {})) inputs[`mod_${row}`] = n;
   for (const [row, share] of Object.entries(v.nostr || {})) inputs[`n_${row}`] = share;
   let overrides = {};
   try {
@@ -2836,6 +3103,7 @@ async function restore(pointer, signer) {
   }
   const formEl = $("#calc-form");
   writeInputs(formEl, inputs);
+  revealDetails(formEl);
   writeOverrides(overrides);
   writeContact(formEl, Object.fromEntries(CONTACT_KEYS.map((k) => [k, v[k]])));
   if (v.test) test = v.test;
@@ -2852,9 +3120,18 @@ function openFromLink(pointer) {
 function onEdit() {
   activateTab("app", { focus: true });
 }
+function onResetForm() {
+  const formEl = $("#calc-form");
+  resetForm(formEl);
+  setError2(null);
+  const result = run(readInputs(formEl), readOverrides(), { focus: false, show: false });
+  if (result) history.replaceState(null, "", location.pathname);
+  formEl.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 function wire() {
   $("#calc-form")?.addEventListener("submit", onCalculate);
   $("#r-edit")?.addEventListener("click", onEdit);
+  $("#calc-reset")?.addEventListener("click", onResetForm);
   $("#r-whose-link")?.addEventListener("click", onEdit);
   wireCharts();
   $("#a-reset")?.addEventListener("click", onReset);
@@ -2905,13 +3182,8 @@ async function boot() {
   if (!formEl) return;
   wire();
   wireSliders(formEl);
-  const A = assumptions.assumptions;
-  writeDefaults(formEl, {
-    accounts: A.default_hours_accounts.typical,
-    content: A.default_hours_content.typical,
-    infra: A.default_hours_infra.typical,
-    legal: A.default_hours_legal.typical
-  });
+  wireDetails(formEl);
+  writeDefaults(formEl);
   try {
     starting = JSON.stringify(normalizeInputs(readInputs(formEl)));
   } catch {
@@ -2923,11 +3195,13 @@ async function boot() {
   if (pointer) {
     if (opened.present) {
       writeInputs(formEl, opened.inputs);
+      revealDetails(formEl);
       writeOverrides(opened.overrides);
     }
     run(readInputs(formEl), readOverrides(), { focus: false });
   } else if (opened.present) {
     writeInputs(formEl, opened.inputs);
+    revealDetails(formEl);
     writeOverrides(opened.overrides);
     const result = run(opened.inputs, opened.overrides, { focus: false });
     if (result) setStatus2(t("status.shared"));

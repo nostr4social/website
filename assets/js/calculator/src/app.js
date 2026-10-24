@@ -23,7 +23,7 @@ import { calculate, cleanOverrides, normalizeInputs } from './model.js'
 import { wireCharts } from './chart.js'
 import { decode, encode } from './codec.js'
 import { GRIDS, InputError } from './inputs.js'
-import { CONTACT_KEYS, markInvalid, readContact, readInputs, wireSliders, writeContact, writeDefaults, writeInputs } from './form.js'
+import { CONTACT_KEYS, markInvalid, readContact, readInputs, resetForm, revealDetails, suggest, wireDetails, wireSliders, writeContact, writeDefaults, writeInputs } from './form.js'
 import { decodePointer, fetchResponse, openResponse } from './restore.js'
 import { compact } from './format.js'
 import { composeLead, prepareForm, sendLead, submitResponse } from './submit.js'
@@ -69,12 +69,13 @@ function labelFor(key) {
 
 // ── calculating ──────────────────────────────────────────────────────────────
 
-function run(raw, overrides, { focus = true } = {}) {
+function run(raw, overrides, { focus = true, show = true } = {}) {
   let result
   try {
     result = calculate(raw, assumptions, overrides)
   } catch (err) {
     if (err instanceof InputError) {
+      if (!show) return null // mid-edit on the form: wait for a complete answer
       activateTab('app')
       markInvalid($('#calc-form'), err.key)
       setError(err.code, labelFor(err.key))
@@ -87,13 +88,23 @@ function run(raw, overrides, { focus = true } = {}) {
   setError(null)
   current = result
   dirty = false
-  renderResults(result, { own: !sameAsDefaults(result.inputs) })
+  const own = !sameAsDefaults(result.inputs)
+  renderResults(result, { own })
+  // While the estimate is the illustrative app's, App Details is the invitation and Send & Share waits.
+  $('#tabbar')?.classList.toggle('is-illustrative', !own)
+  const share = $('#save-open')
+  if (share) {
+    share.classList.toggle('btn--primary', own)
+    share.classList.toggle('btn--secondary', !own)
+  }
+  // What the openers imply, shown on the untouched sliders as suggestions.
+  suggest($('#calc-form'), result.typical.effective, result.typical.derived)
 
   const query = encode(result.inputs, result.overrides, result.version)
   result.link = `${location.origin}${location.pathname}?${query}`
   history.replaceState(null, '', `?${query}${test ? `&test=${encodeURIComponent(test)}` : ''}`)
 
-  showResults(true, { focus })
+  if (show) showResults(true, { focus })
   return result
 }
 
@@ -126,10 +137,20 @@ function onTab(name, opts) {
   activateTab(name, opts)
 }
 
+/**
+ * A change on the form: the estimate and the suggestions follow at once,
+ * quietly, without leaving the tab. An incomplete answer is left alone
+ * until Calculate names it.
+ */
 function onDirty() {
   dirty = true
   syncUrl()
+  clearTimeout(previewTimer)
+  previewTimer = setTimeout(() => {
+    run(readInputs($('#calc-form')), readOverrides(), { focus: false, show: false })
+  }, 150)
 }
+let previewTimer = null
 
 /** The query for the form as it stands now, or null while an answer is incomplete. */
 function currentQuery() {
@@ -232,19 +253,23 @@ function valuesFor(result, contact) {
     return cells
   }
   return {
-    mau: i.mau,
-    posts_per_user: i.posts_per_user,
-    mb: i.mb,
-    engineering: grid('engineering', 'eng_'),
-    moderation: grid('moderation', 'mod_'),
-    legal_usd: i.legal_usd ?? '',
-    rails: i.rails,
-    rev: i.rev,
-    balances: i.balances,
-    distribution: i.distribution,
-    jur: i.jur,
-    growth: i.growth ?? '',
+    nostr_now: i.nostr_now ?? '',
     nostr: grid('nostr', 'n_'),
+    mau: i.mau,
+    growth: i.growth ?? '',
+    kind: i.kind ?? '',
+    posts_per_user: i.posts_per_user ?? '',
+    mb: i.mb ?? '',
+    mod_who: i.mod_who ?? '',
+    mod_heads: i.mod_heads ?? '',
+    team: i.team ?? '',
+    engineering: grid('engineering', 'eng_'),
+    legal_usd: i.legal_usd ?? '',
+    rev: i.rev,
+    rails: i.rails,
+    balances: i.balances,
+    jur: i.jur,
+    distribution: i.distribution,
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
     link: result.link,
@@ -408,9 +433,13 @@ async function restore(pointer, signer) {
   const opened = await openResponse(event, { signer, snapshot, map })
   if (opened.error) return setStatus(t(`errors.${opened.error}`))
   const v = opened.values
-  const inputs = { mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, rev: v.rev, rails: v.rails, balances: v.balances, distribution: v.distribution, jur: v.jur, growth: Array.isArray(v.growth) ? v.growth[0] : v.growth }
+  const one = (x) => (Array.isArray(x) ? x[0] : x)
+  const inputs = {
+    mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, rev: v.rev,
+    rails: v.rails, balances: v.balances, distribution: v.distribution, jur: v.jur,
+    growth: one(v.growth), nostr_now: one(v.nostr_now), kind: one(v.kind), mod_who: one(v.mod_who), mod_heads: one(v.mod_heads), team: one(v.team),
+  }
   for (const [area, hours] of Object.entries(v.engineering || {})) inputs[`eng_${area}`] = hours
-  for (const [row, n] of Object.entries(v.moderation || {})) inputs[`mod_${row}`] = n
   for (const [row, share] of Object.entries(v.nostr || {})) inputs[`n_${row}`] = share
   let overrides = {}
   try {
@@ -420,6 +449,7 @@ async function restore(pointer, signer) {
   }
   const formEl = $('#calc-form')
   writeInputs(formEl, inputs)
+  revealDetails(formEl)
   writeOverrides(overrides)
   writeContact(formEl, Object.fromEntries(CONTACT_KEYS.map((k) => [k, v[k]])))
   if (v.test) test = v.test
@@ -440,11 +470,22 @@ function onEdit() {
   activateTab('app', { focus: true })
 }
 
+/** Reset Values: the form back to its start, the estimate back to the illustrative app's, the link cleared. */
+function onResetForm() {
+  const formEl = $('#calc-form')
+  resetForm(formEl)
+  setError(null)
+  const result = run(readInputs(formEl), readOverrides(), { focus: false, show: false })
+  if (result) history.replaceState(null, '', location.pathname)
+  formEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 // ── boot ─────────────────────────────────────────────────────────────────────
 
 function wire() {
   $('#calc-form')?.addEventListener('submit', onCalculate)
   $('#r-edit')?.addEventListener('click', onEdit)
+  $('#calc-reset')?.addEventListener('click', onResetForm)
   $('#r-whose-link')?.addEventListener('click', onEdit)
   wireCharts()
   $('#a-reset')?.addEventListener('click', onReset)
@@ -498,13 +539,8 @@ async function boot() {
   if (!formEl) return
   wire()
   wireSliders(formEl)
-  const A = assumptions.assumptions
-  writeDefaults(formEl, {
-    accounts: A.default_hours_accounts.typical,
-    content: A.default_hours_content.typical,
-    infra: A.default_hours_infra.typical,
-    legal: A.default_hours_legal.typical,
-  })
+  wireDetails(formEl)
+  writeDefaults(formEl)
   try {
     starting = JSON.stringify(normalizeInputs(readInputs(formEl)))
   } catch {
@@ -520,11 +556,13 @@ async function boot() {
     // The response's own answers win; a results link in the same address fills first.
     if (opened.present) {
       writeInputs(formEl, opened.inputs)
+      revealDetails(formEl)
       writeOverrides(opened.overrides)
     }
     run(readInputs(formEl), readOverrides(), { focus: false })
   } else if (opened.present) {
     writeInputs(formEl, opened.inputs)
+    revealDetails(formEl)
     writeOverrides(opened.overrides)
     const result = run(opened.inputs, opened.overrides, { focus: false })
     if (result) setStatus(t('status.shared'))

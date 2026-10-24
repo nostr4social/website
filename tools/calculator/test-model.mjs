@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const data = JSON.parse(await readFile(resolve(root, '_data/assumptions/v1.json'), 'utf8'))
-const { calculate, evaluate, resolveAssumptions, project, rampShare, nudge, LINE_FUNCTIONS, PART_ASSUMPTIONS, LINES, SCENARIOS, YEARS, MARKER_YEAR, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
+const { calculate, evaluate, resolveAssumptions, project, rampShare, nudge, deriveInputs, applyKind, LINE_FUNCTIONS, PART_ASSUMPTIONS, LINES, SCENARIOS, YEARS, MARKER_YEAR, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
 const { encode, decode } = await import(resolve(root, 'assets/js/calculator/src/codec.js'))
 const { INPUTS, InputError } = await import(resolve(root, 'assets/js/calculator/src/inputs.js'))
 const { compact, compactNumber } = await import(resolve(root, 'assets/js/calculator/src/format.js'))
@@ -25,7 +25,7 @@ const test = async (name, fn) => {
   }
 }
 
-const base = { mau: 50000, posts_per_user: 20, eng_accounts: '5', eng_content: '25', eng_infra: '25', mod_inhouse: '5', rails: ['apple', 'google', 'processor'], rev: 20000, jur: ['eu', 'uk', 'us'] }
+const base = { mau: 50000, posts_per_user: 20, eng_accounts: '5', eng_content: '25', eng_infra: '25', mod_who: 'team', mod_heads: '3', rails: ['apple', 'google', 'processor'], rev: 20000, jur: ['eu', 'uk', 'us'] }
 const finite = (r) => {
   for (const s of SCENARIOS) {
     for (const l of LINES) {
@@ -135,13 +135,71 @@ await test('"already uses Nostr": Always equals the non-custodial figure, Somewh
   assert.equal(nips.totals.custodial, calculate(base, data).typical.totals.custodial)
 })
 
-await test('nobody reviewing content yields an implied, non-zero moderation cost; people and seats add up', () => {
-  const r = calculate({ ...base, mod_inhouse: null, mod_vendor: null }, data).typical.lines.moderation
+await test('nobody reviewing content yields an implied, non-zero moderation cost; a team or a vendor is priced by head', () => {
+  const r = calculate({ ...base, mod_who: 'nobody', mod_heads: null }, data).typical.lines.moderation
   assert.equal(r.implied, true)
   assert.ok(r.custodial > 0)
-  const both = calculate({ ...base, mod_inhouse: '5', mod_vendor: '50' }, data).typical.lines.moderation
-  const inhouse = calculate({ ...base, mod_inhouse: '5', mod_vendor: '0' }, data).typical.lines.moderation
-  assert.ok(both.custodial > inhouse.custodial && both.implied === false)
+  const unsaid = calculate({ ...base, mod_who: null, mod_heads: null }, data).typical.lines.moderation
+  assert.equal(unsaid.implied, true)
+  const team = calculate({ ...base, mod_who: 'team', mod_heads: '15' }, data).typical.lines.moderation
+  const vendor = calculate({ ...base, mod_who: 'vendor', mod_heads: '15' }, data).typical.lines.moderation
+  assert.ok(team.custodial > vendor.custodial && team.implied === false && vendor.implied === false, 'a loaded employee costs more than a vendor seat')
+  const few = calculate({ ...base, mod_who: 'team', mod_heads: '3' }, data).typical.lines.moderation
+  assert.ok(team.custodial > few.custodial)
+})
+
+await test('the openers set the defaults; what was derived is listed and stays out of the inputs', () => {
+  const v = resolveAssumptions(data, 'typical')
+  const minimal = normalizeInputs({ mau: 50000, jur: ['us'] })
+  const eff = deriveInputs(minimal, v)
+  assert.equal(eff.posts_per_user, v.posts_default)
+  assert.equal(eff.mb, v.mb_default)
+  assert.ok(Math.abs(eff.eng_content - v.default_hours_content * v.team_factor_ten) < 1e-9, 'a blank team is a team of up to ten')
+  assert.equal(eff.team, 'ten')
+  assert.equal(eff.nostr_now, '0')
+  assert.equal(eff.growth, String(v.growth_default))
+  const derivedKeys = Object.keys(eff.derived).sort()
+  assert.deepEqual(derivedKeys.filter((k) => !/^n_/.test(k)), ['eng_accounts', 'eng_content', 'eng_infra', 'eng_legal', 'growth', 'mb', 'nostr_now', 'posts_per_user', 'team'])
+  assert.equal(derivedKeys.filter((k) => /^n_/.test(k)).length, 10, 'the whole grid follows the blank opener')
+  assert.equal(minimal.posts_per_user, null, 'the clean inputs still say nothing')
+  assert.equal(minimal.team, null)
+
+  const kind = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], kind: 'messaging' }), v)
+  assert.equal(kind.posts_per_user, v.kind_messaging_posts)
+  assert.equal(kind.mb, v.kind_messaging_mb)
+  assert.equal(kind.derived.posts_per_user, 'kind')
+
+  const team = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], team: 'fifty', eng_infra: '60' }), v)
+  assert.ok(Math.abs(team.eng_content - v.default_hours_content * v.team_factor_fifty) < 1e-9)
+  assert.equal(team.eng_infra, '60', 'a given band is kept')
+  assert.equal(team.derived.eng_content, 'team')
+  assert.equal(team.derived.eng_infra, undefined)
+
+  const heads = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], mod_who: 'vendor' }), v)
+  assert.equal(heads.mod_heads, v.mod_heads_default)
+  const nobody = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], mod_who: 'nobody' }), v)
+  assert.equal(nobody.mod_heads, null)
+
+  const rails = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], rev: 5000, distribution: ['apple', 'web'] }), v)
+  assert.deepEqual(rails.rails, ['apple', 'processor'])
+  const everywhere = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], rev: 5000 }), v)
+  assert.deepEqual(everywhere.rails, ['apple', 'google', 'processor'])
+  const none = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], rev: 0 }), v)
+  assert.deepEqual(none.rails, [])
+
+  const nostr = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], nostr_now: '1', n_feeds: '0.5' }), v)
+  assert.equal(nostr.n_keys, '1')
+  assert.equal(nostr.n_raw_keys, '0', 'a Nostr app is assumed not to handle raw keys')
+  assert.equal(nostr.n_feeds, '0.5', 'a given row is kept')
+  assert.equal(nostr.derived.n_keys, 'nostr_now')
+  assert.equal(nostr.derived.nostr_now, undefined, 'the opener was answered')
+
+  // The result echoes the clean inputs; only what was said travels in a link.
+  const r = calculate({ mau: 50000, jur: ['us'], team: 'one', kind: 'feed' }, data)
+  const q = encode(r.inputs, {}, 1)
+  assert.ok(q.includes('team=one') && q.includes('kind=feed') && !q.includes('eng_') && !q.includes('posts_per_user='), q)
+  assert.equal(r.typical.effective.derived.eng_accounts, 'team')
+  assert.ok(r.typical.totals.custodial > 0)
 })
 
 await test('a blank engineering row uses the default hours; a band overrides it', () => {
@@ -168,7 +226,7 @@ await test('the strictest selected jurisdiction sets the verification share', ()
 })
 
 await test('an override applies to every scenario and an unknown or negative one is ignored', () => {
-  const r = calculate(base, data, { blob_gb_month: 0.5, nonsense: 1, egress_gb: -1 })
+  const r = calculate({ ...base, mb: 50 }, data, { blob_gb_month: 0.5, nonsense: 1, egress_gb: -1 })
   assert.deepEqual(Object.keys(r.overrides), ['blob_gb_month'])
   for (const s of SCENARIOS) {
     const blob = r[s].lines.storage.parts.find((p) => p.id === 'blob').custodial
@@ -187,8 +245,8 @@ await test('the results link round-trips inputs and overrides', () => {
   assert.equal(back.test, '1')
   assert.equal(back.present, true)
   assert.equal(decode('?test=1').present, false)
-  const zeros = encode(calculate({ ...base, n_keys: '0', mod_vendor: '0', eng_legal: '0' }, data).inputs, {}, 1)
-  assert.ok(!zeros.includes('n_keys=') && !zeros.includes('mod_vendor=') && zeros.includes('eng_legal=0'), zeros)
+  const zeros = encode(calculate({ ...base, n_keys: '0', eng_legal: '0' }, data).inputs, {}, 1)
+  assert.ok(!zeros.includes('n_keys=') && zeros.includes('eng_legal=0'), zeros)
 })
 
 await test('validation names the first bad input', () => {
@@ -196,12 +254,11 @@ await test('validation names the first bad input', () => {
   assert.throws(() => normalizeInputs({ ...base, mau: 0 }), (e) => e.key === 'mau' && e.code === 'too_small')
   assert.throws(() => normalizeInputs({ ...base, jur: [] }), (e) => e.key === 'jur' && e.code === 'required')
   assert.throws(() => normalizeInputs({ ...base, mau: '' }), (e) => e.key === 'mau' && e.code === 'required')
-  assert.throws(() => normalizeInputs({ ...base, rails: ['apple'], rev: 0 }), (e) => e.key === 'rev' && e.code === 'required')
   assert.throws(() => normalizeInputs({ ...base, rails: 'apple,steam' }), (e) => e.key === 'rails' && e.code === 'invalid')
   assert.throws(() => normalizeInputs({ ...base, eng_accounts: '7' }), (e) => e.key === 'eng_accounts' && e.code === 'invalid')
   const ok = normalizeInputs({ mau: '1,000', posts_per_user: '', jur: 'us,eu' })
   assert.equal(ok.mau, 1000)
-  assert.equal(ok.posts_per_user, 20)
+  assert.equal(ok.posts_per_user, null, 'blank until the model derives it')
   assert.equal(ok.eng_accounts, null)
   assert.deepEqual(ok.jur, ['eu', 'us'])
   assert.equal(Object.keys(ok).length, Object.keys(INPUTS).length)
@@ -338,7 +395,7 @@ await test('a payments line on store rails alone gets a peer-to-peer nudge; one 
 
 await test('what remains on Nostr follows what the app hosts: age checks, moderation, tooling and content law keep only a share', () => {
   const v = resolveAssumptions(data, 'typical')
-  const r = evaluate(normalizeInputs({ ...base, jur: ['uk', 'us'], mod_inhouse: '5' }), v)
+  const r = evaluate(normalizeInputs({ ...base, jur: ['uk', 'us'], mod_who: 'team', mod_heads: '3' }), v)
   const verify = r.lines.accounts.parts.find((p) => p.id === 'verify')
   assert.ok(Math.abs(verify.noncustodial - verify.custodial * v.verify_remains_share) < 1e-6)
   const tooling = r.lines.moderation.parts.find((p) => p.id === 'tooling')
@@ -355,10 +412,32 @@ await test('what remains on Nostr follows what the app hosts: age checks, modera
   assert.ok(low.lines.accounts.noncustodial > 0)
 })
 
+await test('the kind of app sets egress and compute per user, unless the visitor overrode them', () => {
+  const v = resolveAssumptions(data, 'typical')
+  const feed = applyKind(v, 'feed')
+  assert.equal(feed.values.egress_gb_per_mau_month, v.kind_feed_egress_gb)
+  assert.equal(feed.values.compute_per_mau_year, v.kind_feed_compute)
+  assert.deepEqual(feed.set, { egress_gb_per_mau_month: 'kind', compute_per_mau_year: 'kind' })
+  const none = applyKind(v, null)
+  assert.equal(none.values.egress_gb_per_mau_month, v.egress_gb_per_mau_month)
+  assert.deepEqual(none.set, {})
+  const kept = applyKind(v, 'feed', { egress_gb_per_mau_month: 9 })
+  assert.equal(kept.values.egress_gb_per_mau_month, v.egress_gb_per_mau_month, 'the override is applied by resolveAssumptions; the kind leaves it alone')
+  assert.deepEqual(Object.keys(kept.set), ['compute_per_mau_year'])
+
+  const messaging = calculate({ mau: 50000, jur: ['us'], kind: 'messaging' }, data).typical
+  const media = calculate({ mau: 50000, jur: ['us'], kind: 'feed' }, data).typical
+  assert.ok(media.lines.storage.custodial > messaging.lines.storage.custodial * 1.5, `a media feed costs far more to serve: ${media.lines.storage.custodial} vs ${messaging.lines.storage.custodial}`)
+  assert.ok(media.totals.five_year > messaging.totals.five_year * 1.1, 'and it shows in the five-year figure')
+  assert.equal(media.derived.egress_gb_per_mau_month, 'kind')
+  assert.equal(media.values.egress_gb_per_mau_month, v.kind_feed_egress_gb)
+})
+
 await test('the part → assumptions map says exactly which assumptions each line reads', () => {
   // Inputs that walk every branch: all regions, every rail, balances held, given and defaulted bands, reported spend or not, above and below the CCPA threshold.
   const variants = [
-    normalizeInputs({ ...base, jur: ['eu', 'uk', 'us', 'other'], rails: ['p2p', 'apple', 'google', 'processor', 'reseller'], rev: 50000, balances: ['yes'], mod_inhouse: '5', mod_vendor: '5' }),
+    normalizeInputs({ ...base, jur: ['eu', 'uk', 'us', 'other'], rails: ['p2p', 'apple', 'google', 'processor', 'reseller'], rev: 50000, balances: ['yes'], mod_who: 'team', mod_heads: '15' }),
+    normalizeInputs({ ...base, mod_who: 'vendor', mod_heads: '3' }),
     normalizeInputs({ mau: 10000000, jur: ['us'], rails: ['apple'], rev: 200000, legal_usd: 50000 }),
     normalizeInputs({ mau: 1000, jur: ['other'] }),
     normalizeInputs({ mau: 1000, jur: ['other'], rails: ['google'], rev: 200000 }),

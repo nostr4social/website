@@ -16,9 +16,8 @@ export function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result
   const T = typical.totals
 
-  // Whose estimate this is: the illustrative app, or the visitor's own.
-  const whose = $('#r-whose-text')
-  if (whose) whose.textContent = fmt(t(own ? 'whose.yours' : 'whose.illustrative'), { mau: number(inputs.mau) })
+  // Whose estimate this is, and the app it describes, one piece per section.
+  renderWhose(result, own)
   const link = $('#r-whose-link')
   if (link) link.textContent = t('whose.link')
 
@@ -36,13 +35,9 @@ export function renderResults(result, { own = false } = {}) {
   renderYears(typical.projection)
 
   // Where the saving comes from: each line's average year of saving, and the
-  // bar as the share of that line's own cost that goes away. The foot row and
-  // the matching fact chip name the same whole.
-  text('#r-total', compact(T.average))
+  // bar as the share of that line's own cost that goes away. The six add up
+  // to the Average Savings per Year chip.
   const cut = (c, nc) => (c > 0 ? Math.min(1, Math.max(0, 1 - nc / c)) : 0)
-  const total = cut(T.custodial, T.noncustodial)
-  $('.lt-total .share')?.style.setProperty('--w', `${100 * total}%`)
-  text('.lt-total .share__pct', percent(total))
 
   for (const name of LINES) {
     const line = typical.lines[name]
@@ -69,6 +64,35 @@ export function renderResults(result, { own = false } = {}) {
     text(`.lt-row[data-line="${name}"] .share__pct`, line.none ? '' : percent(share))
 
     renderParts(name, line, inputs)
+  }
+}
+
+/**
+ * "Your estimate for a media feed that has 50,000 active users, a team of up
+ * to 10, …": each piece from an opener, bright where the visitor answered it
+ * and quiet where the openers' defaults stand in.
+ */
+function renderWhose(result, own) {
+  const host = $('#r-whose-text')
+  if (!host) return
+  const { inputs, typical } = result
+  const eff = typical.effective
+  const piece = (text, answered) => el('span', { class: answered ? 'whose__fact' : 'whose__fact whose__fact--assumed', text })
+  const regions = (inputs.jur || []).map((j) => t(`whose.reach.${j}`, j))
+  const pieces = {
+    lead: document.createTextNode(t(own ? 'whose.yours' : 'whose.illustrative')),
+    kind: piece(t(`whose.kind.${inputs.kind || 'none'}`), inputs.kind != null),
+    mau: piece(number(inputs.mau), true),
+    team: piece(t(`whose.team.${eff.team}`), inputs.team != null),
+    moderation: piece(t(`whose.moderation.${inputs.mod_who || 'nobody'}`), inputs.mod_who != null),
+    payments: piece(inputs.rev > 0 ? fmt(t('whose.payments.some'), { rev: compact(inputs.rev) }) : t('whose.payments.none'), inputs.rev > 0),
+    reach: piece(fmt(t('whose.reach.in'), { list: regions.join(t('whose.reach.join')) }), true),
+    nostr: piece(t(`whose.nostr.${eff.nostr_now}`), inputs.nostr_now != null),
+  }
+  clear(host)
+  for (const token of t('whose.frame').split(/(\{\w+\})/)) {
+    const m = token.match(/^\{(\w+)\}$/)
+    host.append(m ? pieces[m[1]] || document.createTextNode(token) : document.createTextNode(token))
   }
 }
 
@@ -125,8 +149,7 @@ export function openHow(line, partId, result, data) {
   const dialog = $('#how-modal')
   const part = result.typical.lines[line]?.parts.find((p) => p.id === partId)
   if (!dialog || !part) return
-  const values = Object.fromEntries(Object.entries(data.assumptions).map(([k, a]) => [k, k in result.overrides ? result.overrides[k] : a.typical]))
-  const info = explain(line, part, { inputs: result.inputs, values, overrides: result.overrides, data })
+  const info = explain(line, part, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data })
   howKeys = info.assumptions.map((a) => a.key)
   howLabel = info.label
   text('#how-part', info.label)
@@ -186,9 +209,13 @@ function partMeta(p, inputs) {
   if (p.id === 'processor') return fmt(t('details.rate'), { rate: percent(p.rate) })
   if (p.id === 'verify' && p.rate != null) return fmt(t('details.checked'), { rate: percent(p.rate) })
   if (p.id === 'privacy_programs') return p.reported ? t('details.reported') : p.us_tier ? t(`details.us_${p.us_tier}`) : ''
-  if (p.id === 'labour' && p.people != null) return fmt(t(p.implied ? 'details.people_implied' : 'details.people'), { n: number(p.people) })
+  if (p.id === 'labour' && p.people != null) {
+    if (p.implied) return fmt(t('details.people_implied'), { n: number(p.people) })
+    const which = p.who === 'vendor' ? 'seats' : 'people'
+    return fmt(t(p.heads_from ? `details.${which}_default` : `details.${which}`), { n: number(p.people) })
+  }
   if (p.id === 'money_transmitter' && p.holds) return t('details.holds')
-  if ((p.id === 'engineering' || p.id === 'legal_labour') && p.defaulted) return t('details.defaulted')
+  if ((p.id === 'engineering' || p.id === 'legal_labour') && p.defaulted) return t(p.from === 'team' ? 'details.defaulted_team' : 'details.defaulted')
   if ((p.id === 'reseller' || p.id === 'p2p') && p.rate != null) return fmt(t('details.rate'), { rate: percent(p.rate) })
   if (p.id === 'database' && p.gb != null) return fmt(t('details.gb'), { gb: number(p.gb) })
   return ''
@@ -222,13 +249,32 @@ export function activateTab(name, { focus = false } = {}) {
     }
     if (panel) panel.hidden = !on
   }
-  if (focus) {
-    $('.tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    $(`#tab-${name}`)?.focus({ preventScroll: true })
+  // The phone row shows the active tab's icon and name, and the dropped track folds back up.
+  const current = $('#tabs-current .tabs__current-tab')
+  const active = $(`#tab-${name}`)
+  if (current && active) {
+    clear(current)
+    for (const child of active.childNodes) current.append(child.cloneNode(true))
+    $('#tabs-current').dataset.tab = name
   }
+  openTabMenu(false)
+  // Every switch, and a press on the tab already open, brings the bar to the top of the view.
+  $('#calc')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  if (focus) $(`#tab-${name}`)?.focus({ preventScroll: true })
+}
+
+/** The dropped track on a phone: open, closed, or toggled. */
+export function openTabMenu(open) {
+  const bar = $('#tabbar')
+  const button = $('#tabs-current')
+  if (!bar || !button) return
+  const next = open ?? !bar.classList.contains('is-open')
+  bar.classList.toggle('is-open', next)
+  button.setAttribute('aria-expanded', String(next))
 }
 
 export function wireTabs(onSelect) {
+  $('#tabs-current')?.addEventListener('click', () => openTabMenu())
   const buttons = TABS.map((t) => $(`#tab-${t}`)).filter(Boolean)
   for (const button of buttons) {
     const name = button.id.replace('tab-', '')

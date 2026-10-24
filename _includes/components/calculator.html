@@ -44,22 +44,42 @@ simply stack.
 {%- for sec in form.sections -%}{%- if sec.questions contains email_id -%}{%- assign share_section = sec -%}{%- endif -%}{%- endfor -%}
 <div class="calc" id="calc">
 
-  <div class="tabbar">
-    <div class="tabs" role="tablist">
-      <button type="button" class="tab" role="tab" id="tab-cost" aria-controls="panel-cost" aria-selected="true">{{ s.tabs.cost }}</button>
-      <button type="button" class="tab tab--lit" role="tab" id="tab-app" aria-controls="panel-app" aria-selected="false" tabindex="-1">{{ s.tabs.app }}</button>
-      <button type="button" class="tab" role="tab" id="tab-assumptions" aria-controls="panel-assumptions" aria-selected="false" tabindex="-1">{{ s.tabs.assumptions }}</button>
+  {%- comment -%}
+    The tab bar sticks to the top as the page scrolls: a segmented control
+    with Results and App Details as the two primary tabs and Assumptions as
+    the quiet third, and Send & Share at the right. App Details is gold, the
+    one to notice. While the estimate is still the illustrative app's
+    (`is-illustrative`, set by the script), Send & Share is outlined rather
+    than filled.
+  {%- endcomment -%}
+  <div class="tabbar is-illustrative" id="tabbar">
+    {%- comment -%}
+      On a phone the track collapses to this one row, the active tab with a
+      caret; pressing it drops the track down. The script keeps its words
+      and icon in step with the active tab.
+    {%- endcomment -%}
+    <button type="button" class="tabs__current" id="tabs-current" aria-expanded="false" aria-controls="calc-tabs"><span class="tabs__current-tab"></span>{% include lib/icon.html name="caret" class="tabs__caret" %}</button>
+    <div class="tabs" id="calc-tabs" role="tablist">
+      <button type="button" class="tab tab--primary" role="tab" id="tab-cost" aria-controls="panel-cost" aria-selected="true">{% include lib/icon.html name="insights" class="tab__icon" %}<span>{{ s.tabs.cost }}</span></button>
+      <button type="button" class="tab tab--primary tab--lit" role="tab" id="tab-app" aria-controls="panel-app" aria-selected="false" tabindex="-1">{% include lib/icon.html name="tune" class="tab__icon" %}<span>{{ s.tabs.app }}</span></button>
+      <button type="button" class="tab tab--quiet" role="tab" id="tab-assumptions" aria-controls="panel-assumptions" aria-selected="false" tabindex="-1"><span>{{ s.tabs.assumptions }}</span></button>
     </div>
     {%- if share_section -%}
-    <button type="button" class="btn btn--primary btn--lg" id="save-open" hidden>{{ share_section.title }}</button>
+    <button type="button" class="btn btn--secondary btn--lg" id="save-open" hidden>{{ share_section.title }}</button>
     {%- endif -%}
   </div>
 
   {%- comment -%} ── App Info ───────────────────────────────────────────── {%- endcomment -%}
   <section class="panel" id="panel-app" role="tabpanel" aria-labelledby="tab-app" hidden>
   {%- if form -%}
+  {%- comment -%} The page's own title and lede, outside the form card, as the results tab has. {%- endcomment -%}
+  <div class="panel__head">
+    <h2 class="panel__title" id="app-title" tabindex="-1">{{ f.title }}</h2>
+    <p class="panel__lede">{{ f.intro }}</p>
+  </div>
   <form class="calc-form" id="calc-form" novalidate>
 
+    {%- assign step = 0 -%}
     {%- for sec in form.sections -%}
     {%- if share_section and sec.id == share_section.id %}{% continue %}{% endif -%}
     {%- comment -%} A section whose questions are all filled by the page (the results) is not drawn. {%- endcomment -%}
@@ -68,20 +88,46 @@ simply stack.
       {%- for m in map.fields -%}{%- if m[1].id == qid -%}{%- unless filled contains m[0] -%}{%- assign drawable = drawable | append: "x" -%}{%- endunless -%}{%- endif -%}{%- endfor -%}
     {%- endfor -%}
     {%- if drawable != "" -%}
+    {%- assign step = step | plus: 1 -%}
     <fieldset class="group" id="group-{{ sec.id }}">
-      {%- if sec.title != "" %}<legend class="group__legend">{{ sec.title }}</legend>{% endif -%}
+      {%- if sec.title != "" %}<legend class="group__legend"><span class="group__step" aria-hidden="true">{{ step }}</span>{{ sec.title }}</legend>{% endif -%}
       {%- if sec.description != "" %}<p class="group__note">{{ sec.description }}</p>{% endif -%}
+      {%- comment -%}
+        The section's opener (map.openers) is drawn first, whatever order
+        the event lists it in; the rest fold under "Add more details".
+      {%- endcomment -%}
+      {%- assign has_more = "" -%}
       <div class="group__fields">
       {%- for qid in sec.questions -%}
         {%- assign key = nil -%}
         {%- for m in map.fields -%}{%- if m[1].id == qid -%}{%- assign key = m[0] -%}{%- assign mapping = m[1] -%}{%- endif -%}{%- endfor -%}
         {%- unless key == nil or filled contains key -%}
+        {%- if map.openers contains key -%}
         {%- for q in form.fields -%}{%- if q.id == qid -%}{%- assign field = q -%}{%- endif -%}{%- endfor -%}
         {%- assign stops = f.sliders[key] -%}
-        {% include components/calculator-field.html field=field key=key mapping=mapping stops=stops %}
+        {%- assign scale = false -%}{%- if f.scales contains key %}{% assign scale = true %}{% endif -%}
+        {% include components/calculator-field.html field=field key=key mapping=mapping stops=stops scale=scale opener=true %}
+        {%- else -%}
+        {%- assign has_more = "x" -%}
+        {%- endif -%}
         {%- endunless -%}
       {%- endfor -%}
       </div>
+      {%- if has_more != "" -%}
+      <button type="button" class="linkbutton group__toggle" aria-expanded="false" aria-controls="more-{{ sec.id }}" data-show="{{ f.more }}" data-hide="{{ f.less }}">{{ f.more }}</button>
+      <div class="group__fields group__more" id="more-{{ sec.id }}" hidden>
+      {%- for qid in sec.questions -%}
+        {%- assign key = nil -%}
+        {%- for m in map.fields -%}{%- if m[1].id == qid -%}{%- assign key = m[0] -%}{%- assign mapping = m[1] -%}{%- endif -%}{%- endfor -%}
+        {%- unless key == nil or filled contains key or map.openers contains key -%}
+        {%- for q in form.fields -%}{%- if q.id == qid -%}{%- assign field = q -%}{%- endif -%}{%- endfor -%}
+        {%- assign stops = f.sliders[key] -%}
+        {%- assign scale = false -%}{%- if f.scales contains key %}{% assign scale = true %}{% endif -%}
+        {% include components/calculator-field.html field=field key=key mapping=mapping stops=stops scale=scale %}
+        {%- endunless -%}
+      {%- endfor -%}
+      </div>
+      {%- endif -%}
     </fieldset>
     {%- endif -%}
     {%- endfor -%}
@@ -94,6 +140,7 @@ simply stack.
 
     <p class="form-error" id="calc-error" hidden role="alert"></p>
     <div class="calc-form__submit">
+      <button type="button" class="btn btn--ghost" id="calc-reset">{{ f.reset }}</button>
       <button type="submit" class="btn btn--primary btn--lg" id="calc-submit">{{ f.submit.label }}</button>
     </div>
 
@@ -255,14 +302,6 @@ simply stack.
         </tr>
       {%- endfor -%}
       </tbody>
-      <tfoot>
-        <tr class="lt-total">
-          <th scope="row" class="lt-line"><span class="lt-title">{{ r.stats.average.label }}</span></th>
-          <td class="lt-num" data-label="{{ r.columns.saving }}"><span class="lt-value" id="r-total"></span></td>
-          <td class="lt-share" aria-hidden="true"><span class="share"></span><span class="share__pct"></span></td>
-          <td class="lt-remains"></td>
-        </tr>
-      </tfoot>
     </table>
 
     <div class="results__actions">

@@ -18,7 +18,7 @@ Confidence means:
 - **low**: a vendor page, a self-reported salary site, or a primary figure relayed second-hand
 - **unsourced**: no public figure exists; a stated default, deliberately conservative
 
-18 high, 39 unsourced, 9 low, 5 medium of 71 in all. The unsourced ones are the model's weakest points; treat the range, not the typical value, as the claim.
+18 high, 62 unsourced, 9 low, 5 medium of 94 in all. The unsourced ones are the model's weakest points; treat the range, not the typical value, as the claim.
 
 ## Used by more than one line
 
@@ -31,6 +31,28 @@ Confidence means:
 | `growth_default` | User growth over the next year, when not given | 25% | 0% | 50% | ratio of today's users | unsourced | none |
 | `growth_decay` | Each year's growth rate as a share of the previous year's | 75% | 50% | 100% | ratio | low | [Equidam: benchmarks for startup revenue growth (15,000+ ventures)](https://www.equidam.com/benchmarks-for-startup-revenue-growth) (2024) |
 | `migration_months` | Months for custody to leave, once work starts | 12 | 18 | 6 | months | unsourced | none |
+| `posts_default` | Posts or messages a user a month, when neither given nor implied by the kind of app | 20 | 5 | 50 | count per MAU per month | unsourced | none |
+| `mb_default` | Storage a user, when neither given nor implied by the kind of app | 50 | 10 | 200 | MB per MAU | unsourced | none |
+| `kind_messaging_posts` | Messaging app: messages a user a month | 200 | 100 | 400 | count per MAU per month | unsourced | none |
+| `kind_messaging_mb` | Messaging app: storage a user | 5 | 1 | 20 | MB per MAU | unsourced | none |
+| `kind_messaging_egress_gb` | Messaging app: GB served a user a month | 0.2 | 0.05 | 1 | GB per MAU per month | unsourced | none |
+| `kind_messaging_compute` | Messaging app: compute a user a year | 0.5 | 0.25 | 1.5 | USD per MAU per year | unsourced | none |
+| `kind_feed_posts` | Media feed: posts a user a month | 20 | 5 | 50 | count per MAU per month | unsourced | none |
+| `kind_feed_mb` | Media feed: storage a user | 500 | 100 | 2,000 | MB per MAU | unsourced | none |
+| `kind_feed_egress_gb` | Media feed: GB served a user a month | 3 | 1 | 5 | GB per MAU per month | unsourced | none |
+| `kind_feed_compute` | Media feed: compute a user a year | 2 | 1 | 5 | USD per MAU per year | unsourced | none |
+| `kind_community_posts` | Community or forum: posts a user a month | 10 | 3 | 30 | count per MAU per month | unsourced | none |
+| `kind_community_mb` | Community or forum: storage a user | 20 | 5 | 80 | MB per MAU | unsourced | none |
+| `kind_community_egress_gb` | Community or forum: GB served a user a month | 0.5 | 0.1 | 2 | GB per MAU per month | unsourced | none |
+| `kind_community_compute` | Community or forum: compute a user a year | 0.7 | 0.3 | 2 | USD per MAU per year | unsourced | none |
+| `kind_marketplace_posts` | Marketplace: listings and messages a user a month | 5 | 1 | 15 | count per MAU per month | unsourced | none |
+| `kind_marketplace_mb` | Marketplace: storage a user | 300 | 50 | 1,000 | MB per MAU | unsourced | none |
+| `kind_marketplace_egress_gb` | Marketplace: GB served a user a month | 1 | 0.3 | 3 | GB per MAU per month | unsourced | none |
+| `kind_marketplace_compute` | Marketplace: compute a user a year | 1 | 0.5 | 3 | USD per MAU per year | unsourced | none |
+| `team_factor_one` | Team of one: engineering hours as a share of the default bands | 0.2× | 0.1× | 0.5× | multiplier | unsourced | none |
+| `team_factor_ten` | Team of up to ten: engineering hours as a share of the default bands | 1× | 0.5× | 2× | multiplier | unsourced | none |
+| `team_factor_fifty` | Team of up to fifty: engineering hours as a share of the default bands | 3× | 1.5× | 6× | multiplier | unsourced | none |
+| `team_factor_more` | Team of more than fifty: engineering hours as a share of the default bands | 8× | 4× | 16× | multiplier | unsourced | none |
 
 - `eng_base_salary`: US median for software developers. Infra specialists run higher; the median is the defensible default.
 - `loaded_multiplier`: Private-industry total compensation divided by wages: benefits are 30% of compensation.
@@ -39,6 +61,28 @@ Confidence means:
 - `growth_default`: Used only for a visitor who has not said. Early-stage forecasts run far higher (Equidam finds founders forecast 120% in year one); an app with users already is held to a modest figure on purpose.
 - `growth_decay`: Founders' own forecasts fall from 120% to 83% to 60% a year, about 0.7 each year. A doubling app is therefore about 9 times its size in year five, not 32.
 - `migration_months`: Front-loaded: the share of custody gone by month m is 1 − (1 − m/M)², since the large lines (storage, compute, keys) move first and the long tail drains last. Twelve months realises two thirds of the first year's saving; twenty-four about 42% of the first and 92% of the second. Low is the slower migration, which is the smaller saving. No one-time integration cost is modelled.
+- `posts_default`: The media-feed figure, used when the form says nothing about content.
+- `mb_default`: The media-feed figure, used when the form says nothing about content.
+- `kind_messaging_posts`: Chat is high volume and small.
+- `kind_messaging_mb`: Text with the odd photo.
+- `kind_messaging_egress_gb`: Text and thumbnails. Replaces egress_gb_per_mau_month when the kind is given.
+- `kind_messaging_compute`: Fan-out and presence, little ranking. Replaces compute_per_mau_year when the kind is given.
+- `kind_feed_posts`: Most users read; a few post.
+- `kind_feed_mb`: Images and short video, kept. The research puts an image-heavy feed well above the 50 MB generic default.
+- `kind_feed_egress_gb`: The research's 1 to 5 GB a month for an image-heavy feed. Replaces egress_gb_per_mau_month when the kind is given.
+- `kind_feed_compute`: Ranking, recommendation and transcoding. Replaces compute_per_mau_year when the kind is given.
+- `kind_community_posts`: Threads and replies.
+- `kind_community_mb`: Mostly text, some attachments.
+- `kind_community_egress_gb`: Threads with some images. Replaces egress_gb_per_mau_month when the kind is given.
+- `kind_community_compute`: Search and notifications more than ranking. Replaces compute_per_mau_year when the kind is given.
+- `kind_marketplace_posts`: Few posts, each a listing.
+- `kind_marketplace_mb`: Listing photos add up.
+- `kind_marketplace_egress_gb`: Listing photos browsed. Replaces egress_gb_per_mau_month when the kind is given.
+- `kind_marketplace_compute`: Search, matching and payments plumbing. Replaces compute_per_mau_year when the kind is given.
+- `team_factor_one`: A solo founder spends a fraction of the default hours on custody work. Applied to the default hours of every area the form leaves blank.
+- `team_factor_ten`: The default bands were set with a small team in mind.
+- `team_factor_fifty`: Several people on each area.
+- `team_factor_more`: Whole teams on accounts, content and infrastructure.
 
 ## 1. Accounts and personal data
 
@@ -161,6 +205,7 @@ Confidence means:
 | `label_provider_per_mau_year` | A label or web-of-trust provider | 0.01 | 0.005 | 0.05 | USD per MAU per year | unsourced | none |
 | `appeals_share` | Appeals and escalation on top of review labour | 10% | 5% | 20% | ratio | unsourced | none |
 | `moderation_remains_share` | Moderation that remains on Nostr | 10% | 5% | 40% | ratio | unsourced | none |
+| `mod_heads_default` | Reviewers, when the form names a team or a vendor but not how many | 3 | 1 | 15 | people | unsourced | none |
 
 - `ts_base_salary`: Payscale median 70,480; Glassdoor average 101,409 (small samples, self-reported).
 - `moderator_base_salary`: Payscale median 20.44 per hour over 2,080 hours.
@@ -171,6 +216,7 @@ Confidence means:
 - `label_provider_per_mau_year`: Labels and trust scores as a service, the moderation line's Nostr-native cost. No public price list exists yet, including ours.
 - `appeals_share`: Editable.
 - `moderation_remains_share`: Nostr4's thesis, not a benchmark. Review and ranking move to the network: web-of-trust weighting, interoperable algorithm configs and label events let users curate what they see, so an app that hosts nothing moderates nothing of 'its own'. What remains is illegal-content handling for any relay or media host the app runs, and app-store filter, report and block rules, which are engineering rather than labour.
+- `mod_heads_default`: The 'up to 5' band's figure.
 
 ## 6. Payments
 

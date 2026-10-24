@@ -48,7 +48,8 @@ await withBrowser(async (api) => {
   check('a fresh page opens on Estimated Cost with the defaults\' result', (await api.eval(`[...document.querySelectorAll('[role=tab]')].map(t => t.id + ':' + t.getAttribute('aria-selected')).join(' ') + ' ' + document.getElementById('calc-results').hidden + ' ' + document.querySelector('.chart__watermark').textContent`)).startsWith('tab-cost:true tab-app:false tab-assumptions:false false $'))
   const shareTitle = (await readSnapshot()).sections.find((sec) => sec.questions.includes('PgP68U')).title
   check('the Save & Share button is named by the form\'s section and sits outside the tabs', (await api.eval(`document.getElementById('save-open').textContent.trim() + ':' + document.getElementById('save-open').hidden + ':' + Boolean(document.querySelector('.tabbar #save-open'))`)) === `${shareTitle}:false:true`, shareTitle)
-  check('the modal holds the section\'s questions and no section of that name is on the tab', (await api.eval(`[...document.querySelectorAll('#save-modal [name]')].map(i => i.name).join(' ') + ' | ' + [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim()).join(', ')`)) === 'app_name company contact_name email consent | Non Custody, Accounts & Storage, Staffing Costs, Payment Gateway, Availability & Growth')
+  const names = await api.eval(`[...document.querySelectorAll('#save-modal [name]')].map(i => i.name).join(' ') + ' | ' + [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim().replace(/^\\d+/, '')).join(', ')`)
+  check('the modal holds the section\'s questions and no section of that name is on the tab', names === 'email consent contact_name company app_name | Nostr, Users, Content, Moderation, Team, Payments, Reach', names)
   const first = await api.eval(`({
     whose: document.getElementById('r-whose-text').textContent, link: document.getElementById('r-whose-link').textContent,
     hero: document.querySelector('#chart-custodial-cost-vs-nostr .chart__watermark').textContent, sub: document.querySelector('#chart-custodial-cost-vs-nostr .chart__watermark-sub').textContent,
@@ -68,7 +69,10 @@ await withBrowser(async (api) => {
     cells: document.querySelectorAll('#r-years tbody td').length,
     width: document.getElementById('chart-custodial-cost-vs-nostr').getAttribute('viewBox').split(' ')[2] + ':' + Math.round(document.getElementById('chart-custodial-cost-vs-nostr').getBoundingClientRect().width),
   })`)
-  check('a fresh page says whose estimate it shows and invites the visitor in', first.whose === 'A typical estimate for an app with 50,000 active users.' && first.link === 'Customize App Details', `${first.whose} / ${first.link}`)
+  check('a fresh page says whose estimate it shows, describes the app section by section, and invites the visitor in', first.whose.startsWith('Estimated for') && first.whose.includes('50,000') && first.whose.includes('the US') && first.whose.endsWith('.') && first.link === 'Customize App Details', `${first.whose} / ${first.link}`)
+  const bar = await api.eval(`({ illustrative: document.getElementById('tabbar').classList.contains('is-illustrative'), ring: getComputedStyle(document.getElementById('tab-app')).boxShadow, gold: getComputedStyle(document.getElementById('tab-app')).color !== getComputedStyle(document.getElementById('tab-cost')).color, share: document.getElementById('save-open').className, sticky: getComputedStyle(document.getElementById('tabbar')).position, quiet: parseFloat(getComputedStyle(document.getElementById('tab-assumptions')).fontSize) < parseFloat(getComputedStyle(document.getElementById('tab-cost')).fontSize) })`)
+  check('on a fresh page App Details is gold with no ring, Send & Share is outlined, the bar sticks, Assumptions is the quiet tab', bar.illustrative && bar.ring === 'none' && bar.gold && bar.share.includes('btn--secondary') && bar.sticky === 'sticky' && bar.quiet, JSON.stringify(bar))
+  check('the pieces the openers assumed are drawn quiet, the given ones bright, and the link is gold', (await api.eval(`document.querySelectorAll('#r-whose-text .whose__fact--assumed').length + ':' + document.querySelectorAll('#r-whose-text .whose__fact:not(.whose__fact--assumed)').length + ':' + getComputedStyle(document.getElementById('r-whose-link')).color`)) === `5:2:${await api.eval(`getComputedStyle(document.getElementById('tab-app')).color`)}`)
   check('the five-year saving is the watermark in the chart\'s gap, and the hero card is gone', /^\$\d+(\.\d+)?[kM]$/.test(first.hero) && first.sub === 'savings over five years' && !first.heroCard && first.gold !== '1px', `${first.hero} / ${first.sub} / rail ${first.gold}`)
   check('the one chart has a custody line and a Nostr path, a point per year, from one start', first.lines.length === 2 && first.lines[0] === 'chart__line chart__line--custodial:6' && first.lines[1] === 'chart__line:6' && first.starts[0] === first.starts[1] && !first.cumulative, `${first.lines.join(' ')} ${first.starts.join(' ')}`)
   check('a marker on every year, and no labels on them: only the watermark', first.markers === 11 && first.labels.length === 2 && first.labels[0] === first.hero && first.labels[1] === first.sub, `${first.markers} | ${first.labels.join(' | ')}`)
@@ -85,27 +89,80 @@ await withBrowser(async (api) => {
   check('…and leaving hides it', await api.eval(`document.getElementById('tip-chart-custodial-cost-vs-nostr').hidden`))
   await api.eval(`document.getElementById('r-whose-link').click()`)
   check('Customize App Details opens App Info', (await api.eval(`document.getElementById('tab-app').getAttribute('aria-selected')`)) === 'true')
+  await api.eval(`window.scrollTo(0, 2000)`)
+  await api.eval(`document.getElementById('tab-app').click()`)
+  await sleep(700)
+  check('pressing a tab, even the open one, brings the bar to the top of the view', Math.abs(await api.eval(`document.getElementById('calc').getBoundingClientRect().top`)) < 4, String(await api.eval(`document.getElementById('calc').getBoundingClientRect().top`)))
   await api.eval(`document.getElementById('tab-cost').click()`)
   check('…without a results link in the address bar', (await api.eval(`location.search`)) === '')
   check('the other two panels are hidden', await api.eval(`document.getElementById('panel-assumptions').hidden && document.getElementById('panel-app').hidden && !document.getElementById('panel-cost').hidden`))
   await api.eval(`document.getElementById('tab-app').click()`)
   check('the form carries the published form\'s own words and not its title', (await api.eval(`(() => {
-    const legends = [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim())
+    const legends = [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim().replace(/^\\d+/, ''))
     const title = document.querySelector('.calc-form__title')?.textContent.trim()
     const q = document.querySelector('label[for=f-mau]').textContent.replace(/\\s+/g, ' ').trim()
     return title + ' | ' + legends.join(', ') + ' | ' + q
-  })()`)) === 'undefined | Non Custody, Accounts & Storage, Staffing Costs, Payment Gateway, Availability & Growth | Number of Monthly Active Users (MAU)')
+  })()`)) === 'undefined | Nostr, Users, Content, Moderation, Team, Payments, Reach | How many Monthly Active Users (MAU)')
   check('the questions the page fills are not drawn', await api.eval(`!document.querySelector('[name=link], [name=test], [name=result_custodial], [name=version]')`))
   check('the required choices start with their defaults', await api.eval(`(() => {
     const on = [...document.querySelectorAll('#calc-form input:checked')].map(i => i.name + '=' + i.value).sort().join(' ')
     return on
   })()`) === 'jur=us')
-  check('every grid row and number is a slider', (await api.eval(`document.querySelectorAll('input[type=range]').length`)) === 21)
+  check('every grid row, number and scale is a slider', (await api.eval(`document.querySelectorAll('input[type=range]').length`)) === 23)
+  const openers = await api.eval(`(() => {
+    const groups = [...document.querySelectorAll('#calc-form .group')]
+    return {
+      first: groups.map(g => g.querySelector('.group__fields [name]')?.name),
+      folded: groups.map(g => g.querySelector('.group__more')?.hidden),
+      toggles: groups.map(g => g.querySelector('.group__toggle')?.textContent),
+      suggested: [...document.querySelectorAll('.slider-row.is-suggested input')].map(i => i.name).sort().join(' '),
+      hint: getComputedStyle(document.querySelector('.slider-row.is-suggested .slider')).opacity,
+      pills: [...document.querySelectorAll('.field--inline .choice')].length + ':' + getComputedStyle(document.querySelector('.field--inline .choice')).borderRadius,
+      submit: getComputedStyle(document.querySelector('.calc-form__submit')).justifyContent,
+      toggle: getComputedStyle(document.querySelector('.group__toggle')).color,
+      gold: getComputedStyle(document.getElementById('tab-app')).color,
+      scales: [...document.querySelectorAll('input[type=range][name=nostr_now], input[type=range][name=team], input[type=range][name=growth], input[type=range][name=mod_heads]')].map(i => i.name + ':' + i.dataset.labels.split('|').length),
+      inline: [...document.querySelectorAll('.field--inline')].map(f => f.id),
+      steps: [...document.querySelectorAll('.group__step')].map(e => e.textContent).join(''),
+      intro: document.querySelector('#panel-app .panel__lede')?.textContent.trim().split(' ')[0],
+      title: document.getElementById('app-title')?.textContent.trim() + ':' + Boolean(document.querySelector('#calc-form #app-title')),
+    }
+  })()`)
+  check('each section opens with its opener, whatever order the event lists, and the rest fold under a toggle', openers.first.join(' ') === 'nostr_now mau kind mod_who team rev jur' && openers.folded.every(Boolean) && openers.toggles.every(t => t === 'Add more details'), `${openers.first.join(' ')} | ${openers.folded.join(' ')}`)
+  check('the scale questions are sliders, the lists run inline, the cards are numbered', openers.scales.join(' ') === 'nostr_now:3 growth:4 mod_heads:6 team:4' && openers.inline.join(' ') === 'field-kind field-mod_who field-jur' && openers.steps === '1234567' && openers.intro === 'Seven' && openers.title === 'Your App Details:false', `${openers.scales.join(' ')} | ${openers.inline.join(' ')} | ${openers.steps}`)
+  check('a fresh page shows the derived defaults as suggestions on the untouched sliders, openers included', openers.suggested === 'eng_accounts eng_content eng_infra eng_legal growth mb n_algos n_event_storage n_feeds n_keys n_labels n_media_storage n_nips n_p2p n_raw_keys n_signed_events nostr_now posts_per_user team' && Number(openers.hint) < 1, `${openers.suggested} | opacity ${openers.hint}`)
+  check('the inline choices are pills, the toggle is gold, and Calculate sits right', openers.pills === '11:999px' && openers.toggle === openers.gold && openers.submit === 'space-between', `${openers.pills} | ${openers.toggle} vs ${openers.gold} | ${openers.submit}`)
+  await api.eval(`document.querySelector('#calc-form .group__toggle').click()`)
+  check('the toggle opens the section\'s details and renames itself', (await api.eval(`document.querySelector('#calc-form .group__more').hidden + ':' + document.querySelector('#calc-form .group__toggle').textContent`)) === 'false:Fewer details')
+  if (SHOTS) {
+    await api.eval(`document.querySelectorAll('#calc-form .group__toggle')[4].click()`)
+    await snap(api, join(SHOTS, 'form-1440.png'))
+  }
+  // Choosing a kind on the form moves the section's suggestions and the estimate at once, without leaving the tab.
+  const heroBeforeKind = await api.eval(`document.querySelector('.chart__watermark').textContent`)
+  await api.eval(`document.querySelector('label.choice:has(input[name=kind][value=feed])').click()`)
+  await sleep(400)
+  const live = await api.eval(`({ tab: document.getElementById('tab-app').getAttribute('aria-selected'), mb: document.querySelector('input[name=mb]').dataset.values.split(',')[document.querySelector('input[name=mb]').value], suggested: document.querySelector('input[name=mb]').closest('.slider-row').classList.contains('is-suggested'), hero: document.querySelector('.chart__watermark').textContent, url: location.search })`)
+  check('an opener moves its section\'s suggestions and the estimate live, on the form', live.tab === 'true' && live.mb === '500' && live.suggested && live.hero !== heroBeforeKind && live.url.includes('kind=feed') && !live.url.includes('mb='), JSON.stringify(live) + ' before ' + heroBeforeKind)
+  // Reset Values: back to the start, folded, suggestions restored, link cleared.
+  await api.eval(`document.getElementById('calc-reset').click()`)
+  await sleep(300)
+  const reset = await api.eval(`({ kind: document.querySelector('input[name=kind]:checked')?.value ?? null, mb: document.querySelector('input[name=mb]').dataset.values.split(',')[document.querySelector('input[name=mb]').value], suggested: document.querySelector('input[name=mb]').closest('.slider-row').classList.contains('is-suggested'), folded: [...document.querySelectorAll('#calc-form .group__more')].every(m => m.hidden), hero: document.querySelector('.chart__watermark').textContent, url: location.search, mau: document.querySelector('input[name=mau]').dataset.values.split(',')[document.querySelector('input[name=mau]').value], place: getComputedStyle(document.querySelector('.calc-form__submit')).justifyContent })`)
+  check('Reset Values clears the answers, folds the sections, restores the suggestions and the illustrative estimate', reset.kind === null && reset.mb === '50' && reset.suggested && reset.folded && reset.hero === heroBeforeKind && reset.url === '' && reset.mau === '50000' && reset.place === 'space-between', JSON.stringify(reset))
+  await api.eval(`{ const s = document.querySelector('input[name=nostr_now]'); s.value = '2'; s.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('tab-cost').click() }`)
+  await sleep(200)
+  const nostrSuggested = await api.eval(`({ n: document.querySelectorAll('.slider-row.is-suggested input[name^=n_]').length, raw: document.querySelector('input[name=n_raw_keys]').dataset.values.split(',')[document.querySelector('input[name=n_raw_keys]').value], keys: document.querySelector('input[name=n_keys]').dataset.values.split(',')[document.querySelector('input[name=n_keys]').value], url: location.search })`)
+  check('answering the Nostr opener suggests the whole grid, raw keys excepted, without putting it in the link', nostrSuggested.n === 10 && nostrSuggested.keys === '1' && nostrSuggested.raw === '0' && nostrSuggested.url.includes('nostr_now=1') && !nostrSuggested.url.includes('n_keys='), JSON.stringify(nostrSuggested))
+  await api.eval(`{ document.getElementById('tab-app').click(); const s = document.querySelector('input[name=n_feeds]'); s.value = '1'; s.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('tab-cost').click() }`)
+  await sleep(300)
+  check('moving a suggested slider makes it an answer', (await api.eval(`location.search`)).includes('n_feeds=0.5') && !(await api.eval(`document.querySelector('input[name=n_feeds]').closest('.slider-row').classList.contains('is-suggested')`)))
+  await api.goto(`${BASE}/calculator/`)
+  await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
   check('engineering sliders start on the band nearest the default hours', (await api.eval(`(() => {
     const s = document.querySelector('input[name=eng_content]')
     return s.dataset.values.split(',')[s.value] + ':' + s.closest('.slider-row').querySelector('output').textContent
   })()`)) === '5:1 - 10')
-  check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 71)
+  check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 94)
 
   check('number sliders start on their defaults', (await api.eval(`(() => {
     const v = (n) => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.values.split(',')[s.value] + '=' + s.closest('.slider-row').querySelector('output').textContent }
@@ -116,7 +173,7 @@ await withBrowser(async (api) => {
   await api.goto(`${BASE}/calculator/?mau=abc&jur=us`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
   const err = await api.eval(`({ text: document.getElementById('calc-error').textContent, hidden: document.getElementById('calc-error').hidden, invalid: document.querySelector('.is-invalid')?.id })`)
-  check('a bad value in a link is refused and named with the form\'s own words', !err.hidden && err.text.includes('Number of Monthly Active Users') && err.invalid === 'field-mau', JSON.stringify(err))
+  check('a bad value in a link is refused and named with the form\'s own words', !err.hidden && err.text.includes('How many Monthly Active Users') && err.invalid === 'field-mau', JSON.stringify(err))
   check('…and the results stay hidden', await api.eval(`document.getElementById('calc-results').hidden`))
   await api.goto(`${BASE}/calculator/`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
@@ -126,13 +183,15 @@ await withBrowser(async (api) => {
     const f = document.getElementById('calc-form')
     const slide = (name, value) => { const s = f.querySelector('input[name=' + name + ']'); s.value = s.dataset.values.split(',').indexOf(value); s.dispatchEvent(new Event('input', { bubbles: true })) }
     slide('mau', '50000'); slide('rev', '20000')
-    slide('eng_accounts', '5'); slide('eng_content', '25'); slide('eng_infra', '25'); slide('mod_inhouse', '5')
+    slide('eng_accounts', '5'); slide('eng_content', '25'); slide('eng_infra', '25')
+    f.querySelector('input[name=mod_who][value=team]').checked = true
+    slide('mod_heads', '3')
     f.querySelector('input[name=rails][value=apple]').checked = true
     f.querySelector('input[name=rails][value=google]').checked = true
     f.querySelector('input[name=rails][value=processor]').checked = true
     f.querySelector('input[name=jur][value=eu]').checked = true
     f.querySelector('input[name=jur][value=uk]').checked = true
-    f.querySelector('input[name=growth][value="0.5"]').checked = true
+    slide('growth', '0.5')
     f.requestSubmit()
   })()`)
   await api.waitFor(`!document.getElementById('calc-results').hidden`)
@@ -151,12 +210,13 @@ await withBrowser(async (api) => {
       toggle: row('accounts').querySelector('.lt-toggle').textContent,
       shares: [...document.querySelectorAll('.lt-row .share')].map(b => parseFloat(b.style.getPropertyValue('--w'))),
       storageCut: row('storage').querySelector('.share__pct').textContent,
-      totalCut: $('.lt-total .share__pct').textContent,
       editLink: $('#r-edit').className + ':' + getComputedStyle($('.results__actions')).justifyContent,
       versionAlign: getComputedStyle($('#r-version')).textAlign,
-      tabColor: getComputedStyle($('#tab-cost')).color + '|' + getComputedStyle($('#tab-cost')).borderBottomColor,
-      total: $('#r-total').textContent,
-      tint: getComputedStyle($('.stat--saving')).backgroundColor + '|' + getComputedStyle($('.lt-total td')).backgroundColor,
+      tabFill: getComputedStyle($('#tab-cost')).backgroundColor + '|' + getComputedStyle($('#tab-app')).backgroundColor,
+      illustrative: document.getElementById('tabbar').classList.contains('is-illustrative'),
+      share: document.getElementById('save-open').className,
+      sum: [...document.querySelectorAll('.lt-row .lt-saving')].reduce((a, n) => a + Number(n.textContent.replace(/[^\\d]/g, '')), 0),
+      footRows: document.querySelectorAll('#r-table tfoot tr').length,
       nudges: document.querySelectorAll('.lt-nudge:not([hidden])').length,
       subtitle: $('.results__sub').textContent,
       link: location.href,
@@ -167,16 +227,16 @@ await withBrowser(async (api) => {
   })()`)
   check('the watermark is the five-year saving, compact', /^\$\d+(\.\d+)?[kM]$/.test(r.hero), r.hero)
   check('the three facts are per user today, per user on Nostr, and the average year, under gold eyebrows', /^\$\d+\.\d\d$/.test(r.permauC) && /^\$\d+\.\d\d$/.test(r.permauNC) && /^\$[\d.]+[kM]$/.test(r.average) && /^Range \$/.test(r.averageRange) && r.eyebrows.join(' | ') === 'Custodial Cost per User/Year | Nostr Cost per User/Year | Average Savings per Year', `${r.permauC} ${r.permauNC} ${r.average} | ${r.eyebrows.join(' | ')}`)
-  check('after Calculate the tab says it is the visitor\'s estimate', r.whose === 'Your estimate, for an app with 50,000 active users.' && r.whoseLink === 'Customize App Details', `${r.whose} / ${r.whoseLink}`)
+  check('after Calculate the tab says it is the visitor\'s estimate', r.whose.startsWith('Your estimate') && r.whose.includes('50,000') && r.whose.includes('$20k') && r.whose.includes('the EU') && r.whoseLink === 'Customize App Details', `${r.whose} / ${r.whoseLink}`)
   check('growth compounds in the year-by-year table (50% then decayed)', r.yearTwoUsers === '103,125', r.yearTwoUsers)
   check('each line shows its average saving in full, its share as a percentage, and no pills', /^\$[\d,]+$/.test(r.accountsSaving) && /^[\d.]+%$/.test(r.accountsPct) && r.badges === 0 && r.toggle === 'Show the Savings', `${r.accountsSaving} | ${r.accountsPct} | ${r.badges} badges | ${r.toggle}`)
-  check('each bar is the share of that line\'s own cost that goes away', r.shares.length === 6 && r.shares.every(x => x >= 0 && x <= 100) && /^\d+(\.\d+)?%$/.test(r.storageCut) && parseFloat(r.storageCut) > 50 && /^\d+(\.\d+)?%$/.test(r.totalCut), `${r.shares.join(' ')} | storage ${r.storageCut} | total ${r.totalCut}`)
-  check('the bottom link is a centred link, the version sits right, and the Results tab is purple', r.editLink === 'linkbutton results__edit:center' && r.versionAlign === 'right' && r.tabColor.split('|')[0] === r.tabColor.split('|')[1], `${r.editLink} | ${r.versionAlign} | ${r.tabColor}`)
-  check('the foot row names the same figure as the Average Savings fact chip', r.total === r.average && r.subtitle.trim().length > 0, `${r.total} vs ${r.average}`)
-  check('the fact chip and the foot row share one tint', r.tint.split('|')[0] === r.tint.split('|')[1] && !r.tint.startsWith('rgba(0, 0, 0, 0)'), r.tint)
+  check('each bar is the share of that line\'s own cost that goes away', r.shares.length === 6 && r.shares.every(x => x >= 0 && x <= 100) && /^\d+(\.\d+)?%$/.test(r.storageCut) && parseFloat(r.storageCut) > 50, `${r.shares.join(' ')} | storage ${r.storageCut}`)
+  check('the bottom link is a centred link, the version sits right, and the active tab is a filled segment', r.editLink === 'linkbutton results__edit:center' && r.versionAlign === 'right' && r.tabFill.split('|')[0] !== r.tabFill.split('|')[1], `${r.editLink} | ${r.versionAlign} | ${r.tabFill}`)
+  check('once the estimate is the visitor\'s own, the gold ring goes and Send & Share is filled', !r.illustrative && r.share.includes('btn--primary') && !r.share.includes('btn--secondary'), `${r.illustrative} ${r.share}`)
+  check('the six lines add up to the Average Savings fact chip, and there is no foot row', r.footRows === 0 && r.subtitle.trim().length > 0 && Math.abs(r.sum - parseFloat(r.average.replace(/[^\d.]/g, '')) * (r.average.endsWith('M') ? 1e6 : r.average.endsWith('k') ? 1e3 : 1)) / r.sum < 0.01, `${r.sum} vs ${r.average}`)
   check('no nudge where every line with rails already saves', r.nudges === 0, String(r.nudges))
   check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.includes('growth=0.5') && r.link.endsWith('v=1'), r.link)
-  check('sliders standing on "not given" stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('mod_vendor='), r.link)
+  check('sliders standing on "not given" or on a suggestion stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('eng_legal=') && !r.link.includes('kind=') && r.link.includes('mod_who=team') && r.link.includes('mod_heads=3'), r.link)
   check('the version is named', r.version.includes('1'), r.version)
   check('the results heading took focus', r.focused === 'results-title', r.focused)
   check('Calculate opened the Estimated Cost tab', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected') + ':' + document.getElementById('panel-cost').hidden + ':' + document.getElementById('panel-app').hidden`)) === 'true:false:true')
@@ -275,7 +335,7 @@ await withBrowser(async (api) => {
   await api.eval(`document.getElementById('tab-cost').click()`)
 
   // Every part of every line explains itself without a blank: two input sets walk every branch.
-  for (const query of ['mau=50000&posts_per_user=20&eng_accounts=5&mod_inhouse=5&mod_vendor=5&rails=p2p%2Capple%2Cgoogle%2Cprocessor%2Creseller&rev=50000&balances=yes&jur=eu%2Cuk%2Cus%2Cother&v=1', 'mau=10000000&rails=apple&rev=200000&legal_usd=50000&jur=us&v=1']) {
+  for (const query of ['mau=50000&posts_per_user=20&eng_accounts=5&mod_who=team&mod_heads=15&rails=p2p%2Capple%2Cgoogle%2Cprocessor%2Creseller&rev=50000&balances=yes&jur=eu%2Cuk%2Cus%2Cother&v=1', 'mau=10000000&rails=apple&rev=200000&legal_usd=50000&jur=us&v=1', 'mau=20000&mod_who=vendor&mod_heads=3&team=one&kind=messaging&nostr_now=0.5&jur=eu&v=1']) {
     await api.goto(`${BASE}/calculator/?${query}`)
     await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
     const gaps = await api.eval(`(() => {
@@ -296,6 +356,21 @@ await withBrowser(async (api) => {
     })()`)
     check(`every part explains itself (${gaps.count} parts, ${query.slice(0, 20)}…)`, gaps.count >= 20 && gaps.problems.length === 0, gaps.problems.join(' || '))
   }
+
+  // ── the tab bar on a phone ───────────────────────────────────────────────
+  await api.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
+  await api.goto(`${BASE}/calculator/`)
+  await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+  const phone = await api.eval(`({ row: getComputedStyle(document.getElementById('tabs-current')).display, track: getComputedStyle(document.getElementById('calc-tabs')).display, label: document.querySelector('#tabs-current .tabs__current-tab').textContent.trim(), icon: Boolean(document.querySelector('#tabs-current .tab__icon')), expanded: document.getElementById('tabs-current').getAttribute('aria-expanded') })`)
+  check('on a phone the bar is one row naming the active tab, the track folded', phone.row === 'flex' && phone.track === 'none' && phone.label === (await api.eval(`document.getElementById('tab-cost').textContent.trim()`)) && phone.icon && phone.expanded === 'false', JSON.stringify(phone))
+  await api.eval(`document.getElementById('tabs-current').click()`)
+  const dropped = await api.eval(`getComputedStyle(document.getElementById('calc-tabs')).display + ':' + document.getElementById('tabs-current').getAttribute('aria-expanded') + ':' + getComputedStyle(document.getElementById('tab-cost')).display + ':' + getComputedStyle(document.getElementById('tab-app')).display`)
+  check('pressing the row drops the track, offering only the other tabs', dropped === 'flex:true:none:flex', dropped)
+  await api.eval(`document.getElementById('tab-app').click()`)
+  await sleep(200)
+  const picked = await api.eval(`({ track: getComputedStyle(document.getElementById('calc-tabs')).display, label: document.querySelector('#tabs-current .tabs__current-tab').textContent.trim(), tab: document.getElementById('tabs-current').dataset.tab, selected: document.getElementById('tab-app').getAttribute('aria-selected'), gold: getComputedStyle(document.getElementById('tabs-current')).color === getComputedStyle(document.getElementById('tab-app')).color })`)
+  check('picking a tab folds the track and the row takes its name and colour', picked.track === 'none' && picked.tab === 'app' && picked.selected === 'true' && picked.label === (await api.eval(`document.getElementById('tab-app').textContent.trim()`)) && picked.gold, JSON.stringify(picked))
+  await api.send('Emulation.clearDeviceMetricsOverride')
 
   // ── a nudge in place of a zero ───────────────────────────────────────────
   await api.goto(`${BASE}/calculator/?mau=50000&rails=apple%2Cgoogle&rev=10000&jur=us&v=1`)
@@ -404,14 +479,16 @@ await withBrowser(async (api) => {
         const answers = JSON.parse(decrypt(ev.content, getConversationKey(fixture.secret, ev.pubkey)))
         const byId = Object.fromEntries(snapshot.fields.map((f) => [f.id, f.label]))
         const byLabel = Object.fromEntries(answers.map(([, id, v]) => [byId[id], v]))
-        check('the form secret decrypts the page\'s answers', byLabel['Number of Monthly Active Users (MAU)'] === '10000' && byLabel['Contact Email'] === 'founder@example.com' && byLabel['Company Name'] === 'Example' && byLabel['Contact Name'] === 'Founder' && byLabel['App Name'] === 'Example App', JSON.stringify(byLabel))
+        check('the form secret decrypts the page\'s answers', byLabel['How many Monthly Active Users (MAU)'] === '10000' && byLabel['Contact Email'] === 'founder@example.com' && byLabel['Company Name'] === 'Example' && byLabel['Contact Name'] === 'Founder' && byLabel['App Name'] === 'Example App', JSON.stringify(byLabel))
         const stored = await api.eval(`sessionStorage.getItem('nostr4.session-key')`)
         check('the response is signed by the tab\'s disposable key', Boolean(stored) && ev.pubkey === getPublicKey(hexToBytes(stored)), ev.pubkey.slice(0, 12))
         check('the computed figures and the link travel with the inputs', /^\d+$/.test(byLabel['Annual custodial cost (USD, typical)'] || '') && (byLabel['Results link'] || '').includes('mau=10000'), byLabel['Results link'])
         check('the test marker is blank when the URL had none', !('test' in byLabel))
-        const eng = JSON.parse(byLabel['Software Engineering (hours per week)'] || '{}')
-        const nostr = JSON.parse(byLabel['Our app already uses Nostr:'] || '{}')
-        check('grid answers arrive as row id to column id, one per slider', Object.keys(eng).length === 4 && Object.keys(nostr).length === 10, `${byLabel['Software Engineering (hours per week)']} ${byLabel['Our app already uses Nostr:']}`)
+        const engLabel = 'How many developer hours per week spent on the following:'
+        const nostrLabel = 'Your app uses Nostr for the following:'
+        const eng = JSON.parse(byLabel[engLabel] || '{}')
+        const nostr = JSON.parse(byLabel[nostrLabel] || '{}')
+        check('grid answers arrive as row id to column id, only for the sliders that were moved', Object.keys(eng).length === 1 && Object.keys(nostr).length === 1, `${byLabel[engLabel]} ${byLabel[nostrLabel]}`)
       }
       // A lead with contact details also goes to hello's inbox as a gift wrap.
       // It is mined after the save is reported, so give it time.
