@@ -6,13 +6,15 @@
   cast_layout   side | below (default side)
   list          a `list` block (items, columns, item_level) drawn under the
                 thesis on the hero's own ground — the doors on /contact/
+  wide          true → the thesis and its lede run the full width of the
+                page rather than a reading measure (the calculator)
 
 The cast names the parts before the argument uses them — see the style guide.
 {%- endcomment -%}
 {%- assign s = include.section -%}
 {%- assign h = s.head -%}
 {%- capture thesis -%}
-<div class="hero">
+<div class="hero{% if s.wide %} hero--wide{% endif %}">
   {%- if h.eyebrow %}<span class="eyebrow eyebrow--gold">{{ h.eyebrow }}</span>{% endif -%}
   {% include lib/heading.html text=h.title level="h1" %}
   {%- if h.lede %}{% include lib/text.html text=h.lede class="hero__lede" %}{% endif -%}

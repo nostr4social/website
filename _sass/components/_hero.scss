@@ -22,6 +22,13 @@
   margin-top: var(--s-2);
 }
 
+// A hero whose lede runs the full width, where the page is a tool rather
+// than an essay and the copy is a short brief above it.
+.hero--wide,
+.hero--wide .hero__lede {
+  max-width: none;
+}
+
 // Two columns: thesis left, cast right. The row is as tall as the cast's
 // content needs; the thesis spreads over that height, so the title sits at
 // the top and the buttons at the bottom, level with the drawing. The cast

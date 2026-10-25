@@ -223,7 +223,12 @@ simply stack.
       <p class="whose" id="r-whose"><span id="r-whose-text"></span> <button type="button" class="linkbutton whose__link" id="r-whose-link"></button></p>
     </div>
 
-    {%- comment -%} The chart, full width: the five-year figure sits in its gap. {%- endcomment -%}
+    {%- comment -%}
+      The picture and its three facts: the facts in a row beneath it, or, on
+      the widest screens, stacked to its right, where the picture alone
+      would be wider than it needs to be.
+    {%- endcomment -%}
+    <div class="results__view">
     {%- for chart in r.charts -%}
     <figure class="chart">
       {%- if chart.title %}<p class="chart__title">{{ chart.title }}</p>{% endif -%}
@@ -257,6 +262,7 @@ simply stack.
         <span class="stat__value" id="r-scale-nostr"></span>
         <span class="stat__range" id="r-scale-nostr-range"></span>
       </div>
+    </div>
     </div>
 
     <details class="years">
