@@ -739,18 +739,19 @@
   stroke-dasharray: 6 4;
 }
 
-// The five-year figure in the gap: hero-sized, a little faded, with its
-// name smaller and fainter beneath. Nothing else sits in the gap.
+// The saving a year at scale, beside the gold rule whose length it is:
+// hero-sized and gold, with its name smaller and fainter beneath. Nothing
+// else sits in the gap.
 .chart__watermark {
-  fill: var(--ink-0);
-  fill-opacity: 0.88;
-  font-size: 44px;
+  fill: var(--gold);
+  fill-opacity: 0.92;
+  font-size: 56px;
   font-weight: var(--fw-title);
   letter-spacing: var(--ls-display);
 }
 
 .chart__watermark-sub {
-  fill: var(--ink-2);
+  fill: var(--gold);
   fill-opacity: 0.7;
   font-size: 13px;
   letter-spacing: 0.04em;
@@ -793,6 +794,20 @@
   fill: var(--ink-0);
   font-size: 13px;
   font-weight: 600;
+}
+
+// The year the network is at scale: a gold dot on each line, the rule
+// between them, and the gold figure beside it that says how long it is.
+.chart__marker--scale {
+  fill: var(--gold);
+  stroke: var(--bg-1);
+  stroke-width: 2;
+}
+
+.chart__scale-rule {
+  stroke: var(--gold);
+  stroke-opacity: 0.85;
+  stroke-width: 2;
 }
 
 .chart__floor-label {
@@ -875,6 +890,13 @@
 
 .years[open] .years__summary {
   border-bottom: 1px solid var(--line);
+}
+
+// The five years of saving, added up, beside the summary.
+.years__note {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  margin-left: var(--s-2);
 }
 
 .years-table {
@@ -1252,6 +1274,26 @@
   font-weight: var(--fw-ui);
 }
 
+// Where a line carries an expected loss, the cash costs and the risk
+// exposure each close with a sub-total row, ruled off from the parts.
+.parts__subtotal {
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  display: flex;
+  font-size: var(--fs-s);
+  gap: var(--s-4);
+  justify-content: space-between;
+  margin-top: var(--s-1);
+  padding-top: var(--s-2);
+}
+
+.parts__subtotal-label {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .results__actions {
   border-top: 1px solid var(--line);
   display: flex;
@@ -1459,6 +1501,34 @@
   font-size: var(--fs-xs);
 }
 
+// Send with the test marker tucked against it: a small, dimmed checkbox a
+// little padding away from the button, the two reading as one control.
+.modal__send {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--s-1);
+}
+
+.choice--test {
+  align-items: center;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  gap: var(--s-1);
+  opacity: 0.85;
+  padding: var(--s-1) var(--s-2);
+}
+
+.choice--test:has(input:checked) {
+  color: var(--ink-3);
+}
+
+.choice--test input {
+  accent-color: var(--ink-3);
+  height: 13px;
+  margin: 0;
+  width: 13px;
+}
+
 .field__required {
   color: var(--gold);
 }
@@ -1613,6 +1683,19 @@
   margin-top: var(--s-3);
 }
 
+// The rows that move the band, grouped first under their own preamble.
+.assume__group--thesis {
+  color: var(--gold);
+}
+
+.assume__preamble {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  line-height: var(--lh-body);
+  margin: 0;
+  max-width: var(--measure-prose);
+}
+
 .assume-table {
   border-collapse: collapse;
   font-size: var(--fs-s);
@@ -1731,7 +1814,7 @@ tr.is-changed .assume-input {
 
 @include below($bp-mid) {
   .chart__watermark {
-    font-size: 30px;
+    font-size: 36px;
   }
 
   .chart__watermark-sub {
@@ -1810,6 +1893,15 @@ tr.is-changed .assume-input {
   .modal__actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  // Send fills the row on a phone, the test marker tucked at its end.
+  .modal__send {
+    display: flex;
+  }
+
+  .modal__send .btn {
+    flex: 1;
   }
 
   .modal__fields {

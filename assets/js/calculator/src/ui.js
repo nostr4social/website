@@ -6,44 +6,59 @@
 import { $, $$, clear, el, show } from '../../shared/src/dom.js'
 import { fmt, t } from '../../shared/src/config.js'
 import { compact, money, number, percent, perMau } from './format.js'
-import { LINES, YEARS } from './model.js'
-import { drawCharts } from './chart.js'
+import { LINES, MARKER_YEAR, YEARS } from './model.js'
+import { drawCharts, yearLabel } from './chart.js'
 import { explain } from './explain.js'
 
-const range = (low, high) => fmt(t('range_short'), { low: compact(low), high: compact(high) })
+// The two bounds in reading order, whichever scenario gave which: low is the
+// smaller saving, so on the Nostr side it is the larger cost.
+const ordered = (a, b) => (a <= b ? [a, b] : [b, a])
+const range = (a, b) => {
+  const [low, high] = ordered(a, b)
+  return fmt(t('range_short'), { low: compact(low), high: compact(high) })
+}
+const rangeFull = (a, b, f = compact) => {
+  const [low, high] = ordered(a, b)
+  return Math.abs(high - low) < 1e-9 ? '' : fmt(t('range'), { low: f(low), high: f(high) })
+}
 
 export function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result
   const T = typical.totals
 
   // Whose estimate this is, and the app it describes, one piece per section.
+  // The saving a year at scale is in the chart, between the two gold dots.
   renderWhose(result, own)
   const link = $('#r-whose-link')
   if (link) link.textContent = t('whose.link')
 
-  // The three facts under the chart: per user today, per user on Nostr, and
-  // the average year of the five. The five-year figure itself is in the chart.
-  text('#r-permau-c', perMau(T.per_mau_custodial))
-  text('#r-permau-c-range', fmt(t('range'), { low: perMau(low.totals.per_mau_custodial), high: perMau(high.totals.per_mau_custodial) }))
-  text('#r-permau-nc', perMau(T.per_mau_noncustodial))
-  text('#r-permau-nc-range', fmt(t('range'), { low: perMau(low.totals.per_mau_noncustodial), high: perMau(high.totals.per_mau_noncustodial) }))
-  text('#r-average', compact(T.five_year / YEARS))
-  text('#r-average-range', fmt(t('range'), { low: compact(low.totals.five_year / YEARS), high: compact(high.totals.five_year / YEARS) }))
+  // The three facts under the chart, all for the year Nostr is at scale:
+  // the custodial cost per user that year (that side does not vary, so it
+  // has no range), the Nostr cost per user that year, and the Nostr cost
+  // that year, the lower gold dot, each with its range. The five years of
+  // saving added up sit on the year-by-year summary, where their table is.
+  text('#r-permau-c', perMau(T.scale_per_mau_custodial))
+  text('#r-permau-c-range', rangeFull(low.totals.scale_per_mau_custodial, high.totals.scale_per_mau_custodial, perMau))
+  text('#r-permau-nc', perMau(T.scale_per_mau_nostr))
+  text('#r-permau-nc-range', rangeFull(low.totals.scale_per_mau_nostr, high.totals.scale_per_mau_nostr, perMau))
+  text('#r-scale-nostr', compact(T.scale_nostr))
+  text('#r-scale-nostr-range', rangeFull(low.totals.scale_nostr, high.totals.scale_nostr))
+  text('#r-cumulative', fmt(t('cumulative_note'), { amount: compact(T.five_year) }))
   text('#r-version', fmt(t('version'), { version: result.version }))
 
-  drawCharts({ typical: typical.projection, low: low.projection })
-  renderYears(typical.projection)
+  drawCharts({ typical: typical.projection, low: low.projection, start_year: result.start_year })
+  renderYears(typical.projection, result.start_year)
 
-  // Where the saving comes from: each line's average year of saving, and the
+  // Where the saving comes from: each line's saving a year at scale, and the
   // bar as the share of that line's own cost that goes away. The six add up
-  // to the Average Savings per Year chip.
+  // to the figure in the chart.
   const cut = (c, nc) => (c > 0 ? Math.min(1, Math.max(0, 1 - nc / c)) : 0)
 
   for (const name of LINES) {
     const line = typical.lines[name]
     const row = $(`.lt-row[data-line="${name}"]`)
     if (!row) continue
-    const nudged = Boolean(line.nudge) && line.average < 1
+    const nudged = Boolean(line.nudge) && line.at_scale < 1
     row.classList.toggle('is-already', Boolean(line.already))
     row.classList.toggle('is-none', Boolean(line.none))
     row.classList.toggle('is-nudged', nudged)
@@ -54,8 +69,8 @@ export function renderResults(result, { own = false } = {}) {
     const saving = $('.lt-saving', row)
     const rangeNode = $('.lt-saving-range', row)
     const nudgeNode = $('.lt-nudge', row)
-    saving.textContent = line.none ? '' : money(line.average)
-    rangeNode.textContent = line.none || nudged ? '' : range(low.lines[name].average, high.lines[name].average)
+    saving.textContent = line.none ? '' : money(line.at_scale)
+    rangeNode.textContent = line.none || nudged ? '' : range(low.lines[name].at_scale, high.lines[name].at_scale)
     nudgeNode.textContent = nudged ? fmt(t(`nudges.${line.nudge.id}`), { amount: compact(line.nudge.amount) }) : ''
     show(saving, !nudged && !line.none)
     show(nudgeNode, nudged)
@@ -96,12 +111,12 @@ function renderWhose(result, own) {
   }
 }
 
-/** The year-by-year table under the chart: the picture as numbers, measures down and years across. */
-function renderYears(projection) {
+/** The year-by-year table under the chart: the picture as numbers, measures down and calendar years across. */
+function renderYears(projection, startYear) {
   const head = $('#r-years-head')
   if (!head) return
   for (const extra of $$('th[data-year]', head)) extra.remove()
-  for (let year = 1; year <= YEARS; year++) head.append(el('th', { scope: 'col', class: 'years-num', 'data-year': year, text: fmt(t('chart.year'), { n: year }) }))
+  for (let year = 1; year <= YEARS; year++) head.append(el('th', { scope: 'col', class: 'years-num', 'data-year': year, text: yearLabel(startYear, year) }))
   const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), path: (p) => money(p.path), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) }
   for (const row of $$('#r-years tbody tr[data-row]')) {
     const value = cell[row.dataset.row]
@@ -114,28 +129,41 @@ function renderYears(projection) {
 function renderParts(name, line, inputs) {
   const host = $(`.lt-parts[data-line="${name}"] .parts`)
   if (!host) return
-  // The line's two totals head the list: the average projected year, under custody and on Nostr.
-  text(`.lt-parts[data-line="${name}"] .parts__total-c`, money(line.avg_custodial))
-  text(`.lt-parts[data-line="${name}"] .parts__total-nc`, money(line.avg_noncustodial))
+  // The line's two totals head the list: the year the network is at scale, under custody and on Nostr.
+  text(`.lt-parts[data-line="${name}"] .parts__total-c`, money(line.scale_custodial))
+  text(`.lt-parts[data-line="${name}"] .parts__total-nc`, money(line.scale_noncustodial))
   clear(host)
-  for (const p of line.parts) {
+  const item = (p) => {
     const meta = partMeta(p, inputs)
-    host.append(
-      el('li', {}, [
-        // A link-styled button: pressing it explains how the figure was made.
-        el('button', { type: 'button', class: 'part', 'data-line': name, 'data-part': p.id, 'aria-haspopup': 'dialog' }, [
-          el('span', { class: 'part__label' }, [
-            t(`parts.${p.id}`, p.id),
-            meta ? el('span', { class: 'part__meta', text: meta }) : null,
-          ]),
-          el('span', { class: 'part__nums' }, [
-            money(p.avg_custodial),
-            ' → ',
-            el('b', { text: money(p.avg_noncustodial) }),
-          ]),
+    return el('li', {}, [
+      // A link-styled button: pressing it explains how the figure was made.
+      el('button', { type: 'button', class: 'part', 'data-line': name, 'data-part': p.id, 'aria-haspopup': 'dialog' }, [
+        el('span', { class: 'part__label' }, [
+          t(`parts.${p.id}`, p.id),
+          meta ? el('span', { class: 'part__meta', text: meta }) : null,
+        ]),
+        el('span', { class: 'part__nums' }, [
+          money(p.scale_custodial),
+          ' → ',
+          el('b', { text: money(p.scale_noncustodial) }),
         ]),
       ]),
-    )
+    ])
+  }
+  const subtotal = (label, parts) =>
+    el('li', { class: 'parts__subtotal' }, [
+      el('span', { class: 'parts__subtotal-label', text: label }),
+      el('span', { class: 'part__nums' }, [money(parts.reduce((a, p) => a + p.scale_custodial, 0)), ' → ', el('b', { text: money(parts.reduce((a, p) => a + p.scale_noncustodial, 0)) })]),
+    ])
+  // An expected loss is not a bill: where a line carries one, the cash costs
+  // and the risk exposure are listed apart, each with its own sub-total.
+  const cash = line.parts.filter((p) => p.kind !== 'risk')
+  const risk = line.parts.filter((p) => p.kind === 'risk')
+  for (const p of cash) host.append(item(p))
+  if (risk.length) {
+    host.append(subtotal(t('details.cash'), cash))
+    for (const p of risk) host.append(item(p))
+    host.append(subtotal(t('details.risk'), risk))
   }
 }
 
@@ -149,14 +177,14 @@ export function openHow(line, partId, result, data) {
   const dialog = $('#how-modal')
   const part = result.typical.lines[line]?.parts.find((p) => p.id === partId)
   if (!dialog || !part) return
-  const info = explain(line, part, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data })
+  const info = explain(line, part, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, scale: { year: MARKER_YEAR, users: result.typical.totals.scale_users } })
   howKeys = info.assumptions.map((a) => a.key)
   howLabel = info.label
   text('#how-part', info.label)
   text('#how-line', $(`.lt-row[data-line="${line}"] .lt-title`)?.textContent.trim() || line)
   text('#how-today', info.today)
   text('#how-nostr', info.nostr)
-  text('#how-averaged', info.averaged)
+  text('#how-scale', info.at_scale)
   const list = $('#how-list')
   clear(list)
   for (const a of info.assumptions) {
@@ -218,6 +246,9 @@ function partMeta(p, inputs) {
   if ((p.id === 'engineering' || p.id === 'legal_labour') && p.defaulted) return t(p.from === 'team' ? 'details.defaulted_team' : 'details.defaulted')
   if ((p.id === 'reseller' || p.id === 'p2p') && p.rate != null) return fmt(t('details.rate'), { rate: percent(p.rate) })
   if (p.id === 'database' && p.gb != null) return fmt(t('details.gb'), { gb: number(p.gb) })
+  if (p.id === 'breach') return t('details.expected_loss')
+  if (p.id === 'relay' && p.floor) return t('details.floor')
+  if (p.id === 'dsar' && p.users != null && p.custodial > 0 && p.users < inputs.mau - 0.5) return fmt(t('details.dsar_users'), { n: number(Math.round(p.users)) })
   return ''
 }
 
@@ -238,7 +269,15 @@ export function wireToggles() {
 
 export const TABS = ['cost', 'app', 'assumptions']
 
-export function activateTab(name, { focus = false } = {}) {
+/** The anchors a link may name a tab by: /calculator/#results, #app, #assumptions. */
+export const TAB_ANCHORS = { results: 'cost', app: 'app', assumptions: 'assumptions' }
+
+/**
+ * Show one tab. A press on a tab (or on the tab already open) brings the bar
+ * to the top of the view; the page's own calls on load pass `scroll: false`
+ * so a fresh page stays where the browser put it, unless a link named a tab.
+ */
+export function activateTab(name, { focus = false, scroll = true, behavior = 'smooth' } = {}) {
   for (const tab of TABS) {
     const button = $(`#tab-${tab}`)
     const panel = $(`#panel-${tab}`)
@@ -258,8 +297,7 @@ export function activateTab(name, { focus = false } = {}) {
     $('#tabs-current').dataset.tab = name
   }
   openTabMenu(false)
-  // Every switch, and a press on the tab already open, brings the bar to the top of the view.
-  $('#calc')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  if (scroll) $('#calc')?.scrollIntoView({ behavior, block: 'start' })
   if (focus) $(`#tab-${name}`)?.focus({ preventScroll: true })
 }
 
@@ -288,14 +326,14 @@ export function wireTabs(onSelect) {
   }
 }
 
-export function showResults(visible, { focus = false } = {}) {
+export function showResults(visible, { focus = false, scroll = true } = {}) {
   const panel = $('#calc-results')
   if (!panel) return
   panel.hidden = !visible
   const empty = $('#r-empty')
   if (empty) empty.hidden = visible
   if (visible) {
-    activateTab('cost')
+    activateTab('cost', { scroll })
     if (focus) {
       $('.tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       $('#results-title')?.focus({ preventScroll: true })

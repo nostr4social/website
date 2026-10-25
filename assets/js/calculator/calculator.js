@@ -625,8 +625,8 @@ var INPUTS = {
   // NIP standards published publicly (read, not priced)
   // Users: the opener, then growth
   mau: { type: "integer", required: true, default: 5e4, min: 1, max: 2e9 },
-  growth: band(GROWTH),
-  // users a year from now, as a share of today's; blank means the assumptions' default
+  growth: { ...band(GROWTH), start: "0.25" },
+  // users a year from now, as a share of today's; blank means the assumptions' default (flat); the form starts on Steady
   // Content: the opener, then the two per-user numbers (blank means derived from the kind of app)
   kind: band(KIND),
   posts_per_user: { type: "number", required: false, default: null, min: 0, max: 1e6 },
@@ -634,8 +634,8 @@ var INPUTS = {
   // Moderation: the opener, then the head count (blank means the default count)
   mod_who: band(WHO),
   mod_heads: band(HEADS_BAND),
-  // Team: the opener, then engineering hours a week per area (blank means derived from the team size) and legal spend
-  team: band(TEAM),
+  // Team: the opener, required (the engineering defaults rest on it: no silent team size), then hours a week per area (blank means derived from the team size) and legal spend
+  team: { type: "option", required: true, default: "ten", options: TEAM },
   eng_accounts: band(HOURS),
   // managing user accounts
   eng_content: band(HOURS),
@@ -710,6 +710,7 @@ function normalizeInputs(raw = {}) {
 // assets/js/calculator/src/model.js
 var LINES = ["accounts", "graph", "storage", "compliance", "moderation", "payments"];
 var SCENARIOS = ["low", "typical", "high"];
+var JURISDICTIONS = ["eu", "uk", "us", "other"];
 var HOURS_PER_YEAR = 2e3;
 var WEEKS_PER_YEAR = 50;
 var RETENTION_MONTHS = 12;
@@ -718,7 +719,7 @@ function resolveAssumptions(data, scenario, overrides = {}) {
   const out = {};
   for (const [key, a] of Object.entries(data.assumptions)) {
     const o = overrides[key];
-    out[key] = o != null && Number.isFinite(Number(o)) ? Number(o) : a[scenario];
+    out[key] = o != null && Number.isFinite(Number(o)) ? Number(o) : a[a.scenario_varies ? scenario : "typical"];
   }
   return out;
 }
@@ -811,10 +812,6 @@ function deriveInputs(inputs, v) {
     eff.growth = String(v.growth_default);
     derived.growth = "default";
   }
-  if (eff.team == null) {
-    eff.team = "ten";
-    derived.team = "default";
-  }
   if (eff.nostr_now == null) {
     eff.nostr_now = "0";
     derived.nostr_now = "default";
@@ -832,7 +829,7 @@ function deriveInputs(inputs, v) {
     const key = `eng_${area}`;
     if (num(inputs[key]) != null) continue;
     eff[key] = defaultHours(area, v) * factor;
-    derived[key] = inputs.team != null ? "team" : "default";
+    derived[key] = "team";
   }
   if ((inputs.mod_who === "team" || inputs.mod_who === "vendor") && num(inputs.mod_heads) == null) {
     eff.mod_heads = v.mod_heads_default;
@@ -865,18 +862,25 @@ function nostrShares(inputs) {
     payments: g("n_p2p")
   };
 }
+function jurShares(inputs, v) {
+  const weights = { eu: v.jur_weight_eu, uk: v.jur_weight_uk, us: v.jur_weight_us, other: v.jur_weight_other };
+  const chosen = JURISDICTIONS.filter((j) => inputs.jur.includes(j));
+  const total = chosen.reduce((acc, j) => acc + weights[j], 0);
+  const out = { eu: 0, uk: 0, us: 0, other: 0 };
+  for (const j of chosen) out[j] = total > 0 ? weights[j] / total : 1 / chosen.length;
+  return out;
+}
+function ccpaApplies(inputs, v, shares = jurShares(inputs, v)) {
+  return inputs.jur.includes("us") && inputs.mau * shares.us * v.ca_share_of_us_users >= v.ccpa_consumer_threshold;
+}
 var part = (id, custodial, noncustodial, extra = {}) => ({ id, custodial, noncustodial, ...extra });
 var sum = (parts, side) => parts.reduce((acc, p) => acc + p[side], 0);
 var has = (inputs, j) => inputs.jur.includes(j);
 var posts = (inputs) => inputs.mau * inputs.posts_per_user;
 function accounts(inputs, v) {
   const { mau } = inputs;
-  const verifyShare = Math.max(
-    has(inputs, "uk") ? v.verify_share_uk : 0,
-    has(inputs, "us") ? v.verify_share_us : 0,
-    has(inputs, "eu") ? v.verify_share_eu : 0,
-    has(inputs, "other") ? v.verify_share_other : 0
-  );
+  const shares = jurShares(inputs, v);
+  const verifyShare = shares.uk * v.verify_share_uk + shares.us * v.verify_share_us + shares.eu * v.verify_share_eu + shares.other * v.verify_share_other;
   const verify = mau * verifyShare * v.verify_price;
   const eng = engineering("accounts", inputs, v);
   const parts = [
@@ -884,7 +888,8 @@ function accounts(inputs, v) {
     part("resets", mau * v.reset_rate_per_mau_year * v.reset_cost, 0),
     // Age assurance becomes a layer the app reads (store, wallet) rather than buys; a share remains.
     part("verify", verify, verify * v.verify_remains_share, { rate: verifyShare }),
-    part("engineering", eng.cost, 0, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
+    // Signer and passkey login, recovery flows and sessions still need building and keeping.
+    part("engineering", eng.cost, eng.cost * v.accounts_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
     part("key_support", 0, mau * v.key_support_per_mau_year)
   ];
   return { parts };
@@ -912,8 +917,10 @@ function storage(inputs, v) {
     part("blob", blob, blob * v.media_sponsor_share, { gb: blobGb }),
     part("egress", egress, egress * v.media_sponsor_share, { gb: egressGb }),
     part("serving", mau * v.compute_per_mau_year * (1 - v.feed_compute_share), mau * v.cache_per_mau_year, { share: 1 - v.feed_compute_share }),
-    part("engineering", eng.cost, 0, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
-    part("relay", 0, v.relay_cost_year)
+    // Relay connections, caching and media handling still need engineering time.
+    part("engineering", eng.cost, eng.cost * v.infra_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
+    // Relays of the app's own scale with its users, never below one managed relay.
+    part("relay", 0, Math.max(v.relay_floor_year, mau * v.relay_per_mau_year), { floor: mau * v.relay_per_mau_year < v.relay_floor_year })
   ];
   return { parts };
 }
@@ -925,7 +932,8 @@ function compliance(inputs, v) {
   const gdpr = eu || uk ? v.gdpr_program_year : 0;
   const osa = uk ? v.uk_osa_year : 0;
   const dsa = eu ? v.dsa_year : 0;
-  const usTier = us ? mau >= v.ccpa_consumer_threshold ? "large" : "small" : null;
+  const shares = jurShares(inputs, v);
+  const usTier = us ? ccpaApplies(inputs, v, shares) ? "large" : "small" : null;
   const usp = us ? usTier === "large" ? v.us_privacy_year_large : v.us_privacy_year_small : 0;
   const contentLaw = osa + dsa;
   const reported = num(inputs.legal_usd) || null;
@@ -939,15 +947,17 @@ function compliance(inputs, v) {
     programsRemain = contentLaw * v.content_law_remains_share + (gdpr + usp) * v.privacy_remains_share;
   }
   const legal = engineering("legal", inputs, v);
-  const dsar = eu || uk || us ? mau * v.dsar_rate_per_mau_year * v.dsar_cost : 0;
+  const dsarUsers = mau * (shares.eu + shares.uk + (usTier === "large" ? shares.us : 0));
+  const dsar = dsarUsers * v.dsar_rate_per_mau_year * v.dsar_cost;
   const breach = v.breach_prob_year * Math.min(v.breach_cost_cap, mau * v.breach_cost_per_user);
   const breachRemains = v.breach_prob_year * Math.min(v.breach_cost_cap, mau * v.retained_data_share * v.breach_cost_per_user);
   const parts = [
     part("privacy_programs", programs, programsRemain, { us_tier: usTier, reported: reported != null && reported > 0, gdpr, osa, dsa, usp, content_law: contentLaw }),
     part("legal_labour", legal.cost, legal.cost * v.privacy_remains_share, { defaulted: legal.defaulted, hours: legal.hours, hourly: legal.hourly }),
-    part("dsar", dsar, 0),
+    part("dsar", dsar, dsar * v.retained_data_share, { users: dsarUsers }),
     part("insurance", v.cyber_insurance_year, v.cyber_insurance_year * v.insurance_remains_share),
-    part("breach", breach, breachRemains)
+    // An expected loss, not a bill: probability times severity. The page shows it apart from the cash costs.
+    part("breach", breach, breachRemains, { kind: "risk" })
   ];
   return { parts };
 }
@@ -1020,11 +1030,12 @@ function derivedAssumptions(key, from, inputs) {
   return [];
 }
 var PEOPLE = ["eng_base_salary", "loaded_multiplier", "overhead_multiplier"];
+var WEIGHTS = ["jur_weight_eu", "jur_weight_uk", "jur_weight_us", "jur_weight_other"];
 var PART_ASSUMPTIONS = {
   "accounts.auth": ["auth_per_mau_month"],
   "accounts.resets": ["reset_rate_per_mau_year", "reset_cost"],
-  "accounts.verify": ["verify_share_uk", "verify_share_us", "verify_share_eu", "verify_share_other", "verify_price", "verify_remains_share"],
-  "accounts.engineering": [...PEOPLE, "default_hours_accounts"],
+  "accounts.verify": ["verify_share_uk", "verify_share_us", "verify_share_eu", "verify_share_other", "verify_price", "verify_remains_share", ...WEIGHTS],
+  "accounts.engineering": [...PEOPLE, "default_hours_accounts", "accounts_eng_remains_share"],
   "accounts.key_support": ["key_support_per_mau_year"],
   "graph.database": ["db_mb_per_mau", "db_kb_per_post", "db_gb_month"],
   "graph.feed_compute": ["compute_per_mau_year", "feed_compute_share"],
@@ -1033,11 +1044,11 @@ var PART_ASSUMPTIONS = {
   "storage.blob": ["blob_gb_month", "media_sponsor_share"],
   "storage.egress": ["egress_gb_per_mau_month", "egress_gb", "media_sponsor_share"],
   "storage.serving": ["compute_per_mau_year", "feed_compute_share", "cache_per_mau_year"],
-  "storage.engineering": [...PEOPLE, "default_hours_infra"],
-  "storage.relay": ["relay_cost_year"],
-  "compliance.privacy_programs": ["gdpr_program_year", "uk_osa_year", "dsa_year", "us_privacy_year_small", "us_privacy_year_large", "ccpa_consumer_threshold", "content_law_remains_share", "privacy_remains_share"],
+  "storage.engineering": [...PEOPLE, "default_hours_infra", "infra_eng_remains_share"],
+  "storage.relay": ["relay_per_mau_year", "relay_floor_year"],
+  "compliance.privacy_programs": ["gdpr_program_year", "uk_osa_year", "dsa_year", "us_privacy_year_small", "us_privacy_year_large", "ccpa_consumer_threshold", "ca_share_of_us_users", ...WEIGHTS, "content_law_remains_share", "privacy_remains_share"],
   "compliance.legal_labour": [...PEOPLE, "default_hours_legal", "privacy_remains_share"],
-  "compliance.dsar": ["dsar_rate_per_mau_year", "dsar_cost"],
+  "compliance.dsar": ["dsar_rate_per_mau_year", "dsar_cost", "retained_data_share", "ccpa_consumer_threshold", "ca_share_of_us_users", ...WEIGHTS],
   "compliance.insurance": ["cyber_insurance_year", "insurance_remains_share"],
   "compliance.breach": ["breach_prob_year", "breach_cost_cap", "breach_cost_per_user", "retained_data_share"],
   "moderation.labour": ["ts_base_salary", "moderator_base_salary", "moderator_seat_outsourced", "mods_per_million_mau", "loaded_multiplier", "overhead_multiplier", "moderation_remains_share"],
@@ -1081,6 +1092,9 @@ function evaluate(inputs, v) {
 }
 var YEARS = 5;
 var MARKER_YEAR = 3;
+function calendarYear(startYear, year) {
+  return startYear + year;
+}
 function rampShare(year, months) {
   if (!(months > 0)) return 1;
   let s = 0;
@@ -1111,7 +1125,7 @@ function project(inputs, v, today = evaluate(inputs, v)) {
     users = Math.max(1, Math.round(users * (1 + rate)));
     const scaled = { ...inputs, mau: users, rev: inputs.rev * users / inputs.mau };
     const r = evaluate(scaled, v);
-    const share = rampShare(year, v.migration_months);
+    const share = rampShare(year, v.scale_months);
     const realised = r.totals.saving * share;
     cumulative += realised;
     points.push({ year, users, rate, custodial: r.totals.custodial, noncustodial: r.totals.noncustodial, path: r.totals.custodial - realised, saving: r.totals.saving, share, realised, cumulative, lines: perLine(r, share) });
@@ -1128,7 +1142,7 @@ function nudge(name, inputs, v, line) {
 function calculate(rawInputs, data, rawOverrides = {}) {
   const inputs = normalizeInputs(rawInputs);
   const overrides = cleanOverrides(data, rawOverrides);
-  const out = { version: data.version, inputs, overrides };
+  const out = { version: data.version, start_year: data.start_year, inputs, overrides };
   for (const s of SCENARIOS) {
     const resolved = resolveAssumptions(data, s, overrides);
     const { values: v, set } = applyKind(resolved, inputs.kind, overrides);
@@ -1139,20 +1153,26 @@ function calculate(rawInputs, data, rawOverrides = {}) {
     r.derived = eff.derived;
     r.values = v;
     r.projection = project(eff, v, r);
+    const scale = r.projection[MARKER_YEAR];
     r.totals.five_year = r.projection[YEARS].cumulative;
-    r.totals.marker_year = r.projection[MARKER_YEAR].cumulative;
-    r.totals.average = r.totals.five_year / YEARS;
+    r.totals.marker_year = scale.cumulative;
+    r.totals.at_scale = scale.realised;
+    r.totals.scale_custodial = scale.custodial;
+    r.totals.scale_nostr = scale.path;
+    r.totals.scale_users = scale.users;
+    r.totals.scale_per_mau_custodial = scale.custodial / scale.users;
+    r.totals.scale_per_mau_nostr = scale.path / scale.users;
     for (const name of LINES) {
       const line = r.lines[name];
-      const years = r.projection.slice(1);
-      line.five_year = years.reduce((acc, p) => acc + p.lines[name].realised, 0);
-      line.average = line.five_year / YEARS;
-      line.avg_custodial = years.reduce((acc, p) => acc + p.lines[name].custodial, 0) / YEARS;
-      line.avg_noncustodial = years.reduce((acc, p) => acc + p.lines[name].custodial - p.lines[name].realised, 0) / YEARS;
+      line.five_year = r.projection.slice(1).reduce((acc, p) => acc + p.lines[name].realised, 0);
+      const at = scale.lines[name];
+      line.scale_custodial = at.custodial;
+      line.scale_noncustodial = at.custodial - at.realised;
+      line.at_scale = at.realised;
       for (const part2 of line.parts) {
-        const each = years.map((p) => p.lines[name].parts.find((q) => q.id === part2.id)).filter(Boolean);
-        part2.avg_custodial = each.reduce((acc, q) => acc + q.custodial, 0) / YEARS;
-        part2.avg_noncustodial = each.reduce((acc, q) => acc + q.custodial - q.realised, 0) / YEARS;
+        const q = at.parts.find((x) => x.id === part2.id);
+        part2.scale_custodial = q ? q.custodial : 0;
+        part2.scale_noncustodial = q ? q.custodial - q.realised : 0;
       }
       line.nudge = nudge(name, eff, v, line);
     }
@@ -1200,12 +1220,14 @@ function number(n) {
 // assets/js/calculator/src/chart.js
 var NS2 = "http://www.w3.org/2000/svg";
 var PAD = { top: 44, right: 20, bottom: 30, left: 64 };
-var GUTTER = 84;
 var HEIGHT = { wide: 300, narrow: 240 };
 var CUMULATIVE = "chart-cumulative-savings";
 var VERSUS = "chart-custodial-cost-vs-nostr";
 var charts = /* @__PURE__ */ new Map();
 var last = null;
+function yearLabel(startYear, year, today = t("chart.today")) {
+  return year === 0 ? today : String(calendarYear(startYear, year));
+}
 function node(name, attrs = {}, children = []) {
   const n = document.createElementNS(NS2, name);
   for (const [k, v] of Object.entries(attrs)) if (v != null) n.setAttribute(k, String(v));
@@ -1215,7 +1237,8 @@ function node(name, attrs = {}, children = []) {
 function drawCharts(projections) {
   last = projections;
   if (!projections) return;
-  const { typical, low } = projections;
+  const { typical, low, start_year } = projections;
+  const label = (year) => yearLabel(start_year, year);
   draw(CUMULATIVE, {
     series: [
       { key: "low", cls: "chart__floor", points: low.map((p) => p.cumulative) },
@@ -1223,7 +1246,7 @@ function drawCharts(projections) {
     ],
     band: ["typical", "low"],
     labels: [
-      ...[MARKER_YEAR, YEARS].map((year) => ({ key: "typical", year, cls: "chart__label", dy: -12, text: fmt(t("chart.marker"), { amount: compact(typical[year].cumulative), n: year }) })),
+      ...[MARKER_YEAR, YEARS].map((year) => ({ key: "typical", year, cls: "chart__label", dy: -12, text: fmt(t("chart.marker"), { amount: compact(typical[year].cumulative), n: label(year) }) })),
       { key: "low", year: YEARS, cls: "chart__floor-label", dy: -8, text: fmt(t("chart.floor"), { amount: compact(low[YEARS].cumulative) }) }
     ],
     title: fmt(t("chart.aria"), { end: compact(typical[YEARS].cumulative), low: compact(low[YEARS].cumulative) }),
@@ -1239,26 +1262,31 @@ function drawCharts(projections) {
     }
   });
   const end = typical[YEARS];
+  const scale = typical[MARKER_YEAR];
   draw(VERSUS, {
     series: [
-      { key: "custodial", cls: "chart__line chart__line--custodial", marker: "chart__marker chart__marker--custodial", points: typical.map((p) => p.custodial), markers: [0, 1, 2, 3, 4, 5] },
-      { key: "path", cls: "chart__line", marker: "chart__marker", points: typical.map((p) => p.path), markers: [1, 2, 3, 4, 5] }
+      // The year the network is at scale gets a gold dot on each line.
+      { key: "custodial", cls: "chart__line chart__line--custodial", marker: "chart__marker chart__marker--custodial", points: typical.map((p) => p.custodial), markers: [0, 1, 2, 3, 4, 5], special: { year: MARKER_YEAR, cls: "chart__marker chart__marker--scale", r: 7 } },
+      { key: "path", cls: "chart__line", marker: "chart__marker", points: typical.map((p) => p.path), markers: [1, 2, 3, 4, 5], special: { year: MARKER_YEAR, cls: "chart__marker chart__marker--scale", r: 7 } }
     ],
     band: ["custodial", "path"],
-    // No labels on the dots: the axes and the tooltip carry the numbers.
+    // No labels on the dots: the gold figure beside the rule between them is what they say.
     labels: [],
-    // The five-year figure, hero-sized, in the gap: the area it names.
-    watermark: { year: 3.5, text: compact(end.cumulative), sub: t("chart.versus.band_sub") },
-    title: fmt(t("chart.versus.aria"), { custodial: compact(end.custodial), noncustodial: compact(end.path), saving: compact(end.saving), total: compact(end.cumulative) }),
-    // Two horizontal axes, named in a right-hand gutter: the runway in years
-    // along the top, from the start of integration; projected users along the bottom.
+    // A gold rule from dot to dot, and beside it, hero-sized and gold, its
+    // length: what the app saves a year from the year the network is at scale.
+    watermark: { year: MARKER_YEAR, between: ["custodial", "path"], text: compact(scale.realised), sub: t("chart.versus.band_sub") },
+    title: fmt(t("chart.versus.aria"), { year: label(MARKER_YEAR), custodial: compact(scale.custodial), noncustodial: compact(scale.path), saving: compact(scale.custodial - scale.path), total: compact(end.cumulative) }),
+    // Two horizontal axes: the calendar along the top, from the start, since
+    // the ramp is the network's; projected users along the bottom, first and
+    // last, with the axis named between them.
     rows: [
-      { at: "top", name: t("chart.versus.runway"), values: (year) => year === 0 ? t("chart.versus.start") : fmt(t("chart.year"), { n: year }) },
-      { at: "bottom", name: t("chart.versus.users"), values: (year) => compactNumber(typical[year].users) }
+      { at: "top", values: (year) => year === 0 ? t("chart.versus.start") : label(year) },
+      { at: "bottom", ends: true, middle: t("chart.versus.users"), values: (year) => compactNumber(typical[year].users) }
     ],
     tip: (year) => {
       const p = typical[year];
       return [
+        fmt(t("chart.tip.users"), { n: number(p.users) }),
         fmt(t("chart.versus.tip_custody"), { amount: compact(p.custodial) }),
         fmt(t("chart.versus.tip_nostr"), { amount: compact(p.path) }),
         fmt(t("chart.versus.tip_cumulative"), { amount: compact(p.cumulative) })
@@ -1275,7 +1303,7 @@ function draw(id, spec) {
   svg.setAttribute("height", String(height));
   while (svg.lastChild && svg.lastChild.tagName !== "title") svg.removeChild(svg.lastChild);
   const top = Math.max(1, ...spec.series.flatMap((s) => s.points));
-  const right = spec.rows ? GUTTER : PAD.right;
+  const right = PAD.right;
   const plotW = width - PAD.left - right;
   const plotH = height - PAD.top - PAD.bottom;
   const x = (year) => PAD.left + plotW * year / YEARS;
@@ -1290,39 +1318,60 @@ function draw(id, spec) {
     if (i > 0) axis.append(node("text", { x: PAD.left - 8, y: y(value) + 4, "text-anchor": "end" }, [compact(value)]));
   }
   const narrow = width < 520;
-  const rows = spec.rows || [{ at: "bottom", values: (year) => year === 0 ? t("chart.today") : fmt(t("chart.year"), { n: year }) }];
+  const rows = spec.rows || [{ at: "bottom", values: (year) => yearLabel(last?.start_year ?? 0, year) }];
   for (const row of rows) {
     const g = node("g", { class: `chart__axis chart__axis--${row.at}` });
     const baseline = row.at === "top" ? PAD.top - 18 : height - 8;
-    const ticks = narrow ? spec.rows ? [0, YEARS] : [0, MARKER_YEAR, YEARS] : [0, 1, 2, 3, 4, 5];
+    const ticks = row.ends ? [0, YEARS] : narrow ? [0, MARKER_YEAR, YEARS] : [0, 1, 2, 3, 4, 5];
     for (const year of ticks) {
       g.append(node("text", { x: x(year), y: baseline, "text-anchor": year === 0 ? "start" : year === YEARS ? "end" : "middle" }, [row.values(year)]));
     }
-    if (row.name) g.append(node("text", { x: width - right + 14, y: baseline, "text-anchor": "start", class: "chart__axis-name" }, [row.name]));
+    if (row.middle) g.append(node("text", { x: x(YEARS / 2), y: baseline, "text-anchor": "middle", class: "chart__axis-name" }, [row.middle]));
     axis.append(g);
   }
   const pts = (points) => points.map((v, year) => `${x(year).toFixed(1)},${y(v).toFixed(1)}`);
   const band2 = node("path", { class: "chart__band", d: `M${pts(by[spec.band[0]]).join("L")}L${pts(by[spec.band[1]]).reverse().join("L")}Z` });
   const lines = node("g");
   const marks = node("g", { class: "chart__marks" });
+  let watermarkFit = null;
   for (const s of spec.series) {
     lines.append(node("polyline", { class: s.cls, points: pts(s.points).join(" ") }));
     for (const year of s.markers || []) marks.append(node("circle", { class: s.marker || "chart__marker", cx: x(year), cy: y(s.points[year]), r: 5 }));
+    if (s.special) marks.append(node("circle", { class: s.special.cls, cx: x(s.special.year), cy: y(s.points[s.special.year]), r: s.special.r }));
   }
   for (const l of spec.labels) {
     if (l.minGap && Math.abs(y(by[spec.band[0]][l.year]) - y(by[spec.band[1]][l.year])) < l.minGap) continue;
-    marks.append(node("text", { class: l.cls, x: x(l.year) + (l.dx ?? -8), y: at(l.key, l.year) + l.dy, "text-anchor": l.anchor || "end" }, [l.text]));
+    const py = at(l.key, l.year);
+    const dy = l.above != null && py + l.dy > PAD.top + plotH - 2 ? l.above : l.dy;
+    marks.append(node("text", { class: l.cls, x: x(l.year) + (l.dx ?? -8), y: py + dy, "text-anchor": l.anchor || "end" }, [l.text]));
   }
   if (spec.watermark) {
     const w = spec.watermark;
-    const lerp = (key) => {
-      const a = Math.floor(w.year);
-      const f = w.year - a;
-      return y(by[key][a]) * (1 - f) + y(by[key][Math.min(YEARS, a + 1)]) * f;
+    const top2 = y(by[w.between[0]][w.year]);
+    const bottom = y(by[w.between[1]][w.year]);
+    const mid = (top2 + bottom) / 2;
+    lines.append(node("line", { class: "chart__scale-rule", x1: x(w.year), x2: x(w.year), y1: Math.min(top2, bottom), y2: Math.max(top2, bottom) }));
+    const gap = narrow ? 12 : 16;
+    const left = x(w.year) + gap;
+    const figure = node("text", { class: "chart__watermark", x: left, y: mid + (narrow ? 4 : 10), "text-anchor": "start" }, [w.text]);
+    marks.append(figure);
+    const words = w.sub.split(" ");
+    const subLines = narrow && w.sub.length > 12 ? [words.slice(0, Math.ceil(words.length / 2)).join(" ") + " ", words.slice(Math.ceil(words.length / 2)).join(" ")] : [w.sub];
+    const sub = node("text", { class: "chart__watermark-sub", x: left, y: mid + (narrow ? 20 : 32), "text-anchor": "start" });
+    subLines.forEach((line, i) => sub.append(node("tspan", { x: left, dy: i === 0 ? 0 : 14 }, [line])));
+    marks.append(sub);
+    watermarkFit = () => {
+      let wide = 0;
+      try {
+        wide = figure.getBBox().width;
+      } catch {
+        wide = 0;
+      }
+      const room = width - 4 - left;
+      if (!wide || wide <= room) return;
+      const size = parseFloat(getComputedStyle(figure).fontSize) || 36;
+      figure.style.fontSize = `${Math.max(20, Math.floor(size * room / wide))}px`;
     };
-    const mid = (lerp(spec.band[0]) + lerp(spec.band[1])) / 2;
-    marks.append(node("text", { class: "chart__watermark", x: x(w.year), y: mid + (narrow ? 8 : 10), "text-anchor": "middle" }, [w.text]));
-    marks.append(node("text", { class: "chart__watermark-sub", x: x(w.year), y: mid + (narrow ? 26 : 32), "text-anchor": "middle" }, [w.sub]));
   }
   const hover = node("g", { class: "chart__hover" });
   const cross = node("line", { class: "chart__cross", y1: PAD.top, y2: PAD.top + plotH, x1: 0, x2: 0, hidden: "" });
@@ -1336,6 +1385,7 @@ function draw(id, spec) {
     hits.append(rect);
   }
   svg.append(grid, band2, lines, axis, marks, hover, hits);
+  watermarkFit?.();
   const title = svg.querySelector("title");
   if (title) title.textContent = spec.title;
   charts.set(id, { spec, layout: { x, y, width, height, by }, active: null });
@@ -1362,7 +1412,7 @@ function focusYear(id, year) {
   }
   tip.replaceChildren();
   const head = document.createElement("b");
-  head.textContent = year === 0 ? t("chart.today") : fmt(t("chart.year"), { n: year });
+  head.textContent = yearLabel(last?.start_year ?? 0, year);
   tip.append(head);
   for (const text2 of chart.spec.tip(year)) {
     const row = document.createElement("span");
@@ -1526,7 +1576,8 @@ function writeInputs(form2, inputs) {
 function writeDefaults(form2) {
   const starting2 = {};
   for (const [key, spec] of Object.entries(INPUTS)) {
-    if (spec.type === "multi" || (spec.type === "number" || spec.type === "integer") && spec.default != null) starting2[key] = spec.default;
+    if (spec.type === "option" && spec.start != null) starting2[key] = spec.start;
+    else if (spec.type === "multi" || spec.type === "option" && spec.required || (spec.type === "number" || spec.type === "integer") && spec.default != null) starting2[key] = spec.default;
   }
   writeInputs(form2, starting2);
   for (const slider of $$('input[type="range"]', form2)) announceSlider(slider);
@@ -2330,6 +2381,7 @@ function composeLead({ inputs, result, link, contact, fieldLabels, open }) {
   }
   lines.push("");
   lines.push(fmt(t("compose.results"), { custodial: result.custodial, noncustodial: result.noncustodial }));
+  if (result.at_scale) lines.push(fmt(t("compose.at_scale"), { at_scale: result.at_scale }));
   if (result.five_year) lines.push(fmt(t("compose.five_year"), { five_year: result.five_year, floor: result.floor }));
   lines.push(fmt(t("compose.link"), { link }));
   if (open) lines.push(fmt(t("compose.open"), { link: open }));
@@ -2400,6 +2452,10 @@ function relevantKeys(line, part2, inputs) {
   return keys.filter((key) => {
     const m = key.match(/^verify_share_(\w+)$/);
     if (m) return jur.includes(m[1]);
+    const w = key.match(/^jur_weight_(\w+)$/);
+    if (w) return jur.length > 1 && jur.includes(w[1]);
+    if (key === "ca_share_of_us_users") return jur.includes("us");
+    if (key === "retained_data_share" && part2.id === "dsar") return part2.custodial > 0;
     if (key === "gdpr_program_year") return jur.includes("eu") || jur.includes("uk");
     if (key === "uk_osa_year") return jur.includes("uk");
     if (key === "dsa_year") return jur.includes("eu");
@@ -2418,7 +2474,7 @@ function relevantKeys(line, part2, inputs) {
     return true;
   });
 }
-function explain(line, part2, { inputs, values, overrides = {}, data }) {
+function explain(line, part2, { inputs, values, overrides = {}, data, scale = {} }) {
   const v = values;
   const vars = {
     ...partVars(part2),
@@ -2430,6 +2486,9 @@ function explain(line, part2, { inputs, values, overrides = {}, data }) {
     "d.weeks": number(WEEKS_PER_YEAR),
     "d.retention": number(RETENTION_MONTHS),
     "d.rev_year": money((inputs.rev || 0) * 12),
+    "d.scale_year": scale.year != null && data.start_year != null ? String(calendarYear(data.start_year, scale.year)) : "",
+    "d.scale_users": scale.users != null ? number(scale.users) : "",
+    "p.users": part2.users != null ? number(Math.round(part2.users)) : "",
     "d.tier": part2.tier ? t(`details.tier_${part2.tier}`) : "",
     "d.programs": programsList(part2)
   };
@@ -2453,8 +2512,8 @@ function explain(line, part2, { inputs, values, overrides = {}, data }) {
     label: t(`parts.${part2.id}`, part2.id),
     today: fill(f.today || "", vars),
     nostr: fill(f.nostr || "", vars),
-    // What the savings list shows: the same part averaged over the five projected years.
-    averaged: part2.avg_custodial != null ? fill(t("how.averaged"), { "p.custodial": money(part2.avg_custodial), "p.noncustodial": money(part2.avg_noncustodial) }) : "",
+    // What the savings list shows: the same part in the year the network is at scale, at that year's users.
+    at_scale: part2.scale_custodial != null ? fill(t("how.at_scale"), { ...vars, "p.custodial": money(part2.scale_custodial), "p.noncustodial": money(part2.scale_noncustodial) }) : "",
     assumptions: assumptions2
   };
 }
@@ -2469,28 +2528,37 @@ function programsList(part2) {
 }
 
 // assets/js/calculator/src/ui.js
-var range = (low, high) => fmt(t("range_short"), { low: compact(low), high: compact(high) });
+var ordered = (a, b) => a <= b ? [a, b] : [b, a];
+var range = (a, b) => {
+  const [low, high] = ordered(a, b);
+  return fmt(t("range_short"), { low: compact(low), high: compact(high) });
+};
+var rangeFull = (a, b, f = compact) => {
+  const [low, high] = ordered(a, b);
+  return Math.abs(high - low) < 1e-9 ? "" : fmt(t("range"), { low: f(low), high: f(high) });
+};
 function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result;
   const T = typical.totals;
   renderWhose(result, own);
   const link = $("#r-whose-link");
   if (link) link.textContent = t("whose.link");
-  text("#r-permau-c", perMau(T.per_mau_custodial));
-  text("#r-permau-c-range", fmt(t("range"), { low: perMau(low.totals.per_mau_custodial), high: perMau(high.totals.per_mau_custodial) }));
-  text("#r-permau-nc", perMau(T.per_mau_noncustodial));
-  text("#r-permau-nc-range", fmt(t("range"), { low: perMau(low.totals.per_mau_noncustodial), high: perMau(high.totals.per_mau_noncustodial) }));
-  text("#r-average", compact(T.five_year / YEARS));
-  text("#r-average-range", fmt(t("range"), { low: compact(low.totals.five_year / YEARS), high: compact(high.totals.five_year / YEARS) }));
+  text("#r-permau-c", perMau(T.scale_per_mau_custodial));
+  text("#r-permau-c-range", rangeFull(low.totals.scale_per_mau_custodial, high.totals.scale_per_mau_custodial, perMau));
+  text("#r-permau-nc", perMau(T.scale_per_mau_nostr));
+  text("#r-permau-nc-range", rangeFull(low.totals.scale_per_mau_nostr, high.totals.scale_per_mau_nostr, perMau));
+  text("#r-scale-nostr", compact(T.scale_nostr));
+  text("#r-scale-nostr-range", rangeFull(low.totals.scale_nostr, high.totals.scale_nostr));
+  text("#r-cumulative", fmt(t("cumulative_note"), { amount: compact(T.five_year) }));
   text("#r-version", fmt(t("version"), { version: result.version }));
-  drawCharts({ typical: typical.projection, low: low.projection });
-  renderYears(typical.projection);
+  drawCharts({ typical: typical.projection, low: low.projection, start_year: result.start_year });
+  renderYears(typical.projection, result.start_year);
   const cut = (c, nc) => c > 0 ? Math.min(1, Math.max(0, 1 - nc / c)) : 0;
   for (const name of LINES) {
     const line = typical.lines[name];
     const row = $(`.lt-row[data-line="${name}"]`);
     if (!row) continue;
-    const nudged = Boolean(line.nudge) && line.average < 1;
+    const nudged = Boolean(line.nudge) && line.at_scale < 1;
     row.classList.toggle("is-already", Boolean(line.already));
     row.classList.toggle("is-none", Boolean(line.none));
     row.classList.toggle("is-nudged", nudged);
@@ -2500,8 +2568,8 @@ function renderResults(result, { own = false } = {}) {
     const saving = $(".lt-saving", row);
     const rangeNode = $(".lt-saving-range", row);
     const nudgeNode = $(".lt-nudge", row);
-    saving.textContent = line.none ? "" : money(line.average);
-    rangeNode.textContent = line.none || nudged ? "" : range(low.lines[name].average, high.lines[name].average);
+    saving.textContent = line.none ? "" : money(line.at_scale);
+    rangeNode.textContent = line.none || nudged ? "" : range(low.lines[name].at_scale, high.lines[name].at_scale);
     nudgeNode.textContent = nudged ? fmt(t(`nudges.${line.nudge.id}`), { amount: compact(line.nudge.amount) }) : "";
     show(saving, !nudged && !line.none);
     show(nudgeNode, nudged);
@@ -2534,11 +2602,11 @@ function renderWhose(result, own) {
     host.append(m ? pieces[m[1]] || document.createTextNode(token) : document.createTextNode(token));
   }
 }
-function renderYears(projection) {
+function renderYears(projection, startYear) {
   const head = $("#r-years-head");
   if (!head) return;
   for (const extra of $$("th[data-year]", head)) extra.remove();
-  for (let year = 1; year <= YEARS; year++) head.append(el("th", { scope: "col", class: "years-num", "data-year": year, text: fmt(t("chart.year"), { n: year }) }));
+  for (let year = 1; year <= YEARS; year++) head.append(el("th", { scope: "col", class: "years-num", "data-year": year, text: yearLabel(startYear, year) }));
   const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), path: (p) => money(p.path), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) };
   for (const row of $$("#r-years tbody tr[data-row]")) {
     const value = cell[row.dataset.row];
@@ -2550,27 +2618,37 @@ function renderYears(projection) {
 function renderParts(name, line, inputs) {
   const host = $(`.lt-parts[data-line="${name}"] .parts`);
   if (!host) return;
-  text(`.lt-parts[data-line="${name}"] .parts__total-c`, money(line.avg_custodial));
-  text(`.lt-parts[data-line="${name}"] .parts__total-nc`, money(line.avg_noncustodial));
+  text(`.lt-parts[data-line="${name}"] .parts__total-c`, money(line.scale_custodial));
+  text(`.lt-parts[data-line="${name}"] .parts__total-nc`, money(line.scale_noncustodial));
   clear(host);
-  for (const p of line.parts) {
+  const item = (p) => {
     const meta = partMeta(p, inputs);
-    host.append(
-      el("li", {}, [
-        // A link-styled button: pressing it explains how the figure was made.
-        el("button", { type: "button", class: "part", "data-line": name, "data-part": p.id, "aria-haspopup": "dialog" }, [
-          el("span", { class: "part__label" }, [
-            t(`parts.${p.id}`, p.id),
-            meta ? el("span", { class: "part__meta", text: meta }) : null
-          ]),
-          el("span", { class: "part__nums" }, [
-            money(p.avg_custodial),
-            " \u2192 ",
-            el("b", { text: money(p.avg_noncustodial) })
-          ])
+    return el("li", {}, [
+      // A link-styled button: pressing it explains how the figure was made.
+      el("button", { type: "button", class: "part", "data-line": name, "data-part": p.id, "aria-haspopup": "dialog" }, [
+        el("span", { class: "part__label" }, [
+          t(`parts.${p.id}`, p.id),
+          meta ? el("span", { class: "part__meta", text: meta }) : null
+        ]),
+        el("span", { class: "part__nums" }, [
+          money(p.scale_custodial),
+          " \u2192 ",
+          el("b", { text: money(p.scale_noncustodial) })
         ])
       ])
-    );
+    ]);
+  };
+  const subtotal = (label, parts) => el("li", { class: "parts__subtotal" }, [
+    el("span", { class: "parts__subtotal-label", text: label }),
+    el("span", { class: "part__nums" }, [money(parts.reduce((a, p) => a + p.scale_custodial, 0)), " \u2192 ", el("b", { text: money(parts.reduce((a, p) => a + p.scale_noncustodial, 0)) })])
+  ]);
+  const cash = line.parts.filter((p) => p.kind !== "risk");
+  const risk = line.parts.filter((p) => p.kind === "risk");
+  for (const p of cash) host.append(item(p));
+  if (risk.length) {
+    host.append(subtotal(t("details.cash"), cash));
+    for (const p of risk) host.append(item(p));
+    host.append(subtotal(t("details.risk"), risk));
   }
 }
 var howKeys = [];
@@ -2579,14 +2657,14 @@ function openHow(line, partId, result, data) {
   const dialog = $("#how-modal");
   const part2 = result.typical.lines[line]?.parts.find((p) => p.id === partId);
   if (!dialog || !part2) return;
-  const info = explain(line, part2, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data });
+  const info = explain(line, part2, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, scale: { year: MARKER_YEAR, users: result.typical.totals.scale_users } });
   howKeys = info.assumptions.map((a) => a.key);
   howLabel = info.label;
   text("#how-part", info.label);
   text("#how-line", $(`.lt-row[data-line="${line}"] .lt-title`)?.textContent.trim() || line);
   text("#how-today", info.today);
   text("#how-nostr", info.nostr);
-  text("#how-averaged", info.averaged);
+  text("#how-scale", info.at_scale);
   const list = $("#how-list");
   clear(list);
   for (const a of info.assumptions) {
@@ -2642,6 +2720,9 @@ function partMeta(p, inputs) {
   if ((p.id === "engineering" || p.id === "legal_labour") && p.defaulted) return t(p.from === "team" ? "details.defaulted_team" : "details.defaulted");
   if ((p.id === "reseller" || p.id === "p2p") && p.rate != null) return fmt(t("details.rate"), { rate: percent(p.rate) });
   if (p.id === "database" && p.gb != null) return fmt(t("details.gb"), { gb: number(p.gb) });
+  if (p.id === "breach") return t("details.expected_loss");
+  if (p.id === "relay" && p.floor) return t("details.floor");
+  if (p.id === "dsar" && p.users != null && p.custodial > 0 && p.users < inputs.mau - 0.5) return fmt(t("details.dsar_users"), { n: number(Math.round(p.users)) });
   return "";
 }
 function wireToggles() {
@@ -2657,7 +2738,8 @@ function wireToggles() {
   }
 }
 var TABS = ["cost", "app", "assumptions"];
-function activateTab(name, { focus = false } = {}) {
+var TAB_ANCHORS = { results: "cost", app: "app", assumptions: "assumptions" };
+function activateTab(name, { focus = false, scroll = true, behavior = "smooth" } = {}) {
   for (const tab of TABS) {
     const button = $(`#tab-${tab}`);
     const panel = $(`#panel-${tab}`);
@@ -2676,7 +2758,7 @@ function activateTab(name, { focus = false } = {}) {
     $("#tabs-current").dataset.tab = name;
   }
   openTabMenu(false);
-  $("#calc")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (scroll) $("#calc")?.scrollIntoView({ behavior, block: "start" });
   if (focus) $(`#tab-${name}`)?.focus({ preventScroll: true });
 }
 function openTabMenu(open) {
@@ -2700,14 +2782,14 @@ function wireTabs(onSelect) {
     });
   }
 }
-function showResults(visible, { focus = false } = {}) {
+function showResults(visible, { focus = false, scroll = true } = {}) {
   const panel = $("#calc-results");
   if (!panel) return;
   panel.hidden = !visible;
   const empty = $("#r-empty");
   if (empty) empty.hidden = visible;
   if (visible) {
-    activateTab("cost");
+    activateTab("cost", { scroll });
     if (focus) {
       $(".tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
       $("#results-title")?.focus({ preventScroll: true });
@@ -2775,14 +2857,14 @@ function labelFor(key) {
   const node2 = document.querySelector(`#field-${key} .field__label, label[for="f-${key}"]`);
   return node2 ? node2.textContent.replace(/\s+/g, " ").replace(/\s*\*\s*$/, "").trim() : key;
 }
-function run(raw, overrides, { focus = true, show: show2 = true } = {}) {
+function run(raw, overrides, { focus = true, show: show2 = true, scroll = true } = {}) {
   let result;
   try {
     result = calculate(raw, assumptions, overrides);
   } catch (err) {
     if (err instanceof InputError) {
       if (!show2) return null;
-      activateTab("app");
+      activateTab("app", { scroll });
       markInvalid($("#calc-form"), err.key);
       setError2(err.code, labelFor(err.key));
       return null;
@@ -2806,7 +2888,7 @@ function run(raw, overrides, { focus = true, show: show2 = true } = {}) {
   const query2 = encode2(result.inputs, result.overrides, result.version);
   result.link = `${location.origin}${location.pathname}?${query2}`;
   history.replaceState(null, "", `?${query2}${test ? `&test=${encodeURIComponent(test)}` : ""}`);
-  if (show2) showResults(true, { focus });
+  if (show2) showResults(true, { focus, scroll });
   return result;
 }
 var starting = "";
@@ -2937,7 +3019,8 @@ function valuesFor(result, contact) {
     overrides: Object.keys(result.overrides).length ? JSON.stringify(result.overrides) : "",
     version: String(result.version),
     ...contact,
-    test: test || ""
+    // The test checkbox beside Send: a send marked as a test is sent as the form's own option.
+    test: $("#f-test")?.checked ? ["yes"] : []
   };
 }
 function signerForSave() {
@@ -3038,6 +3121,7 @@ async function tell(signer, result, contact, open) {
     result: {
       custodial: compact(result.typical.totals.custodial),
       noncustodial: compact(result.typical.totals.noncustodial),
+      at_scale: compact(result.typical.totals.at_scale),
       five_year: compact(result.typical.totals.five_year),
       floor: compact(result.low.totals.five_year)
     },
@@ -3106,7 +3190,8 @@ async function restore(pointer, signer) {
   revealDetails(formEl);
   writeOverrides(overrides);
   writeContact(formEl, Object.fromEntries(CONTACT_KEYS.map((k) => [k, v[k]])));
-  if (v.test) test = v.test;
+  const box = $("#f-test");
+  if (box) box.checked = Array.isArray(v.test) ? v.test.length > 0 : Boolean(v.test);
   const result = run(inputs, overrides, { focus: false });
   if (result) setStatus2(fmt(t("status.opened"), { when: new Date(event.created_at * 1e3).toLocaleString(), how: t(`status.opened_${opened.how}`) }));
 }
@@ -3189,8 +3274,12 @@ async function boot() {
   } catch {
     starting = "";
   }
+  const anchor = TAB_ANCHORS[location.hash.slice(1)] || null;
   const opened = decode(location.search);
   test = opened.test;
+  if (test && $("#f-test")) $("#f-test").checked = true;
+  const older = opened.present && opened.version != null && opened.version < assumptions.version ? opened.version : null;
+  if (older && older < 2 && opened.inputs.team == null) opened.inputs.team = "ten";
   const pointer = decodePointer(new URLSearchParams(location.search).get("nevent"));
   if (pointer) {
     if (opened.present) {
@@ -3198,18 +3287,23 @@ async function boot() {
       revealDetails(formEl);
       writeOverrides(opened.overrides);
     }
-    run(readInputs(formEl), readOverrides(), { focus: false });
+    run(readInputs(formEl), readOverrides(), { focus: false, scroll: false });
   } else if (opened.present) {
     writeInputs(formEl, opened.inputs);
     revealDetails(formEl);
     writeOverrides(opened.overrides);
-    const result = run(opened.inputs, opened.overrides, { focus: false });
-    if (result) setStatus2(t("status.shared"));
-    else activateTab("app");
+    const result = run(opened.inputs, opened.overrides, { focus: false, scroll: false });
+    if (result) setStatus2(older ? fmt(t("status.older_version"), { from: older, to: assumptions.version }) : t("status.shared"));
+    else activateTab("app", { scroll: false });
   } else {
-    const result = run(readInputs(formEl), readOverrides(), { focus: false });
+    const result = run(readInputs(formEl), readOverrides(), { focus: false, scroll: false });
     if (result) history.replaceState(null, "", location.pathname);
   }
+  if (anchor) activateTab(anchor, { scroll: true, behavior: "auto" });
+  window.addEventListener("hashchange", () => {
+    const tab = TAB_ANCHORS[location.hash.slice(1)];
+    if (tab) activateTab(tab);
+  });
   if (form) {
     const open = $("#save-open");
     if (open) open.hidden = false;

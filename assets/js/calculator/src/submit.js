@@ -81,6 +81,7 @@ export function composeLead({ inputs, result, link, contact, fieldLabels, open }
   }
   lines.push('')
   lines.push(fmt(t('compose.results'), { custodial: result.custodial, noncustodial: result.noncustodial }))
+  if (result.at_scale) lines.push(fmt(t('compose.at_scale'), { at_scale: result.at_scale }))
   if (result.five_year) lines.push(fmt(t('compose.five_year'), { five_year: result.five_year, floor: result.floor }))
   lines.push(fmt(t('compose.link'), { link }))
   if (open) lines.push(fmt(t('compose.open'), { link: open }))

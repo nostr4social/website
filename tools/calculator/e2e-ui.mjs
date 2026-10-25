@@ -49,7 +49,9 @@ await withBrowser(async (api) => {
   const shareTitle = (await readSnapshot()).sections.find((sec) => sec.questions.includes('PgP68U')).title
   check('the Save & Share button is named by the form\'s section and sits outside the tabs', (await api.eval(`document.getElementById('save-open').textContent.trim() + ':' + document.getElementById('save-open').hidden + ':' + Boolean(document.querySelector('.tabbar #save-open'))`)) === `${shareTitle}:false:true`, shareTitle)
   const names = await api.eval(`[...document.querySelectorAll('#save-modal [name]')].map(i => i.name).join(' ') + ' | ' + [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim().replace(/^\\d+/, '')).join(', ')`)
-  check('the modal holds the section\'s questions and no section of that name is on the tab', names === 'email consent contact_name company app_name | Nostr, Users, Content, Moderation, Team, Payments, Reach', names)
+  check('the modal holds the section\'s questions, plus the test box, and no section of that name is on the tab', names === 'email consent contact_name company app_name test | Nostr, Users, Content, Moderation, Team, Payments, Reach', names)
+  const testBox = await api.eval(`(() => { const box = document.getElementById('f-test'); const label = box.closest('label'); return { checked: box.checked, form: box.getAttribute('form'), text: label.textContent.trim(), title: label.title, beside: label.previousElementSibling?.id, row: label.parentElement.className } })()`)
+  check('the test checkbox sits beside Send, on by default, in the form\'s own words', testBox.checked && testBox.form === 'calc-form' && testBox.text === 'test' && testBox.title.startsWith('test submission') && testBox.beside === 'save-submit' && testBox.row === 'modal__send' && testBox.row !== 'modal__actions', JSON.stringify(testBox))
   const first = await api.eval(`({
     whose: document.getElementById('r-whose-text').textContent, link: document.getElementById('r-whose-link').textContent,
     hero: document.querySelector('#chart-custodial-cost-vs-nostr .chart__watermark').textContent, sub: document.querySelector('#chart-custodial-cost-vs-nostr .chart__watermark-sub').textContent,
@@ -72,21 +74,36 @@ await withBrowser(async (api) => {
   check('a fresh page says whose estimate it shows, describes the app section by section, and invites the visitor in', first.whose.startsWith('Estimated for') && first.whose.includes('50,000') && first.whose.includes('the US') && first.whose.endsWith('.') && first.link === 'Customize App Details', `${first.whose} / ${first.link}`)
   const bar = await api.eval(`({ illustrative: document.getElementById('tabbar').classList.contains('is-illustrative'), ring: getComputedStyle(document.getElementById('tab-app')).boxShadow, gold: getComputedStyle(document.getElementById('tab-app')).color !== getComputedStyle(document.getElementById('tab-cost')).color, share: document.getElementById('save-open').className, sticky: getComputedStyle(document.getElementById('tabbar')).position, quiet: parseFloat(getComputedStyle(document.getElementById('tab-assumptions')).fontSize) < parseFloat(getComputedStyle(document.getElementById('tab-cost')).fontSize) })`)
   check('on a fresh page App Details is gold with no ring, Send & Share is outlined, the bar sticks, Assumptions is the quiet tab', bar.illustrative && bar.ring === 'none' && bar.gold && bar.share.includes('btn--secondary') && bar.sticky === 'sticky' && bar.quiet, JSON.stringify(bar))
-  check('the pieces the openers assumed are drawn quiet, the given ones bright, and the link is gold', (await api.eval(`document.querySelectorAll('#r-whose-text .whose__fact--assumed').length + ':' + document.querySelectorAll('#r-whose-text .whose__fact:not(.whose__fact--assumed)').length + ':' + getComputedStyle(document.getElementById('r-whose-link')).color`)) === `5:2:${await api.eval(`getComputedStyle(document.getElementById('tab-app')).color`)}`)
-  check('the five-year saving is the watermark in the chart\'s gap, and the hero card is gone', /^\$\d+(\.\d+)?[kM]$/.test(first.hero) && first.sub === 'savings over five years' && !first.heroCard && first.gold !== '1px', `${first.hero} / ${first.sub} / rail ${first.gold}`)
+  check('the pieces the openers assumed are drawn quiet, the given ones bright (the team size among them), and the link is gold', (await api.eval(`document.querySelectorAll('#r-whose-text .whose__fact--assumed').length + ':' + document.querySelectorAll('#r-whose-text .whose__fact:not(.whose__fact--assumed)').length + ':' + getComputedStyle(document.getElementById('r-whose-link')).color`)) === `4:3:${await api.eval(`getComputedStyle(document.getElementById('tab-app')).color`)}`)
+  check('no headline sentence: the saving a year at scale is the gold watermark in the chart\'s gap, and the hero card is gone', !(await api.eval(`document.getElementById('r-headline')`)) && /^\$\d+(\.\d+)?[kM]$/.test(first.hero) && first.sub === 'savings per year' && !first.heroCard && first.gold !== '1px', `${first.hero} / ${first.sub} / rail ${first.gold}`)
+  const goldMark = await api.eval(`getComputedStyle(document.querySelector('.chart__watermark')).fill === getComputedStyle(document.querySelector('.chart__marker--scale')).fill && getComputedStyle(document.querySelector('.chart__scale-rule')).stroke === getComputedStyle(document.querySelector('.chart__marker--scale')).fill && parseFloat(getComputedStyle(document.querySelector('.chart__watermark')).fontSize) >= 48`)
+  check('the watermark is gold, like the two dots and the rule between them, and larger than before', goldMark)
   check('the one chart has a custody line and a Nostr path, a point per year, from one start', first.lines.length === 2 && first.lines[0] === 'chart__line chart__line--custodial:6' && first.lines[1] === 'chart__line:6' && first.starts[0] === first.starts[1] && !first.cumulative, `${first.lines.join(' ')} ${first.starts.join(' ')}`)
-  check('a marker on every year, and no labels on them: only the watermark', first.markers === 11 && first.labels.length === 2 && first.labels[0] === first.hero && first.labels[1] === first.sub, `${first.markers} | ${first.labels.join(' | ')}`)
+  check('a marker on every year plus the two at scale, and no labels on them: only the watermark', first.markers === 13 && first.labels.length === 2 && first.labels[0] === first.hero && first.labels[1] === first.sub, `${first.markers} | ${first.labels.join(' | ')}`)
+  const scaleDots = await api.eval(`(() => {
+    const dots = [...document.querySelectorAll('#chart-custodial-cost-vs-nostr .chart__marker--scale')]
+    const at = (i) => document.querySelectorAll('#chart-custodial-cost-vs-nostr polyline')[i].getAttribute('points').split(' ')[3].split(',').map(Number)
+    const on = (d, p) => Math.abs(parseFloat(d.getAttribute('cx')) - p[0]) < 0.6 && Math.abs(parseFloat(d.getAttribute('cy')) - p[1]) < 0.6
+    const rule = document.querySelector('#chart-custodial-cost-vs-nostr .chart__scale-rule')
+    const text = document.querySelector('#chart-custodial-cost-vs-nostr .chart__watermark')
+    return { n: dots.length, r: dots.map(d => d.getAttribute('r')).join(','), onCustody: on(dots[0], at(0)), onNostr: on(dots[1], at(1)), fill: getComputedStyle(dots[0]).fill, plain: getComputedStyle(document.querySelector('#chart-custodial-cost-vs-nostr .chart__marker:not(.chart__marker--scale)')).fill, gold: getComputedStyle(document.getElementById('tab-app')).color,
+      rule: rule && rule.getAttribute('x1') === rule.getAttribute('x2') && Math.abs(parseFloat(rule.getAttribute('x1')) - at(0)[0]) < 0.6 && Math.abs(parseFloat(rule.getAttribute('y1')) - at(0)[1]) < 0.6 && Math.abs(parseFloat(rule.getAttribute('y2')) - at(1)[1]) < 0.6,
+      right: text && parseFloat(text.getAttribute('x')) > at(0)[0] && text.getAttribute('text-anchor') === 'start' }
+  })()`)
+  check('at year three a gold dot sits on each line, a gold rule joins them, and the watermark stands to its right', scaleDots.n === 2 && scaleDots.r === '7,7' && scaleDots.onCustody && scaleDots.onNostr && scaleDots.fill !== scaleDots.plain && scaleDots.fill === scaleDots.gold && scaleDots.rule && scaleDots.right, JSON.stringify(scaleDots))
   check('the legend names the two lines in the page\'s words', first.legend.join(' / ') === 'Cost of Custody / Cost of Nostr', first.legend.join(' / '))
   check('the picture carries its small title at the top left, with the legend just under it', (await api.eval(`document.querySelector('#panel-cost .chart > .chart__title').textContent + ':' + document.querySelector('#panel-cost .chart > .chart__title').nextElementSibling.className`)) === 'Projected Nostr Integration:legend legend--chart')
-  check('the chart is described, and the year-by-year table runs the years across and the measures down', first.title.includes('the area between them is') && first.years === 5 && first.yearOne === 'Year 1' && first.measures === 'Active users | Cost of Custody | Cost of Nostr | Saved | Cumulative Savings' && first.cells === 25, `${first.years} ${first.yearOne} | ${first.measures} | ${first.cells}`)
+  check('the chart is described, and the year-by-year table runs the calendar years across and the measures down', first.title.includes('In 2030, when Nostr is at scale') && first.title.includes('over five years') && first.years === 5 && first.yearOne === '2028' && first.measures === 'Active users | Cost of Custody | Cost of Nostr | Saved | Cumulative Savings' && first.cells === 25, `${first.years} ${first.yearOne} | ${first.measures} | ${first.cells} | ${first.title}`)
   check('the chart is drawn at the figure\'s own width', first.width.split(':')[0] === first.width.split(':')[1], first.width)
-  check('the runway runs along the top from the start of integration, named in the gutter', first.top.join(' | ') === 'Start | Year 1 | Year 2 | Year 3 | Year 4 | Year 5 | Runway', first.top.join(' | '))
-  check('projected users run along the bottom, one per year, named in the gutter', first.bottom.length === 7 && first.bottom[0] === '50k' && first.bottom[1] === '62.5k' && /k$/.test(first.bottom[5]) && first.bottom[6] === 'Users', first.bottom.join(' | '))
+  check('the calendar runs along the top from today, 2028 to 2032, with no gutter to name it', first.top.join(' | ') === 'Today | 2028 | 2029 | 2030 | 2031 | 2032', first.top.join(' | '))
+  check('projected users run along the bottom as first and last, the axis named between them; the illustrative app grows at Steady', first.bottom.join(' | ') === '50k | 101k | Active Users', first.bottom.join(' | '))
+  check('the plot runs to the right edge now that the gutter is gone', await api.eval(`(() => { const svg = document.getElementById('chart-custodial-cost-vs-nostr'); const w = svg.viewBox.baseVal.width; const last = [...svg.querySelectorAll('.chart__axis--top text')].pop(); return w - parseFloat(last.getAttribute('x')) < 30 })()`))
   await api.eval(`document.querySelector('#chart-custodial-cost-vs-nostr .chart__hit[data-year="3"]').dispatchEvent(new PointerEvent('pointerenter', { bubbles: false }))`)
   const tip = await api.eval(`({ hidden: document.getElementById('tip-chart-custodial-cost-vs-nostr').hidden, text: document.getElementById('tip-chart-custodial-cost-vs-nostr').textContent, cross: document.querySelector('#chart-custodial-cost-vs-nostr .chart__cross').hasAttribute('hidden'), dots: document.querySelectorAll('#chart-custodial-cost-vs-nostr .chart__dot:not([hidden])').length })`)
-  check('hovering a year shows a three-line tooltip, crosshair and a dot on each line', !tip.hidden && !tip.cross && tip.dots === 2 && tip.text.startsWith('Year 3') && tip.text.includes('Cost of Custody') && tip.text.includes('Cost of Nostr') && tip.text.includes('Cumulative Savings') && !tip.text.includes('users'), tip.text)
+  check('hovering a year shows a four-line tooltip headed by its calendar year, users first, crosshair and a dot on each line', !tip.hidden && !tip.cross && tip.dots === 2 && tip.text.startsWith('2030') && /2030[\d,]+ active users/.test(tip.text) && tip.text.includes('Cost of Custody') && tip.text.includes('Cost of Nostr') && tip.text.includes('Cumulative Savings'), tip.text)
   await api.eval(`document.getElementById('chart-custodial-cost-vs-nostr').dispatchEvent(new PointerEvent('pointerleave'))`)
   check('…and leaving hides it', await api.eval(`document.getElementById('tip-chart-custodial-cost-vs-nostr').hidden`))
+  check('a fresh page loads at the top: nothing scrolls until a tab is pressed', (await api.eval(`window.scrollY`)) === 0, String(await api.eval(`window.scrollY`)))
   await api.eval(`document.getElementById('r-whose-link').click()`)
   check('Customize App Details opens App Info', (await api.eval(`document.getElementById('tab-app').getAttribute('aria-selected')`)) === 'true')
   await api.eval(`window.scrollTo(0, 2000)`)
@@ -103,7 +120,7 @@ await withBrowser(async (api) => {
     const q = document.querySelector('label[for=f-mau]').textContent.replace(/\\s+/g, ' ').trim()
     return title + ' | ' + legends.join(', ') + ' | ' + q
   })()`)) === 'undefined | Nostr, Users, Content, Moderation, Team, Payments, Reach | How many Monthly Active Users (MAU)')
-  check('the questions the page fills are not drawn', await api.eval(`!document.querySelector('[name=link], [name=test], [name=result_custodial], [name=version]')`))
+  check('the questions the page fills are not drawn; the test marker is, as the checkbox beside Send', await api.eval(`!document.querySelector('[name=link], [name=result_custodial], [name=version]') && document.querySelector('#save-modal [name=test]') !== null`))
   check('the required choices start with their defaults', await api.eval(`(() => {
     const on = [...document.querySelectorAll('#calc-form input:checked')].map(i => i.name + '=' + i.value).sort().join(' ')
     return on
@@ -130,7 +147,7 @@ await withBrowser(async (api) => {
   })()`)
   check('each section opens with its opener, whatever order the event lists, and the rest fold under a toggle', openers.first.join(' ') === 'nostr_now mau kind mod_who team rev jur' && openers.folded.every(Boolean) && openers.toggles.every(t => t === 'Add more details'), `${openers.first.join(' ')} | ${openers.folded.join(' ')}`)
   check('the scale questions are sliders, the lists run inline, the cards are numbered', openers.scales.join(' ') === 'nostr_now:3 growth:4 mod_heads:6 team:4' && openers.inline.join(' ') === 'field-kind field-mod_who field-jur' && openers.steps === '1234567' && openers.intro === 'Seven' && openers.title === 'Your App Details:false', `${openers.scales.join(' ')} | ${openers.inline.join(' ')} | ${openers.steps}`)
-  check('a fresh page shows the derived defaults as suggestions on the untouched sliders, openers included', openers.suggested === 'eng_accounts eng_content eng_infra eng_legal growth mb n_algos n_event_storage n_feeds n_keys n_labels n_media_storage n_nips n_p2p n_raw_keys n_signed_events nostr_now posts_per_user team' && Number(openers.hint) < 1, `${openers.suggested} | opacity ${openers.hint}`)
+  check('a fresh page shows the derived defaults as suggestions on the untouched sliders, openers included; the team size and growth are answers, not suggestions', openers.suggested === 'eng_accounts eng_content eng_infra eng_legal mb n_algos n_event_storage n_feeds n_keys n_labels n_media_storage n_nips n_p2p n_raw_keys n_signed_events nostr_now posts_per_user' && Number(openers.hint) < 1 && (await api.eval(`['team', 'growth'].map(n => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.touched + ':' + s.dataset.values.split(',')[s.value] }).join(' ')`)) === '1:ten 1:0.25', `${openers.suggested} | opacity ${openers.hint}`)
   check('the inline choices are pills, the toggle is gold, and Calculate sits right', openers.pills === '11:999px' && openers.toggle === openers.gold && openers.submit === 'space-between', `${openers.pills} | ${openers.toggle} vs ${openers.gold} | ${openers.submit}`)
   await api.eval(`document.querySelector('#calc-form .group__toggle').click()`)
   check('the toggle opens the section\'s details and renames itself', (await api.eval(`document.querySelector('#calc-form .group__more').hidden + ':' + document.querySelector('#calc-form .group__toggle').textContent`)) === 'false:Fewer details')
@@ -162,12 +179,32 @@ await withBrowser(async (api) => {
     const s = document.querySelector('input[name=eng_content]')
     return s.dataset.values.split(',')[s.value] + ':' + s.closest('.slider-row').querySelector('output').textContent
   })()`)) === '5:1 - 10')
-  check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 94)
+  check('every assumption is on the page with an editable typical value', (await api.eval(`document.querySelectorAll('.assume-input').length`)) === 102)
+  const thesis = await api.eval(`(() => { const groups = [...document.querySelectorAll('.assume__group')].map(h => h.textContent); const first = document.querySelector('.assume__group'); return { groups, preamble: first.nextElementSibling.className, rows: first.nextElementSibling.nextElementSibling.querySelectorAll('tr[data-key]').length, thesisRows: document.querySelectorAll('tr.is-thesis').length, inThesis: [...first.nextElementSibling.nextElementSibling.querySelectorAll('tr[data-key]')].map(r => r.dataset.key).includes('scale_months'), intro: document.querySelector('.assume__intro').textContent } })()`)
+  check('the rows that move the band are grouped first under "At scale: Nostr4\'s thesis" with one preamble, and the intro says the band is the thesis', thesis.groups[0] === "At scale: Nostr4's thesis" && thesis.preamble === 'assume__preamble' && thesis.rows === 20 && thesis.thesisRows === 20 && thesis.inThesis && thesis.intro.includes('not about cloud pricing'), JSON.stringify(thesis))
 
   check('number sliders start on their defaults', (await api.eval(`(() => {
     const v = (n) => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.values.split(',')[s.value] + '=' + s.closest('.slider-row').querySelector('output').textContent }
     return [v('mau'), v('posts_per_user'), v('mb'), v('rev'), v('legal_usd')].join(' ')
   })()`)) === '50000=50k 20=20 50=50 MB 0=0 0=0')
+
+  // ── a tab named in the address ───────────────────────────────────────────
+  for (const [anchor, tab] of [['results', 'cost'], ['app', 'app'], ['assumptions', 'assumptions']]) {
+    // A query of its own each time, so each is a fresh load and not a same-page jump.
+    await api.goto(`${BASE}/calculator/?open=${anchor}#${anchor}`)
+    await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+    await sleep(300)
+    const at = await api.eval(`({ selected: document.getElementById('tab-${tab}').getAttribute('aria-selected'), hidden: document.getElementById('panel-${tab}').hidden, top: Math.round(document.getElementById('calc').getBoundingClientRect().top), scrolled: window.scrollY > 100 })`)
+    check(`#${anchor} opens the ${tab} tab and brings the bar to the top of the view`, at.selected === 'true' && !at.hidden && Math.abs(at.top) < 4 && at.scrolled, JSON.stringify(at))
+  }
+  await api.goto(`${BASE}/calculator/?mau=50000&jur=us&team=ten&v=2`)
+  await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+  await sleep(300)
+  check('a results link without an anchor opens on Estimated Cost without scrolling', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected') + ':' + window.scrollY`)) === 'true:0')
+  await api.eval(`location.hash = '#assumptions'`)
+  await sleep(900)
+  const hashed = await api.eval(`document.getElementById('tab-assumptions').getAttribute('aria-selected') + ':' + Math.round(document.getElementById('calc').getBoundingClientRect().top)`)
+  check('changing the anchor on the open page switches the tab too', /^true:-?[0-3]$/.test(hashed), hashed)
 
   // ── a bad value in a link ─────────────────────────────────────────────────
   await api.goto(`${BASE}/calculator/?mau=abc&jur=us`)
@@ -200,7 +237,7 @@ await withBrowser(async (api) => {
     const row = (l) => document.querySelector('.lt-row[data-line="' + l + '"]')
     return {
       hero: $('.chart__watermark').textContent, whose: $('#r-whose-text').textContent, whoseLink: $('#r-whose-link').textContent,
-      permauC: $('#r-permau-c').textContent, permauNC: $('#r-permau-nc').textContent, average: $('#r-average').textContent, averageRange: $('#r-average-range').textContent,
+      permauC: $('#r-permau-c').textContent, permauCRange: $('#r-permau-c-range').textContent, permauNC: $('#r-permau-nc').textContent, permauNCRange: $('#r-permau-nc-range').textContent, scale: $('#r-scale-nostr').textContent, scaleRange: $('#r-scale-nostr-range').textContent, cumulative: $('#r-cumulative').textContent,
       eyebrows: [...document.querySelectorAll('#panel-cost .stat .eyebrow--gold')].map(e => e.textContent),
       yearTwoUsers: $('#r-years tbody tr[data-row=users] td:nth-child(3)').textContent,
       version: $('#r-version').textContent,
@@ -225,19 +262,23 @@ await withBrowser(async (api) => {
       focused: document.activeElement?.id,
     }
   })()`)
-  check('the watermark is the five-year saving, compact', /^\$\d+(\.\d+)?[kM]$/.test(r.hero), r.hero)
-  check('the three facts are per user today, per user on Nostr, and the average year, under gold eyebrows', /^\$\d+\.\d\d$/.test(r.permauC) && /^\$\d+\.\d\d$/.test(r.permauNC) && /^\$[\d.]+[kM]$/.test(r.average) && /^Range \$/.test(r.averageRange) && r.eyebrows.join(' | ') === 'Custodial Cost per User/Year | Nostr Cost per User/Year | Average Savings per Year', `${r.permauC} ${r.permauNC} ${r.average} | ${r.eyebrows.join(' | ')}`)
+  check('the watermark is the saving a year at scale, compact, and the third chip is the Nostr cost that year, a different figure', /^\$\d+(\.\d+)?[kM]$/.test(r.hero) && /^\$\d+(\.\d+)?[kM]$/.test(r.scale) && r.hero !== r.scale, `${r.hero} | ${r.scale}`)
+  check('the three facts are per user at scale (no range: the custodial side does not vary), per user on Nostr with its range in reading order, and the Nostr cost a year at scale with its range, under gold eyebrows', /^\$\d+\.\d\d$/.test(r.permauC) && r.permauCRange === '' && /^\$\d+\.\d\d$/.test(r.permauNC) && /^Range \$(\d+\.\d\d) to \$(\d+\.\d\d)$/.test(r.permauNCRange) && parseFloat(r.permauNCRange.match(/\$([\d.]+) to/)[1]) <= parseFloat(r.permauNCRange.match(/to \$([\d.]+)/)[1]) && /^Range \$/.test(r.scaleRange) && r.eyebrows.join(' | ') === 'Custodial Cost per User | Nostr Cost per User | Nostr Cost per Year', `${r.permauC} [${r.permauCRange}] ${r.permauNC} [${r.permauNCRange}] ${r.scale} [${r.scaleRange}] | ${r.eyebrows.join(' | ')}`)
+  check('the five years of saving sit on the year-by-year summary', /^\$[\d.]+[kM] saved over five years$/.test(r.cumulative), r.cumulative)
+  const col = await api.eval(`(() => { const n = (row, i) => Number(document.querySelector('#r-years tbody tr[data-row=' + row + '] td:nth-child(' + (i + 1) + ')').textContent.replace(/[^\\d]/g, '')); return { users: n('users', 3), custodial: n('custodial', 3), path: n('path', 3) } })()`)
+  check('the two per-user facts are the 2030 column of the table divided by that year\'s users, and the third is its Nostr cost', Math.abs(parseFloat(r.permauC.slice(1)) - col.custodial / col.users) < 0.01 && Math.abs(parseFloat(r.permauNC.slice(1)) - col.path / col.users) < 0.01 && Math.abs(parseFloat(r.scale.replace(/[^\d.]/g, '')) * (r.scale.endsWith('M') ? 1e6 : r.scale.endsWith('k') ? 1e3 : 1) - col.path) / col.path < 0.01, `${r.permauC} vs ${col.custodial}/${col.users} | ${r.permauNC} vs ${col.path}/${col.users} | ${r.scale} vs ${col.path}`)
   check('after Calculate the tab says it is the visitor\'s estimate', r.whose.startsWith('Your estimate') && r.whose.includes('50,000') && r.whose.includes('$20k') && r.whose.includes('the EU') && r.whoseLink === 'Customize App Details', `${r.whose} / ${r.whoseLink}`)
   check('growth compounds in the year-by-year table (50% then decayed)', r.yearTwoUsers === '103,125', r.yearTwoUsers)
-  check('each line shows its average saving in full, its share as a percentage, and no pills', /^\$[\d,]+$/.test(r.accountsSaving) && /^[\d.]+%$/.test(r.accountsPct) && r.badges === 0 && r.toggle === 'Show the Savings', `${r.accountsSaving} | ${r.accountsPct} | ${r.badges} badges | ${r.toggle}`)
+  check('each line shows its saving a year at scale in full, its share as a percentage, and no pills', /^\$[\d,]+$/.test(r.accountsSaving) && /^[\d.]+%$/.test(r.accountsPct) && r.badges === 0 && r.toggle === 'Show the Savings', `${r.accountsSaving} | ${r.accountsPct} | ${r.badges} badges | ${r.toggle}`)
   check('each bar is the share of that line\'s own cost that goes away', r.shares.length === 6 && r.shares.every(x => x >= 0 && x <= 100) && /^\d+(\.\d+)?%$/.test(r.storageCut) && parseFloat(r.storageCut) > 50, `${r.shares.join(' ')} | storage ${r.storageCut}`)
   check('the bottom link is a centred link, the version sits right, and the active tab is a filled segment', r.editLink === 'linkbutton results__edit:center' && r.versionAlign === 'right' && r.tabFill.split('|')[0] !== r.tabFill.split('|')[1], `${r.editLink} | ${r.versionAlign} | ${r.tabFill}`)
   check('once the estimate is the visitor\'s own, the gold ring goes and Send & Share is filled', !r.illustrative && r.share.includes('btn--primary') && !r.share.includes('btn--secondary'), `${r.illustrative} ${r.share}`)
-  check('the six lines add up to the Average Savings fact chip, and there is no foot row', r.footRows === 0 && r.subtitle.trim().length > 0 && Math.abs(r.sum - parseFloat(r.average.replace(/[^\d.]/g, '')) * (r.average.endsWith('M') ? 1e6 : r.average.endsWith('k') ? 1e3 : 1)) / r.sum < 0.01, `${r.sum} vs ${r.average}`)
+  check('the six lines add up to the figure in the chart, and there is no foot row', r.footRows === 0 && r.subtitle.trim().length > 0 && Math.abs(r.sum - parseFloat(r.hero.replace(/[^\d.]/g, '')) * (r.hero.endsWith('M') ? 1e6 : r.hero.endsWith('k') ? 1e3 : 1)) / r.sum < 0.01, `${r.sum} vs ${r.hero}`)
+  check('the Nostr at Scale column names what remains, in the page\'s words', (await api.eval(`document.querySelector('#r-table thead .lt-remains').textContent + ' | ' + document.querySelector('.lt-row[data-line="payments"] .lt-remains').textContent.replace(/\\s+/g, ' ').trim()`)).startsWith('Nostr at Scale | Store rules still apply'))
   check('no nudge where every line with rails already saves', r.nudges === 0, String(r.nudges))
-  check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.includes('growth=0.5') && r.link.endsWith('v=1'), r.link)
+  check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.includes('growth=0.5') && r.link.includes('team=ten') && r.link.endsWith('v=2'), r.link)
   check('sliders standing on "not given" or on a suggestion stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('eng_legal=') && !r.link.includes('kind=') && r.link.includes('mod_who=team') && r.link.includes('mod_heads=3'), r.link)
-  check('the version is named', r.version.includes('1'), r.version)
+  check('the version is named', r.version.includes('2'), r.version)
   check('the results heading took focus', r.focused === 'results-title', r.focused)
   check('Calculate opened the Estimated Cost tab', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected') + ':' + document.getElementById('panel-cost').hidden + ':' + document.getElementById('panel-app').hidden`)) === 'true:false:true')
 
@@ -264,8 +305,19 @@ await withBrowser(async (api) => {
     const saved = Number(document.querySelector('.lt-row[data-line="payments"] .lt-saving').textContent.replace(/[^\\d]/g, ''))
     return { hidden: row.hidden, open: document.querySelector('.lt-row[data-line="payments"]').classList.contains('is-open'), totals: row.querySelector('.parts__totals').textContent.replace(/\\s+/g, ' ').trim(), gap: n('.parts__total-c') - n('.parts__total-nc'), saved, items: [...row.querySelectorAll('.part')].map(p => p.textContent.replace(/\\s+/g, ' ').trim()) }
   })()`)
-  check('the savings open under the line, headed by two averaged totals whose difference is the saving beside them', !parts.hidden && parts.open && parts.items.length === 4 && /^Cost of Custody \$[\d,]+ Cost of Nostr \$[\d,]+$/.test(parts.totals) && Math.abs(parts.gap - parts.saved) <= 1, `${parts.totals} | saved ${parts.saved} | ${parts.items.join(' | ')}`)
+  check('the savings open under the line, headed by two at-scale totals whose difference is the saving beside them', !parts.hidden && parts.open && parts.items.length === 4 && /^Cost of Custody \$[\d,]+ Cost of Nostr \$[\d,]+$/.test(parts.totals) && Math.abs(parts.gap - parts.saved) <= 1, `${parts.totals} | saved ${parts.saved} | ${parts.items.join(' | ')}`)
   check('a store part names its applied rate and tier', parts.items.some(t => /Apple App Store commission.*15%.*small-business tier/.test(t)), parts.items[0])
+  await api.eval(`document.querySelector('.lt-row[data-line="compliance"] .lt-toggle').click()`)
+  const risk = await api.eval(`(() => {
+    const row = document.getElementById('parts-compliance')
+    const items = [...row.querySelectorAll('.parts > li')].map(li => (li.classList.contains('parts__subtotal') ? 'SUB:' + li.querySelector('.parts__subtotal-label').textContent : li.querySelector('.part').dataset.part))
+    const n = (li) => li.querySelector('.part__nums').textContent.split('→').map(x => Number(x.replace(/[^\\d]/g, '')))
+    const subs = [...row.querySelectorAll('.parts__subtotal')].map(n)
+    const parts = [...row.querySelectorAll('.parts > li:not(.parts__subtotal)')].map(n)
+    const cash = parts.slice(0, 4).reduce((a, p) => [a[0] + p[0], a[1] + p[1]], [0, 0])
+    return { items, subs, cash, breach: parts[4], meta: row.querySelector('.part[data-part=breach] .part__meta')?.textContent }
+  })()`)
+  check('the compliance line lists its cash costs with a sub-total, then the expected breach loss as risk exposure with its own', risk.items.join(' ') === 'privacy_programs legal_labour dsar insurance SUB:Cash costs breach SUB:Risk exposure' && Math.abs(risk.subs[0][0] - risk.cash[0]) <= 2 && Math.abs(risk.subs[0][1] - risk.cash[1]) <= 2 && risk.subs[1][0] === risk.breach[0] && risk.subs[1][1] === risk.breach[1] && risk.meta === 'expected loss, not a bill', JSON.stringify(risk))
 
   // ── an assumption edit, then Recalculate ─────────────────────────────────
   const before = await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-saving').textContent`)
@@ -315,12 +367,12 @@ await withBrowser(async (api) => {
     today: document.getElementById('how-today').textContent, nostr: document.getElementById('how-nostr').textContent,
     items: [...document.querySelectorAll('#how-list .how__item')].map(i => i.textContent.replace(/\\s+/g, ' ').trim()),
     adjust: document.getElementById('how-adjust').textContent,
-    averaged: document.getElementById('how-averaged').textContent,
+    scale: document.getElementById('how-scale').textContent,
   })`)
-  check('…and says what the averaged figure in the list is', /^Averaged over the five projected years.*\$[\d,]+ of custody becomes \$[\d,]+ on Nostr/.test(how.averaged), how.averaged)
+  check('…and says what the at-scale figure in the list is', /^At scale \(2030, [\d,]+ users\): \$[\d,]+ of custody becomes \$[\d,]+ on Nostr/.test(how.scale), how.scale)
   if (SHOTS) await snap(api, join(SHOTS, 'how-1440.png'))
-  check('a part opens the how-dialog with the arithmetic filled in', how.open && how.part === 'Identity and age checks' && how.line === 'Accounts & personal data' && /^50,000 users × 25% checked a year × \$1\.50 a check = \$[\d,]+$/.test(how.today) && /^10% of checks remain.*\$[\d,]+$/.test(how.nostr), `${how.today} | ${how.nostr}`)
-  check('…and lists only the assumptions that applied, with value, range and confidence', how.items.length === 5 && how.items.some(i => i.startsWith('Users needing a check per year, UK') && i.includes('25%') && i.includes('10% to 50% · unsourced')) && !how.items.some(i => i.includes('other')), how.items.join(' | '))
+  check('a part opens the how-dialog with the arithmetic filled in: the check share is the regions\' weighted mean', how.open && how.part === 'Identity and age checks' && how.line === 'Accounts & personal data' && /^50,000 users × 5\.[0-9]% checked a year \(each region's share of users at that region's rate\) × \$1\.50 a check = \$[\d,]+$/.test(how.today) && /^10% of checks remain.*\$[\d,]+$/.test(how.nostr), `${how.today} | ${how.nostr}`)
+  check('…and lists only the assumptions that applied, the regions\' weights among them, with value, range and confidence', how.items.length === 8 && how.items.some(i => i.startsWith('Users needing a check per year, UK') && i.includes('25%') && i.includes('10% to 50% · unsourced')) && how.items.some(i => i.startsWith('Weight of the UK')) && !how.items.some(i => i.includes('other')), how.items.join(' | '))
   await api.eval(`document.getElementById('how-adjust').click()`)
   await sleep(200)
   const lit = await api.eval(`({
@@ -329,15 +381,20 @@ await withBrowser(async (api) => {
     strip: document.getElementById('a-filter').hidden + ':' + document.getElementById('a-filter-text').textContent,
     filtered: document.getElementById('calc-assume').classList.contains('is-filtered'),
   })`)
-  check('Adjust Assumptions opens the tab with those rows lit and says why', lit.tab === 'true' && lit.closed && lit.filtered && [...lit.rows].sort().join(',') === 'verify_price,verify_remains_share,verify_share_eu,verify_share_uk,verify_share_us' && lit.strip === 'false:Showing the 5 assumptions behind Identity and age checks.', `${lit.rows.join(',')} | ${lit.strip}`)
+  check('Adjust Assumptions opens the tab with those rows lit and says why', lit.tab === 'true' && lit.closed && lit.filtered && [...lit.rows].sort().join(',') === 'jur_weight_eu,jur_weight_uk,jur_weight_us,verify_price,verify_remains_share,verify_share_eu,verify_share_uk,verify_share_us' && lit.strip === 'false:Showing the 8 assumptions behind Identity and age checks.', `${lit.rows.join(',')} | ${lit.strip}`)
   await api.eval(`document.getElementById('a-filter-clear').click()`)
   check('Show all clears the lights', (await api.eval(`document.querySelectorAll('.assume-table tr.is-focus').length + ':' + document.getElementById('a-filter').hidden + ':' + document.getElementById('calc-assume').classList.contains('is-filtered')`)) === '0:true:false')
   await api.eval(`document.getElementById('tab-cost').click()`)
 
   // Every part of every line explains itself without a blank: two input sets walk every branch.
-  for (const query of ['mau=50000&posts_per_user=20&eng_accounts=5&mod_who=team&mod_heads=15&rails=p2p%2Capple%2Cgoogle%2Cprocessor%2Creseller&rev=50000&balances=yes&jur=eu%2Cuk%2Cus%2Cother&v=1', 'mau=10000000&rails=apple&rev=200000&legal_usd=50000&jur=us&v=1', 'mau=20000&mod_who=vendor&mod_heads=3&team=one&kind=messaging&nostr_now=0.5&jur=eu&v=1']) {
+  for (const query of ['mau=50000&posts_per_user=20&eng_accounts=5&mod_who=team&mod_heads=15&team=ten&rails=p2p%2Capple%2Cgoogle%2Cprocessor%2Creseller&rev=50000&balances=yes&jur=eu%2Cuk%2Cus%2Cother&v=2', 'mau=10000000&rails=apple&rev=200000&legal_usd=50000&jur=us&v=1', 'mau=20000&mod_who=vendor&mod_heads=3&team=one&kind=messaging&nostr_now=0.5&jur=eu&v=2']) {
     await api.goto(`${BASE}/calculator/?${query}`)
     await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+    if (query.endsWith('v=1')) {
+      // A version-1 link had no team question; it opens as the team size it assumed, under the current version, and says so.
+      const older = await api.eval(`({ status: document.getElementById('r-status').textContent, hidden: document.getElementById('calc-results').hidden, team: document.querySelector('input[name=team]').dataset.values.split(',')[document.querySelector('input[name=team]').value], url: location.search })`)
+      check('a results link made with version 1 opens under version 2 and says so', !older.hidden && older.status.startsWith('Opened from a results link made with assumptions version 1; shown with version 2.') && older.team === 'ten' && older.url.endsWith('v=2') && older.url.includes('team=ten'), JSON.stringify(older))
+    }
     const gaps = await api.eval(`(() => {
       const problems = []
       let count = 0
@@ -373,7 +430,7 @@ await withBrowser(async (api) => {
   await api.send('Emulation.clearDeviceMetricsOverride')
 
   // ── a nudge in place of a zero ───────────────────────────────────────────
-  await api.goto(`${BASE}/calculator/?mau=50000&rails=apple%2Cgoogle&rev=10000&jur=us&v=1`)
+  await api.goto(`${BASE}/calculator/?mau=50000&rails=apple%2Cgoogle&rev=10000&jur=us&team=ten&v=2`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
   const nudge = await api.eval(`(() => {
     const row = document.querySelector('.lt-row[data-line="payments"]')
@@ -483,7 +540,8 @@ await withBrowser(async (api) => {
         const stored = await api.eval(`sessionStorage.getItem('nostr4.session-key')`)
         check('the response is signed by the tab\'s disposable key', Boolean(stored) && ev.pubkey === getPublicKey(hexToBytes(stored)), ev.pubkey.slice(0, 12))
         check('the computed figures and the link travel with the inputs', /^\d+$/.test(byLabel['Annual custodial cost (USD, typical)'] || '') && (byLabel['Results link'] || '').includes('mau=10000'), byLabel['Results link'])
-        check('the test marker is blank when the URL had none', !('test' in byLabel))
+        const testField = snapshot.fields.find((f) => f.id === 'XU5x6e')
+        check('the test marker travels as the form\'s own option while the box is on', byLabel[testField.label] === testField.options[0].id, JSON.stringify(byLabel[testField.label]))
         const engLabel = 'How many developer hours per week spent on the following:'
         const nostrLabel = 'Your app uses Nostr for the following:'
         const eng = JSON.parse(byLabel[engLabel] || '{}')
@@ -498,8 +556,9 @@ await withBrowser(async (api) => {
         if (!wraps.length) await sleep(1000)
       }
       check('a lead message was gift-wrapped to the inbox', wraps.length === 1 && getPow(wraps[0].id) >= 18, `${wraps.length} wraps`)
-      // A second save from the same tab comes from the same key and does not re-send the lead.
-      await api.eval(`{ const c = document.getElementById('f-consent'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('save-submit').click() }`)
+      // A second save from the same tab comes from the same key and does not re-send the lead; with the test box cleared it is a real one.
+      if (SHOTS) await snap(api, join(SHOTS, 'modal-1440.png'))
+      await api.eval(`{ const c = document.getElementById('f-consent'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('f-test').checked = false; document.getElementById('save-submit').click() }`)
       await sleep(200)
       await api.eval(`document.getElementById('sign-session').click()`)
       await api.waitFor(`/Sent · /.test(document.getElementById('save-status').textContent) && document.getElementById('save-submit').disabled === false`, { timeout: 60000 })
@@ -507,6 +566,11 @@ await withBrowser(async (api) => {
       const again = await pool.querySync([RELAY], { kinds: [KIND_RESPONSE], '#a': [formAddress(snapshot)] }, { maxWait: 4000 })
       const wrapsAgain = await pool.querySync([RELAY], { kinds: [1059] }, { maxWait: 2000 })
       check('a second save in the same tab comes from the same key', again.length === 2 && new Set(again.map((e) => e.pubkey)).size === 1, `${again.length} responses, ${new Set(again.map((e) => e.pubkey)).size} key(s)`)
+      if (again.length === 2) {
+        const newest = [...again].sort((a, b) => b.created_at - a.created_at)[0]
+        const later = JSON.parse(decrypt(newest.content, getConversationKey(fixture.secret, newest.pubkey)))
+        check('with the test box cleared, the second response carries no test marker', !later.some(([, id, v]) => id === 'XU5x6e' && v), JSON.stringify(later.find(([, id]) => id === 'XU5x6e') || null))
+      }
       check('an unchanged lead is not sent twice', wrapsAgain.length === 1, `${wrapsAgain.length} wraps`)
 
       // ── opening the sent response from its link, in the same tab ──────────

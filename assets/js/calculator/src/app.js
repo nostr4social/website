@@ -28,6 +28,7 @@ import { decodePointer, fetchResponse, openResponse } from './restore.js'
 import { compact } from './format.js'
 import { composeLead, prepareForm, sendLead, submitResponse } from './submit.js'
 import {
+  TAB_ANCHORS,
   activateTab,
   clearFocus,
   closeHow,
@@ -51,7 +52,7 @@ const form = prepareForm(snapshot, map)
 
 let current = null // the last result shown
 let dirty = false // the form or an assumption changed since the last calculation
-let test = null // the hidden test marker, from the URL only
+let test = null // the test marker in the URL, which presets the test checkbox in the modal
 let openedAt = Date.now()
 let sends = [] // timestamps, for the per-tab rate limit
 let lastLead = '' // what hello was last told, so an unchanged lead is not sent twice
@@ -69,14 +70,14 @@ function labelFor(key) {
 
 // ── calculating ──────────────────────────────────────────────────────────────
 
-function run(raw, overrides, { focus = true, show = true } = {}) {
+function run(raw, overrides, { focus = true, show = true, scroll = true } = {}) {
   let result
   try {
     result = calculate(raw, assumptions, overrides)
   } catch (err) {
     if (err instanceof InputError) {
       if (!show) return null // mid-edit on the form: wait for a complete answer
-      activateTab('app')
+      activateTab('app', { scroll }) // (the field named below takes focus, which brings it into view)
       markInvalid($('#calc-form'), err.key)
       setError(err.code, labelFor(err.key))
       return null
@@ -104,7 +105,7 @@ function run(raw, overrides, { focus = true, show = true } = {}) {
   result.link = `${location.origin}${location.pathname}?${query}`
   history.replaceState(null, '', `?${query}${test ? `&test=${encodeURIComponent(test)}` : ''}`)
 
-  if (show) showResults(true, { focus })
+  if (show) showResults(true, { focus, scroll })
   return result
 }
 
@@ -276,7 +277,8 @@ function valuesFor(result, contact) {
     overrides: Object.keys(result.overrides).length ? JSON.stringify(result.overrides) : '',
     version: String(result.version),
     ...contact,
-    test: test || '',
+    // The test checkbox beside Send: a send marked as a test is sent as the form's own option.
+    test: $('#f-test')?.checked ? ['yes'] : [],
   }
 }
 
@@ -391,6 +393,7 @@ async function tell(signer, result, contact, open) {
     result: {
       custodial: compact(result.typical.totals.custodial),
       noncustodial: compact(result.typical.totals.noncustodial),
+      at_scale: compact(result.typical.totals.at_scale),
       five_year: compact(result.typical.totals.five_year),
       floor: compact(result.low.totals.five_year),
     },
@@ -452,7 +455,8 @@ async function restore(pointer, signer) {
   revealDetails(formEl)
   writeOverrides(overrides)
   writeContact(formEl, Object.fromEntries(CONTACT_KEYS.map((k) => [k, v[k]])))
-  if (v.test) test = v.test
+  const box = $('#f-test')
+  if (box) box.checked = Array.isArray(v.test) ? v.test.length > 0 : Boolean(v.test)
   const result = run(inputs, overrides, { focus: false })
   if (result) setStatus(fmt(t('status.opened'), { when: new Date(event.created_at * 1000).toLocaleString(), how: t(`status.opened_${opened.how}`) }))
 }
@@ -548,9 +552,19 @@ async function boot() {
   }
 
   // Estimated Cost is the page's front: a fresh page shows the defaults'
-  // result, a results link shows its own. Neither publishes anything.
+  // result, a results link shows its own. Neither publishes anything, and
+  // neither scrolls: the page loads where the browser put it, unless the
+  // link names a tab (#results, #app, #assumptions), which is opened and
+  // brought to the top of the view as an anchor would be.
+  const anchor = TAB_ANCHORS[location.hash.slice(1)] || null
   const opened = decode(location.search)
   test = opened.test
+  if (test && $('#f-test')) $('#f-test').checked = true
+  // A link made with an earlier version of the assumptions is shown with the
+  // current one, and the page says so. Version 1 had no team question to
+  // answer; its links are read as the team size it assumed.
+  const older = opened.present && opened.version != null && opened.version < assumptions.version ? opened.version : null
+  if (older && older < 2 && opened.inputs.team == null) opened.inputs.team = 'ten'
   const pointer = decodePointer(new URLSearchParams(location.search).get('nevent'))
   if (pointer) {
     // The response's own answers win; a results link in the same address fills first.
@@ -559,18 +573,23 @@ async function boot() {
       revealDetails(formEl)
       writeOverrides(opened.overrides)
     }
-    run(readInputs(formEl), readOverrides(), { focus: false })
+    run(readInputs(formEl), readOverrides(), { focus: false, scroll: false })
   } else if (opened.present) {
     writeInputs(formEl, opened.inputs)
     revealDetails(formEl)
     writeOverrides(opened.overrides)
-    const result = run(opened.inputs, opened.overrides, { focus: false })
-    if (result) setStatus(t('status.shared'))
-    else activateTab('app')
+    const result = run(opened.inputs, opened.overrides, { focus: false, scroll: false })
+    if (result) setStatus(older ? fmt(t('status.older_version'), { from: older, to: assumptions.version }) : t('status.shared'))
+    else activateTab('app', { scroll: false })
   } else {
-    const result = run(readInputs(formEl), readOverrides(), { focus: false })
+    const result = run(readInputs(formEl), readOverrides(), { focus: false, scroll: false })
     if (result) history.replaceState(null, '', location.pathname)
   }
+  if (anchor) activateTab(anchor, { scroll: true, behavior: 'auto' })
+  window.addEventListener('hashchange', () => {
+    const tab = TAB_ANCHORS[location.hash.slice(1)]
+    if (tab) activateTab(tab)
+  })
 
   if (form) {
     const open = $('#save-open')

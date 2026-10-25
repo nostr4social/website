@@ -5,7 +5,7 @@
 
 import { t } from '../../shared/src/config.js'
 import { compact, money, number, percent, perMau } from './format.js'
-import { PART_ASSUMPTIONS, RETENTION_MONTHS, WEEKS_PER_YEAR, derivedAssumptions } from './model.js'
+import { PART_ASSUMPTIONS, RETENTION_MONTHS, WEEKS_PER_YEAR, calendarYear, derivedAssumptions } from './model.js'
 
 /** Fill {a.key}, {i.key}, {p.key} and {d.key} from a flat map; anything unknown stays visible. */
 export function fill(template, vars) {
@@ -62,6 +62,11 @@ export function relevantKeys(line, part, inputs) {
   return keys.filter((key) => {
     const m = key.match(/^verify_share_(\w+)$/)
     if (m) return jur.includes(m[1])
+    // A region's weight matters only when there is more than one region to weigh.
+    const w = key.match(/^jur_weight_(\w+)$/)
+    if (w) return jur.length > 1 && jur.includes(w[1])
+    if (key === 'ca_share_of_us_users') return jur.includes('us')
+    if (key === 'retained_data_share' && part.id === 'dsar') return part.custodial > 0
     if (key === 'gdpr_program_year') return jur.includes('eu') || jur.includes('uk')
     if (key === 'uk_osa_year') return jur.includes('uk')
     if (key === 'dsa_year') return jur.includes('eu')
@@ -85,7 +90,7 @@ export function relevantKeys(line, part, inputs) {
  * The explanation for one part: its words, the two arithmetic lines, and the
  * assumptions in use with their values, ranges and whether one was changed.
  */
-export function explain(line, part, { inputs, values, overrides = {}, data }) {
+export function explain(line, part, { inputs, values, overrides = {}, data, scale = {} }) {
   const v = values
   const vars = {
     ...partVars(part),
@@ -97,6 +102,9 @@ export function explain(line, part, { inputs, values, overrides = {}, data }) {
     'd.weeks': number(WEEKS_PER_YEAR),
     'd.retention': number(RETENTION_MONTHS),
     'd.rev_year': money((inputs.rev || 0) * 12),
+    'd.scale_year': scale.year != null && data.start_year != null ? String(calendarYear(data.start_year, scale.year)) : '',
+    'd.scale_users': scale.users != null ? number(scale.users) : '',
+    'p.users': part.users != null ? number(Math.round(part.users)) : '',
     'd.tier': part.tier ? t(`details.tier_${part.tier}`) : '',
     'd.programs': programsList(part),
   }
@@ -121,8 +129,8 @@ export function explain(line, part, { inputs, values, overrides = {}, data }) {
     label: t(`parts.${part.id}`, part.id),
     today: fill(f.today || '', vars),
     nostr: fill(f.nostr || '', vars),
-    // What the savings list shows: the same part averaged over the five projected years.
-    averaged: part.avg_custodial != null ? fill(t('how.averaged'), { 'p.custodial': money(part.avg_custodial), 'p.noncustodial': money(part.avg_noncustodial) }) : '',
+    // What the savings list shows: the same part in the year the network is at scale, at that year's users.
+    at_scale: part.scale_custodial != null ? fill(t('how.at_scale'), { ...vars, 'p.custodial': money(part.scale_custodial), 'p.noncustodial': money(part.scale_noncustodial) }) : '',
     assumptions,
   }
 }

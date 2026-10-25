@@ -93,11 +93,16 @@ export function writeInputs(form, inputs) {
   }
 }
 
-/** The form's starting values: the required inputs' defaults. */
+/**
+ * The form's starting values: the required inputs' defaults (a required
+ * choice, like the team size, starts answered) and any optional question
+ * with a starting answer of its own (growth starts on Steady).
+ */
 export function writeDefaults(form) {
   const starting = {}
   for (const [key, spec] of Object.entries(INPUTS)) {
-    if (spec.type === 'multi' || ((spec.type === 'number' || spec.type === 'integer') && spec.default != null)) starting[key] = spec.default
+    if (spec.type === 'option' && spec.start != null) starting[key] = spec.start
+    else if (spec.type === 'multi' || (spec.type === 'option' && spec.required) || ((spec.type === 'number' || spec.type === 'integer') && spec.default != null)) starting[key] = spec.default
   }
   writeInputs(form, starting)
   for (const slider of $$('input[type="range"]', form)) announceSlider(slider)

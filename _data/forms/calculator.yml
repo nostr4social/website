@@ -280,9 +280,9 @@ fields:
       - { id: qNOkWO, label: "Community" }
       - { id: 8vnLkw, label: "Marketplace" }
   - id: XU5x6e
-    type: text
-    render: shortText
+    type: option
+    render: checkboxes
     required: false
-    label: "test"
+    label: "test submission. do not record."
     options:
-      - { id: d5fQLL, label: "Add option" }
+      - { id: d5fQLL, label: "test" }

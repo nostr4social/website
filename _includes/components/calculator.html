@@ -2,10 +2,13 @@
 The Cost of Custody Calculator, in three tabs and a modal.
 
   Estimated Cost    the results: whose estimate it is, the cost chart with
-                    the five-year saving written in its gap, three facts, the
-                    year-by-year table, then the six lines as shares of the
-                    average saving, the parts, the doors. The page's front: a fresh
-                    page shows the illustrative app's estimate.
+                    the at-scale year as a gold dot on each line, a gold rule
+                    between them and the saving a year beside it, three facts
+                    (the Nostr cost a year at scale among them), the
+                    year-by-year table with the five-year cumulative on its
+                    summary, then the six lines as savings at scale, the
+                    parts, the doors. The page's front: a fresh page shows
+                    the illustrative app's estimate.
   App Info          the form, rendered from the published form event
                     (_data/forms/calculator.yml) and nothing else: section
                     titles, questions, options, grid rows and columns are
@@ -13,7 +16,8 @@ The Cost of Custody Calculator, in three tabs and a modal.
                     question carries which value; `form.sliders` in the
                     page's file says which numbers are drawn as sliders and
                     over which stops. The questions the page fills itself
-                    (results, link, version, test) are not drawn.
+                    (results, link, version) are not drawn; the test marker
+                    is a small checkbox beside Send in the modal.
   Other Info        every assumption as an editable row, rendered by Jekyll
                     from _data/assumptions/v<N>.json, with Recalculate.
   Save & Share      a button outside the tabs, named by the form's own
@@ -32,7 +36,7 @@ simply stack.
 {%- assign f = s.form -%}
 {%- assign r = s.results -%}
 {%- assign asm = s.assumptions -%}
-{%- assign data = site.data.assumptions.v1 -%}
+{%- assign data = site.data.assumptions.v2 -%}
 {%- assign form = site.data.forms.calculator -%}
 {%- assign map = site.data.forms.map -%}
 {%- assign shared = site.data.assets.shared -%}
@@ -156,9 +160,15 @@ simply stack.
       <noscript><p class="notice notice--inline">{{ asm.noscript }}</p></noscript>
       {%- comment -%} Set by "Adjust Assumptions" in the how-dialog: which rows are lit, and why. {%- endcomment -%}
       <p class="assume__filter" id="a-filter" hidden role="status"><span id="a-filter-text"></span> <button type="button" class="linkbutton" id="a-filter-clear">{{ s.strings.how.show_all }}</button></p>
+      {%- comment -%}
+        The rows that move the band (scenario_varies in the file: Nostr4's
+        thesis) are grouped first under their own heading and preamble,
+        whichever line reads them; the rest follow by line.
+      {%- endcomment -%}
       {%- for group in asm.lines -%}
       {%- assign gid = group[0] -%}
-      <h3 class="assume__group">{{ group[1] }}</h3>
+      <h3 class="assume__group{% if gid == "thesis" %} assume__group--thesis{% endif %}">{{ group[1] }}</h3>
+      {%- if gid == "thesis" %}<p class="assume__preamble">{{ asm.thesis_intro }}</p>{% endif -%}
       <table class="assume-table">
         <thead>
           <tr>
@@ -175,8 +185,9 @@ simply stack.
         {%- for entry in data.assumptions -%}
           {%- assign key = entry[0] -%}
           {%- assign v = entry[1] -%}
-          {%- if v.line == gid -%}
-          <tr data-key="{{ key }}">
+          {%- assign g = v.line -%}{%- if v.scenario_varies -%}{%- assign g = "thesis" -%}{%- endif -%}
+          {%- if g == gid -%}
+          <tr data-key="{{ key }}"{% if v.scenario_varies %} class="is-thesis"{% endif %}>
             <th scope="row" class="assume-what"><label for="a-{{ key }}">{{ v.label }}</label>{% if v.note %}<span class="assume-note">{{ v.note }}</span>{% endif %}</th>
             <td class="assume-num" data-label="{{ asm.columns.typical }}"><input class="field__input field__input--small assume-input" id="a-{{ key }}" type="number" inputmode="decimal" step="any" min="0" value="{{ v.typical }}" data-key="{{ key }}" data-typical="{{ v.typical }}"></td>
             <td class="assume-num" data-label="{{ asm.columns.low }}">{{ v.low }}</td>
@@ -242,14 +253,14 @@ simply stack.
         <span class="stat__range" id="r-permau-nc-range"></span>
       </div>
       <div class="stat stat--saving">
-        <span class="eyebrow eyebrow--gold">{{ r.stats.average.label }}</span>
-        <span class="stat__value" id="r-average"></span>
-        <span class="stat__range" id="r-average-range"></span>
+        <span class="eyebrow eyebrow--gold">{{ r.stats.nostr_at_scale.label }}</span>
+        <span class="stat__value" id="r-scale-nostr"></span>
+        <span class="stat__range" id="r-scale-nostr-range"></span>
       </div>
     </div>
 
     <details class="years">
-      <summary class="years__summary">{{ r.years.summary }}</summary>
+      <summary class="years__summary">{{ r.years.summary }} <span class="years__note" id="r-cumulative"></span></summary>
       <table class="years-table" id="r-years">
         <thead>
           <tr id="r-years-head"><th scope="col">{{ r.years.columns.year }}</th></tr>
@@ -358,7 +369,25 @@ simply stack.
       </div>
 
       <div class="modal__actions">
+        {%- comment -%} Send and the test marker, tucked against it, read as one control. {%- endcomment -%}
+        <span class="modal__send">
         <button type="button" class="btn btn--primary" id="save-submit" disabled>{{ s.modal.save }}</button>
+        {%- comment -%}
+          The test marker, as the form's own checkbox question beside the
+          button: on by default for now, so a send is recorded as a test
+          unless the box is cleared. Its words are the form's.
+        {%- endcomment -%}
+        {%- assign test_field = nil -%}
+        {%- for q in form.fields -%}{%- if q.id == map.fields.test.id -%}{%- assign test_field = q -%}{%- endif -%}{%- endfor -%}
+        {%- if test_field -%}
+        {%- for opt in test_field.options -%}{%- if opt.id == map.fields.test.options.yes -%}
+        <label class="choice choice--test" title="{{ test_field.label }}">
+          <input type="checkbox" name="test" value="yes" id="f-test" form="calc-form" checked>
+          <span class="choice__label">{{ opt.label }}</span>
+        </label>
+        {%- endif -%}{%- endfor -%}
+        {%- endif -%}
+        </span>
         <button type="button" class="linkbutton modal__copy" id="save-copy">{% include lib/icon.html name="copy" class="modal__copy-icon modal__copy-icon--idle" %}{% include lib/icon.html name="check" class="modal__copy-icon modal__copy-icon--done" %}<span>{{ s.modal.copy }}</span></button>
       </div>
       <p class="modal__needed" id="save-needed" role="status"></p>
@@ -382,7 +411,7 @@ simply stack.
       <dt>{{ s.strings.details.on_nostr }}</dt>
       <dd id="how-nostr"></dd>
     </dl>
-    <p class="how__averaged" id="how-averaged"></p>
+    <p class="how__averaged" id="how-scale"></p>
     <h3 class="how__sub">{{ s.strings.how.rests_on }}</h3>
     <ul class="how__list" id="how-list"></ul>
     <div class="modal__actions">

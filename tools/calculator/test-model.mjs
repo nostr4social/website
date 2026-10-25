@@ -8,8 +8,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const data = JSON.parse(await readFile(resolve(root, '_data/assumptions/v1.json'), 'utf8'))
-const { calculate, evaluate, resolveAssumptions, project, rampShare, nudge, deriveInputs, applyKind, LINE_FUNCTIONS, PART_ASSUMPTIONS, LINES, SCENARIOS, YEARS, MARKER_YEAR, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
+const data = JSON.parse(await readFile(resolve(root, '_data/assumptions/v2.json'), 'utf8'))
+const { calculate, evaluate, resolveAssumptions, varyingKeys, jurShares, ccpaApplies, calendarYear, project, rampShare, nudge, deriveInputs, applyKind, LINE_FUNCTIONS, PART_ASSUMPTIONS, LINES, SCENARIOS, JURISDICTIONS, YEARS, MARKER_YEAR, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
 const { encode, decode } = await import(resolve(root, 'assets/js/calculator/src/codec.js'))
 const { INPUTS, InputError } = await import(resolve(root, 'assets/js/calculator/src/inputs.js'))
 const { compact, compactNumber } = await import(resolve(root, 'assets/js/calculator/src/format.js'))
@@ -25,7 +25,8 @@ const test = async (name, fn) => {
   }
 }
 
-const base = { mau: 50000, posts_per_user: 20, eng_accounts: '5', eng_content: '25', eng_infra: '25', mod_who: 'team', mod_heads: '3', rails: ['apple', 'google', 'processor'], rev: 20000, jur: ['eu', 'uk', 'us'] }
+const base = { mau: 50000, posts_per_user: 20, team: 'ten', eng_accounts: '5', eng_content: '25', eng_infra: '25', mod_who: 'team', mod_heads: '3', rails: ['apple', 'google', 'processor'], rev: 20000, jur: ['eu', 'uk', 'us'] }
+const min = (extra = {}) => ({ mau: 50000, jur: ['us'], team: 'ten', ...extra })
 const finite = (r) => {
   for (const s of SCENARIOS) {
     for (const l of LINES) {
@@ -46,15 +47,44 @@ await test('every assumption the model reads exists in the file, and every one i
 
 await test('the baseline evaluates to finite, non-negative numbers', () => finite(calculate(base, data)))
 
-await test('low ≤ typical ≤ high on every line and total', () => {
+await test('low is the smaller saving: the custodial column is the same in every scenario, the Nostr column falls from low to high', () => {
   const r = calculate(base, data)
   for (const l of LINES) {
-    assert.ok(r.low.lines[l].custodial <= r.typical.lines[l].custodial + 1e-6, `${l} custodial low ≤ typical`)
-    assert.ok(r.typical.lines[l].custodial <= r.high.lines[l].custodial + 1e-6, `${l} custodial typical ≤ high`)
-    assert.ok(r.low.lines[l].noncustodial <= r.typical.lines[l].noncustodial + 1e-6, `${l} non-custodial low ≤ typical`)
-    assert.ok(r.typical.lines[l].noncustodial <= r.high.lines[l].noncustodial + 1e-6, `${l} non-custodial typical ≤ high`)
+    assert.ok(Math.abs(r.low.lines[l].custodial - r.typical.lines[l].custodial) < 1e-6, `${l} custodial low = typical`)
+    assert.ok(Math.abs(r.high.lines[l].custodial - r.typical.lines[l].custodial) < 1e-6, `${l} custodial high = typical`)
+    assert.ok(r.low.lines[l].noncustodial >= r.typical.lines[l].noncustodial - 1e-6, `${l} non-custodial low ≥ typical`)
+    assert.ok(r.typical.lines[l].noncustodial >= r.high.lines[l].noncustodial - 1e-6, `${l} non-custodial typical ≥ high`)
+    assert.ok(r.low.lines[l].at_scale <= r.typical.lines[l].at_scale + 1e-6 && r.typical.lines[l].at_scale <= r.high.lines[l].at_scale + 1e-6, `${l} saving low ≤ typical ≤ high`)
   }
-  assert.ok(r.low.totals.custodial <= r.typical.totals.custodial && r.typical.totals.custodial <= r.high.totals.custodial)
+  assert.ok(Math.abs(r.low.totals.custodial - r.typical.totals.custodial) < 1e-6 && Math.abs(r.high.totals.custodial - r.typical.totals.custodial) < 1e-6)
+  assert.ok(r.low.totals.saving <= r.typical.totals.saving && r.typical.totals.saving <= r.high.totals.saving)
+  assert.ok(r.low.totals.at_scale <= r.typical.totals.at_scale && r.typical.totals.at_scale <= r.high.totals.at_scale)
+})
+
+await test('only the thesis varies across scenarios: no custodial-side assumption moves, and every varying one is at-scale or Nostr-native', () => {
+  const vary = varyingKeys(data)
+  assert.ok(vary.length >= 15, `${vary.length} varying keys`)
+  const thesis = /^(scale_months|.*_remains_share|media_sponsor_share|retained_data_share|.*_per_mau_year|relay_floor_year|lightning_rate)$/
+  for (const key of vary) assert.ok(thesis.test(key), `${key} varies but is not a thesis key`)
+  // The custodial side's own rates never vary, whatever the file says in its low and high columns.
+  for (const key of ['eng_base_salary', 'egress_gb', 'blob_gb_month', 'dsar_cost', 'dsar_rate_per_mau_year', 'breach_prob_year', 'verify_share_us', 'gdpr_program_year', 'apple_rate_standard', 'growth_default', 'growth_decay', 'compute_per_mau_year', 'auth_per_mau_month']) {
+    assert.ok(!vary.includes(key), `${key} must not vary`)
+  }
+  const resolved = Object.fromEntries(SCENARIOS.map((s) => [s, resolveAssumptions(data, s)]))
+  for (const key of Object.keys(data.assumptions)) {
+    if (vary.includes(key)) continue
+    assert.equal(resolved.low[key], resolved.typical[key], `${key} low`)
+    assert.equal(resolved.high[key], resolved.typical[key], `${key} high`)
+  }
+  for (const key of vary) {
+    assert.equal(resolved.low[key], data.assumptions[key].low, `${key} low`)
+    assert.equal(resolved.high[key], data.assumptions[key].high, `${key} high`)
+  }
+  // Every varying key's low is the smaller saving: a larger remains share, a larger fee, a slower ramp.
+  for (const key of vary) {
+    const a = data.assumptions[key]
+    assert.ok(a.low >= a.typical && a.typical >= a.high, `${key}: low ${a.low} ≥ typical ${a.typical} ≥ high ${a.high}`)
+  }
 })
 
 await test('the non-custodial column is never zero where an obligation remains', () => {
@@ -148,46 +178,49 @@ await test('nobody reviewing content yields an implied, non-zero moderation cost
   assert.ok(team.custodial > few.custodial)
 })
 
-await test('the openers set the defaults; what was derived is listed and stays out of the inputs', () => {
+await test('the openers set the defaults; what was derived is listed and stays out of the inputs; the team size is never assumed', () => {
   const v = resolveAssumptions(data, 'typical')
-  const minimal = normalizeInputs({ mau: 50000, jur: ['us'] })
+  assert.throws(() => normalizeInputs({ mau: 50000, jur: ['us'] }), (e) => e instanceof InputError && e.key === 'team' && e.code === 'required', 'the team is a required opener')
+  const minimal = normalizeInputs(min())
   const eff = deriveInputs(minimal, v)
   assert.equal(eff.posts_per_user, v.posts_default)
   assert.equal(eff.mb, v.mb_default)
-  assert.ok(Math.abs(eff.eng_content - v.default_hours_content * v.team_factor_ten) < 1e-9, 'a blank team is a team of up to ten')
+  assert.ok(Math.abs(eff.eng_content - v.default_hours_content * v.team_factor_ten) < 1e-9, 'the default hours follow the team size given')
   assert.equal(eff.team, 'ten')
   assert.equal(eff.nostr_now, '0')
   assert.equal(eff.growth, String(v.growth_default))
+  assert.equal(v.growth_default, 0, 'an app that does not say is held flat')
   const derivedKeys = Object.keys(eff.derived).sort()
-  assert.deepEqual(derivedKeys.filter((k) => !/^n_/.test(k)), ['eng_accounts', 'eng_content', 'eng_infra', 'eng_legal', 'growth', 'mb', 'nostr_now', 'posts_per_user', 'team'])
+  assert.deepEqual(derivedKeys.filter((k) => !/^n_/.test(k)), ['eng_accounts', 'eng_content', 'eng_infra', 'eng_legal', 'growth', 'mb', 'nostr_now', 'posts_per_user'])
+  assert.equal(eff.derived.eng_content, 'team')
   assert.equal(derivedKeys.filter((k) => /^n_/.test(k)).length, 10, 'the whole grid follows the blank opener')
   assert.equal(minimal.posts_per_user, null, 'the clean inputs still say nothing')
-  assert.equal(minimal.team, null)
+  assert.equal(minimal.team, 'ten')
 
-  const kind = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], kind: 'messaging' }), v)
+  const kind = deriveInputs(normalizeInputs(min({ kind: 'messaging' })), v)
   assert.equal(kind.posts_per_user, v.kind_messaging_posts)
   assert.equal(kind.mb, v.kind_messaging_mb)
   assert.equal(kind.derived.posts_per_user, 'kind')
 
-  const team = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], team: 'fifty', eng_infra: '60' }), v)
+  const team = deriveInputs(normalizeInputs(min({ team: 'fifty', eng_infra: '60' })), v)
   assert.ok(Math.abs(team.eng_content - v.default_hours_content * v.team_factor_fifty) < 1e-9)
   assert.equal(team.eng_infra, '60', 'a given band is kept')
   assert.equal(team.derived.eng_content, 'team')
   assert.equal(team.derived.eng_infra, undefined)
 
-  const heads = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], mod_who: 'vendor' }), v)
+  const heads = deriveInputs(normalizeInputs(min({ mod_who: 'vendor' })), v)
   assert.equal(heads.mod_heads, v.mod_heads_default)
-  const nobody = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], mod_who: 'nobody' }), v)
+  const nobody = deriveInputs(normalizeInputs(min({ mod_who: 'nobody' })), v)
   assert.equal(nobody.mod_heads, null)
 
-  const rails = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], rev: 5000, distribution: ['apple', 'web'] }), v)
+  const rails = deriveInputs(normalizeInputs(min({ rev: 5000, distribution: ['apple', 'web'] })), v)
   assert.deepEqual(rails.rails, ['apple', 'processor'])
-  const everywhere = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], rev: 5000 }), v)
+  const everywhere = deriveInputs(normalizeInputs(min({ rev: 5000 })), v)
   assert.deepEqual(everywhere.rails, ['apple', 'google', 'processor'])
-  const none = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], rev: 0 }), v)
+  const none = deriveInputs(normalizeInputs(min({ rev: 0 })), v)
   assert.deepEqual(none.rails, [])
 
-  const nostr = deriveInputs(normalizeInputs({ mau: 50000, jur: ['us'], nostr_now: '1', n_feeds: '0.5' }), v)
+  const nostr = deriveInputs(normalizeInputs(min({ nostr_now: '1', n_feeds: '0.5' })), v)
   assert.equal(nostr.n_keys, '1')
   assert.equal(nostr.n_raw_keys, '0', 'a Nostr app is assumed not to handle raw keys')
   assert.equal(nostr.n_feeds, '0.5', 'a given row is kept')
@@ -195,9 +228,9 @@ await test('the openers set the defaults; what was derived is listed and stays o
   assert.equal(nostr.derived.nostr_now, undefined, 'the opener was answered')
 
   // The result echoes the clean inputs; only what was said travels in a link.
-  const r = calculate({ mau: 50000, jur: ['us'], team: 'one', kind: 'feed' }, data)
-  const q = encode(r.inputs, {}, 1)
-  assert.ok(q.includes('team=one') && q.includes('kind=feed') && !q.includes('eng_') && !q.includes('posts_per_user='), q)
+  const r = calculate(min({ team: 'one', kind: 'feed' }), data)
+  const q = encode(r.inputs, {}, data.version)
+  assert.ok(q.includes('team=one') && q.includes('kind=feed') && !q.includes('eng_') && !q.includes('posts_per_user=') && q.endsWith('v=2'), q)
   assert.equal(r.typical.effective.derived.eng_accounts, 'team')
   assert.ok(r.typical.totals.custodial > 0)
 })
@@ -219,10 +252,58 @@ await test('reported legal spend replaces the program estimates and keeps the co
   assert.ok(rep.noncustodial > 0 && rep.noncustodial <= rep.custodial)
 })
 
-await test('the strictest selected jurisdiction sets the verification share', () => {
+await test('the regions chosen are weighted by their users; the verification share is the weighted mean, not the strictest', () => {
   const v = resolveAssumptions(data, 'typical')
+  const one = jurShares(normalizeInputs(min()), v)
+  assert.deepEqual(one, { eu: 0, uk: 0, us: 1, other: 0 })
+  const two = jurShares(normalizeInputs(min({ jur: ['uk', 'us'] })), v)
+  assert.ok(Math.abs(two.uk - v.jur_weight_uk / (v.jur_weight_uk + v.jur_weight_us)) < 1e-9)
+  assert.ok(Math.abs(two.uk + two.us - 1) < 1e-9 && two.eu === 0 && two.other === 0)
+  const all = jurShares(normalizeInputs(min({ jur: JURISDICTIONS })), v)
+  assert.ok(Math.abs(JURISDICTIONS.reduce((a, j) => a + all[j], 0) - 1) < 1e-9)
   const uk = calculate({ ...base, jur: ['uk', 'us'] }, data).typical.lines.accounts.parts.find((p) => p.id === 'verify')
-  assert.equal(uk.rate, Math.max(v.verify_share_uk, v.verify_share_us))
+  const expected = two.uk * v.verify_share_uk + two.us * v.verify_share_us
+  assert.ok(Math.abs(uk.rate - expected) < 1e-9, `${uk.rate} vs ${expected}`)
+  assert.ok(uk.rate < Math.max(v.verify_share_uk, v.verify_share_us) && uk.rate > Math.min(v.verify_share_uk, v.verify_share_us))
+  // Adding a region with a lower rate lowers the share; the old max() could never do that.
+  const more = calculate({ ...base, jur: ['uk', 'us', 'other'] }, data).typical.lines.accounts.parts.find((p) => p.id === 'verify')
+  assert.ok(more.rate < uk.rate)
+  // Weights are not scenarios: the same in low and high.
+  for (const s of SCENARIOS) assert.deepEqual(jurShares(normalizeInputs(min({ jur: ['uk', 'us'] })), resolveAssumptions(data, s)), two)
+})
+
+await test('the CCPA threshold counts California consumers: US users times the Californian share, not total MAU', () => {
+  const v = resolveAssumptions(data, 'typical')
+  const at = Math.ceil(v.ccpa_consumer_threshold / v.ca_share_of_us_users)
+  assert.ok(at > 800000 && at < 900000, `a US-only app crosses at about ${at} users`)
+  const below = calculate(min({ mau: at - 1 }), data).typical.lines.compliance.parts.find((p) => p.id === 'privacy_programs')
+  const above = calculate(min({ mau: at }), data).typical.lines.compliance.parts.find((p) => p.id === 'privacy_programs')
+  assert.equal(below.us_tier, 'small')
+  assert.equal(above.us_tier, 'large')
+  assert.equal(below.usp, v.us_privacy_year_small)
+  assert.equal(above.usp, v.us_privacy_year_large)
+  assert.equal(calculate(min({ mau: 100000 }), data).typical.lines.compliance.parts.find((p) => p.id === 'privacy_programs').us_tier, 'small', '100k total users is not 100k Californians')
+  // With the EU and the UK in the mix the US share of users is smaller, so the threshold sits higher.
+  assert.equal(ccpaApplies(normalizeInputs(min({ mau: at })), v), true)
+  assert.equal(ccpaApplies(normalizeInputs(min({ mau: at, jur: ['eu', 'us'] })), v), false)
+  assert.equal(ccpaApplies(normalizeInputs(min({ mau: 10000000, jur: ['eu'] })), v), false, 'no US users, no CCPA')
+})
+
+await test('access requests come from EU and UK users always, from US users only once the CCPA applies, and fall with the data retained', () => {
+  const v = resolveAssumptions(data, 'typical')
+  const dsar = (inputs) => calculate(inputs, data).typical.lines.compliance.parts.find((p) => p.id === 'dsar')
+  const usSmall = dsar(min({ mau: 50000 }))
+  assert.equal(usSmall.custodial, 0, 'a US-only app below the threshold serves no requests')
+  assert.equal(usSmall.noncustodial, 0)
+  const usLarge = dsar(min({ mau: 1000000 }))
+  assert.ok(Math.abs(usLarge.custodial - 1000000 * v.dsar_rate_per_mau_year * v.dsar_cost) < 1e-6)
+  assert.ok(Math.abs(usLarge.noncustodial - usLarge.custodial * v.retained_data_share) < 1e-6, 'at scale the requests fall with the data retained, not to zero')
+  const eu = dsar(min({ mau: 50000, jur: ['eu'] }))
+  assert.ok(Math.abs(eu.custodial - 50000 * v.dsar_rate_per_mau_year * v.dsar_cost) < 1e-6, 'every EU user is under the GDPR')
+  const mixed = dsar(min({ mau: 50000, jur: ['eu', 'us'] }))
+  const shares = jurShares(normalizeInputs(min({ mau: 50000, jur: ['eu', 'us'] })), v)
+  assert.ok(Math.abs(mixed.users - 50000 * shares.eu) < 1e-6, 'only the EU share counts while the US is below the threshold')
+  assert.equal(dsar(min({ mau: 50000, jur: ['other'] })).custodial, 0)
 })
 
 await test('an override applies to every scenario and an unknown or negative one is ignored', () => {
@@ -241,12 +322,18 @@ await test('the results link round-trips inputs and overrides', () => {
   const again = calculate(back.inputs, data, back.overrides)
   assert.deepEqual(again.inputs, r.inputs)
   assert.deepEqual(again.overrides, r.overrides)
-  assert.equal(back.version, 1)
+  assert.equal(back.version, 2)
   assert.equal(back.test, '1')
   assert.equal(back.present, true)
   assert.equal(decode('?test=1').present, false)
-  const zeros = encode(calculate({ ...base, n_keys: '0', eng_legal: '0' }, data).inputs, {}, 1)
+  const zeros = encode(calculate({ ...base, n_keys: '0', eng_legal: '0' }, data).inputs, {}, data.version)
   assert.ok(!zeros.includes('n_keys=') && zeros.includes('eng_legal=0'), zeros)
+  // A version-1 link: its overrides for keys that no longer exist are dropped, and it runs under the current file.
+  const old = decode('?mau=50000&jur=us&team=ten&a.migration_months=6&a.relay_cost_year=100&a.blob_gb_month=0.5&v=1')
+  assert.equal(old.version, 1)
+  const under = calculate(old.inputs, data, old.overrides)
+  assert.deepEqual(Object.keys(under.overrides), ['blob_gb_month'])
+  assert.equal(under.version, 2)
 })
 
 await test('validation names the first bad input', () => {
@@ -256,7 +343,8 @@ await test('validation names the first bad input', () => {
   assert.throws(() => normalizeInputs({ ...base, mau: '' }), (e) => e.key === 'mau' && e.code === 'required')
   assert.throws(() => normalizeInputs({ ...base, rails: 'apple,steam' }), (e) => e.key === 'rails' && e.code === 'invalid')
   assert.throws(() => normalizeInputs({ ...base, eng_accounts: '7' }), (e) => e.key === 'eng_accounts' && e.code === 'invalid')
-  const ok = normalizeInputs({ mau: '1,000', posts_per_user: '', jur: 'us,eu' })
+  assert.throws(() => normalizeInputs({ ...base, team: '' }), (e) => e.key === 'team' && e.code === 'required')
+  const ok = normalizeInputs({ mau: '1,000', posts_per_user: '', jur: 'us,eu', team: 'ten' })
   assert.equal(ok.mau, 1000)
   assert.equal(ok.posts_per_user, null, 'blank until the model derives it')
   assert.equal(ok.eng_accounts, null)
@@ -286,7 +374,7 @@ const typicalV = (over = {}) => ({ ...resolveAssumptions(data, 'typical'), ...ov
 
 await test('with no growth and no ramp, the saving cumulates in a straight line', () => {
   const inputs = normalizeInputs({ ...base, growth: '0' })
-  const v = typicalV({ migration_months: 0 })
+  const v = typicalV({ scale_months: 0 })
   const p = project(inputs, v)
   const annual = evaluate(inputs, v).totals.saving
   assert.equal(p.length, YEARS + 1)
@@ -296,14 +384,59 @@ await test('with no growth and no ramp, the saving cumulates in a straight line'
   }
 })
 
-await test('the ramp is front-loaded: a twelve-month one realises two thirds of the first year and all of the second', () => {
+await test('the ramp is front-loaded: over thirty-six months it realises about 30%, 74% and 96% of the three years, and all of the fourth', () => {
+  assert.ok(Math.abs(rampShare(1, 36) - 0.296) < 0.01, String(rampShare(1, 36)))
+  assert.ok(Math.abs(rampShare(2, 36) - 0.741) < 0.01, String(rampShare(2, 36)))
+  assert.ok(Math.abs(rampShare(3, 36) - 0.963) < 0.01, String(rampShare(3, 36)))
+  assert.equal(rampShare(4, 36), 1)
+  assert.ok(rampShare(1, 48) < rampShare(1, 36) && rampShare(1, 24) > rampShare(1, 36), 'slower is the smaller saving')
+  assert.ok(rampShare(1, 36) > 1 / 6, 'more than a linear ramp would')
   assert.ok(Math.abs(rampShare(1, 12) - 2 / 3) < 0.01, String(rampShare(1, 12)))
   assert.equal(rampShare(2, 12), 1)
-  assert.ok(Math.abs(rampShare(1, 24) - 0.4167) < 0.01, String(rampShare(1, 24)))
-  assert.ok(Math.abs(rampShare(2, 24) - 0.9167) < 0.01, String(rampShare(2, 24)))
-  assert.ok(rampShare(1, 24) > 0.25, 'more than a linear ramp would')
   assert.equal(rampShare(1, 0), 1)
   assert.equal(rampShare(3, 6), 1)
+  assert.equal(data.assumptions.scale_months.typical, 36, "Nostr4's estimate: three years to Nostr at scale")
+  assert.ok(data.assumptions.scale_months.low > 36 && data.assumptions.scale_months.high < 36, 'slower is the smaller saving')
+})
+
+await test('the calendar: year 0 is the start, the first yearly mark is 2028 and Nostr is at scale in 2030', () => {
+  const r = calculate(base, data)
+  assert.equal(r.start_year, 2027)
+  assert.deepEqual([1, 2, 3, 4, 5].map((y) => calendarYear(r.start_year, y)), [2028, 2029, 2030, 2031, 2032])
+  assert.equal(MARKER_YEAR, 3)
+  assert.equal(calendarYear(r.start_year, MARKER_YEAR), 2030)
+  assert.equal(r.typical.projection[MARKER_YEAR].year, MARKER_YEAR)
+})
+
+await test('"at scale" is the marker year\'s column: the saving between the two costs that year, and the lines and their parts add up to it', () => {
+  const r = calculate({ ...base, growth: '0.25' }, data)
+  for (const s of SCENARIOS) {
+    const T = r[s].totals
+    const at = r[s].projection[MARKER_YEAR]
+    assert.equal(T.at_scale, at.realised)
+    assert.equal(T.scale_custodial, at.custodial)
+    assert.equal(T.scale_nostr, at.path)
+    assert.equal(T.scale_users, at.users)
+    assert.ok(Math.abs(T.at_scale - (T.scale_custodial - T.scale_nostr)) < 1e-6, 'the figure is the gap between the two dots')
+    assert.ok(Math.abs(T.scale_per_mau_custodial - at.custodial / at.users) < 1e-9 && Math.abs(T.scale_per_mau_nostr - at.path / at.users) < 1e-9, 'per user that year, at that year\'s users')
+    const sum = LINES.reduce((acc, l) => acc + r[s].lines[l].at_scale, 0)
+    assert.ok(Math.abs(sum - T.at_scale) < 1e-6, `${s}: ${sum} vs ${T.at_scale}`)
+    for (const l of LINES) {
+      const line = r[s].lines[l]
+      assert.ok(line.at_scale >= -1e-6, `${l} never negative`)
+      const parts = line.parts.reduce((acc, p) => acc + p.scale_custodial - p.scale_noncustodial, 0)
+      assert.ok(Math.abs(parts - line.at_scale) < 1e-6, `${s}.${l}: parts ${parts} vs ${line.at_scale}`)
+      assert.ok(Math.abs(line.scale_custodial - line.scale_noncustodial - line.at_scale) < 1e-6)
+    }
+  }
+  // With growth, the at-scale figure is the saving at year three's users, not today's.
+  assert.ok(r.typical.totals.at_scale > r.typical.totals.saving)
+  // Flat, it is that year's share of the ramp (almost all of it) times today's saving.
+  const flat = calculate({ ...base, growth: '0' }, data).typical.totals
+  assert.ok(Math.abs(flat.at_scale - rampShare(MARKER_YEAR, data.assumptions.scale_months.typical) * flat.saving) < 1e-6)
+  assert.ok(flat.at_scale > 0.95 * flat.saving && flat.at_scale < flat.saving)
+  assert.ok(r.low.totals.at_scale <= r.typical.totals.at_scale && r.typical.totals.at_scale <= r.high.totals.at_scale)
+  assert.ok(r.low.totals.scale_nostr >= r.typical.totals.scale_nostr && r.typical.totals.scale_nostr >= r.high.totals.scale_nostr, 'the Nostr cost at scale is largest in the low case')
 })
 
 await test('growth compounds and decays; users are whole', () => {
@@ -315,11 +448,14 @@ await test('growth compounds and decays; users are whole', () => {
   for (const q of p) assert.ok(Number.isInteger(q.users))
 })
 
-await test('a flat app saves the same each year after the ramp, so its curve bends only at the start', () => {
+await test('a flat app saves the same each year once the network is at scale, so its curve bends only at the start', () => {
   const inputs = normalizeInputs({ ...base, growth: '0' })
-  const p = project(inputs, typicalV({ migration_months: 12 }))
+  const p = project(inputs, typicalV({ scale_months: 12 }))
   assert.ok(p[1].realised < p[2].realised - 1)
   for (let y = 3; y <= YEARS; y++) assert.ok(Math.abs(p[y].realised - p[2].realised) < 1e-6)
+  const slow = project(inputs, typicalV())
+  assert.ok(slow[1].realised < slow[2].realised && slow[2].realised < slow[3].realised && slow[3].realised < slow[4].realised - 1)
+  assert.ok(Math.abs(slow[5].realised - slow[4].realised) < 1e-6, 'at scale from the fourth year on')
 })
 
 await test('fixed program fees do not scale with users; per-user costs do', () => {
@@ -363,27 +499,27 @@ await test('the Nostr path starts at today\'s cost and the gaps add up to the cu
   const r = calculate({ ...base, growth: '0.25' }, data).typical
   const p = r.projection
   assert.equal(p[0].path, p[0].custodial)
-  assert.ok(p[1].path < p[0].path, 'the path falls during migration')
-  assert.ok(p[2].path <= p[2].noncustodial + 1e-6 && p[2].path >= p[2].noncustodial - 1e-6, 'once migrated, the path is the non-custodial cost')
+  assert.ok(p[1].path < p[0].path, 'the path falls as the network scales')
+  assert.ok(p[4].path <= p[4].noncustodial + 1e-6 && p[4].path >= p[4].noncustodial - 1e-6, 'once at scale, the path is the non-custodial cost')
+  assert.ok(p[3].path > p[3].noncustodial && p[3].path - p[3].noncustodial < 0.05 * p[3].saving, 'the marker year is within a few percent of it')
   let gaps = 0
   for (const q of p) gaps += q.custodial - q.path
   assert.ok(Math.abs(gaps - r.totals.five_year) < 1e-6)
 })
 
-await test('the lines\' average savings add up to the average saving, in every scenario', () => {
+await test('the lines\' five-year savings add up to the five-year total, in every scenario', () => {
   const r = calculate({ ...base, growth: '0.25' }, data)
   for (const s of SCENARIOS) {
-    const sum = LINES.reduce((acc, l) => acc + r[s].lines[l].average, 0)
-    assert.ok(Math.abs(sum - r[s].totals.average) < 1e-6, `${s}: ${sum} vs ${r[s].totals.average}`)
-    assert.ok(Math.abs(r[s].totals.average - r[s].totals.five_year / YEARS) < 1e-6)
-    for (const l of LINES) assert.ok(r[s].lines[l].average >= -1e-6, `${l} never negative`)
+    const sum = LINES.reduce((acc, l) => acc + r[s].lines[l].five_year, 0)
+    assert.ok(Math.abs(sum - r[s].totals.five_year) < 1e-6, `${s}: ${sum} vs ${r[s].totals.five_year}`)
+    for (const l of LINES) assert.ok(r[s].lines[l].five_year >= -1e-6, `${l} never negative`)
   }
 })
 
 await test('a payments line on store rails alone gets a peer-to-peer nudge; one with a p2p rail does not', () => {
   const stores = calculate({ ...base, rails: ['apple', 'google'], rev: 10000 }, data).typical
   assert.ok(stores.lines.payments.nudge && stores.lines.payments.nudge.id === 'p2p' && stores.lines.payments.nudge.amount > 0, JSON.stringify(stores.lines.payments.nudge))
-  assert.ok(stores.lines.payments.average < 1, 'the line itself saves nothing')
+  assert.ok(stores.lines.payments.at_scale < 1, 'the line itself saves nothing')
   const p2p = calculate({ ...base, rails: ['apple', 'p2p'], rev: 10000 }, data).typical
   assert.equal(p2p.lines.payments.nudge, null)
   const none = calculate({ ...base, rails: [], rev: 0 }, data).typical
@@ -406,10 +542,35 @@ await test('what remains on Nostr follows what the app hosts: age checks, modera
   const programs = r.lines.compliance.parts.find((p) => p.id === 'privacy_programs')
   const contentLaw = v.uk_osa_year
   assert.ok(Math.abs(programs.noncustodial - (contentLaw * v.content_law_remains_share + (v.gdpr_program_year + v.us_privacy_year_small) * v.privacy_remains_share)) < 1e-6)
-  // In the low scenario no age check remains, yet the accounts line still costs something on Nostr.
-  const low = evaluate(normalizeInputs({ ...base, jur: ['uk'] }), resolveAssumptions(data, 'low'))
-  assert.equal(low.lines.accounts.parts.find((p) => p.id === 'verify').noncustodial, 0)
-  assert.ok(low.lines.accounts.noncustodial > 0)
+  // In the high scenario no age check remains, yet the accounts line still costs something on Nostr.
+  const high = evaluate(normalizeInputs({ ...base, jur: ['uk'] }), resolveAssumptions(data, 'high'))
+  assert.equal(high.lines.accounts.parts.find((p) => p.id === 'verify').noncustodial, 0)
+  assert.ok(high.lines.accounts.noncustodial > 0)
+  // Engineering on accounts and infrastructure keeps a share: a Nostr app still builds signer login and relay handling.
+  const acc = r.lines.accounts.parts.find((p) => p.id === 'engineering')
+  assert.ok(Math.abs(acc.noncustodial - acc.custodial * v.accounts_eng_remains_share) < 1e-6 && acc.noncustodial > 0)
+  const infra = r.lines.storage.parts.find((p) => p.id === 'engineering')
+  assert.ok(Math.abs(infra.noncustodial - infra.custodial * v.infra_eng_remains_share) < 1e-6 && infra.noncustodial > 0)
+})
+
+await test('relays of your own scale with users, never below the floor', () => {
+  const v = resolveAssumptions(data, 'typical')
+  const relay = (mau) => calculate(min({ mau }), data).typical.lines.storage.parts.find((p) => p.id === 'relay')
+  const small = relay(1000)
+  assert.equal(small.noncustodial, v.relay_floor_year)
+  assert.equal(small.floor, true)
+  const big = relay(1000000)
+  assert.ok(Math.abs(big.noncustodial - 1000000 * v.relay_per_mau_year) < 1e-6)
+  assert.equal(big.floor, false)
+  assert.equal(small.custodial, 0)
+})
+
+await test('the expected breach loss is marked as risk, apart from the cash costs', () => {
+  const r = calculate(base, data).typical.lines.compliance
+  const breach = r.parts.find((p) => p.id === 'breach')
+  assert.equal(breach.kind, 'risk')
+  assert.ok(r.parts.filter((p) => p.kind === 'risk').length === 1 && r.parts.filter((p) => p.kind !== 'risk').length === 4)
+  for (const l of LINES) if (l !== 'compliance') for (const p of calculate(base, data).typical.lines[l].parts) assert.notEqual(p.kind, 'risk')
 })
 
 await test('the kind of app sets egress and compute per user, unless the visitor overrode them', () => {
@@ -425,8 +586,8 @@ await test('the kind of app sets egress and compute per user, unless the visitor
   assert.equal(kept.values.egress_gb_per_mau_month, v.egress_gb_per_mau_month, 'the override is applied by resolveAssumptions; the kind leaves it alone')
   assert.deepEqual(Object.keys(kept.set), ['compute_per_mau_year'])
 
-  const messaging = calculate({ mau: 50000, jur: ['us'], kind: 'messaging' }, data).typical
-  const media = calculate({ mau: 50000, jur: ['us'], kind: 'feed' }, data).typical
+  const messaging = calculate(min({ kind: 'messaging' }), data).typical
+  const media = calculate(min({ kind: 'feed' }), data).typical
   assert.ok(media.lines.storage.custodial > messaging.lines.storage.custodial * 1.5, `a media feed costs far more to serve: ${media.lines.storage.custodial} vs ${messaging.lines.storage.custodial}`)
   assert.ok(media.totals.five_year > messaging.totals.five_year * 1.1, 'and it shows in the five-year figure')
   assert.equal(media.derived.egress_gb_per_mau_month, 'kind')
@@ -438,9 +599,9 @@ await test('the part → assumptions map says exactly which assumptions each lin
   const variants = [
     normalizeInputs({ ...base, jur: ['eu', 'uk', 'us', 'other'], rails: ['p2p', 'apple', 'google', 'processor', 'reseller'], rev: 50000, balances: ['yes'], mod_who: 'team', mod_heads: '15' }),
     normalizeInputs({ ...base, mod_who: 'vendor', mod_heads: '3' }),
-    normalizeInputs({ mau: 10000000, jur: ['us'], rails: ['apple'], rev: 200000, legal_usd: 50000 }),
-    normalizeInputs({ mau: 1000, jur: ['other'] }),
-    normalizeInputs({ mau: 1000, jur: ['other'], rails: ['google'], rev: 200000 }),
+    normalizeInputs({ mau: 10000000, jur: ['us'], team: 'more', rails: ['apple'], rev: 200000, legal_usd: 50000 }),
+    normalizeInputs({ mau: 1000, jur: ['other'], team: 'one' }),
+    normalizeInputs({ mau: 1000, jur: ['other'], team: 'one', rails: ['google'], rev: 200000 }),
   ]
   const v = resolveAssumptions(data, 'typical')
   for (const line of LINES) {
@@ -457,9 +618,12 @@ await test('the part → assumptions map says exactly which assumptions each lin
   for (const line of LINES) for (const p of r.lines[line].parts) assert.ok(PART_ASSUMPTIONS[`${line}.${p.id}`], `${line}.${p.id} has no entry`)
 })
 
-await test('growth is a band, and an unknown band is refused', () => {
+await test('growth is a band, starts on Steady on the form, and an unknown band is refused', () => {
   assert.equal(normalizeInputs({ ...base, growth: '0.25' }).growth, '0.25')
-  assert.equal(normalizeInputs(base).growth, null)
+  assert.equal(normalizeInputs(base).growth, null, 'blank until answered: the model holds an unanswered app flat')
+  assert.equal(INPUTS.growth.start, '0.25', "the form's starting answer is Steady")
+  assert.equal(INPUTS.growth.default, null)
+  assert.equal(INPUTS.growth.required, false)
   assert.throws(() => normalizeInputs({ ...base, growth: '0.3' }), (e) => e instanceof InputError && e.key === 'growth')
   const q = encode(normalizeInputs({ ...base, growth: '0' }))
   assert.ok(q.includes('growth=0'), q)

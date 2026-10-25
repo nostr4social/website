@@ -89,7 +89,10 @@ fields:
   link: { id: iHHHuZ }
   overrides: { id: LxmN8x }
   version: { id: OHi8fq }
-  test: { id: XU5x6e }                     # set only from ?test= in the URL
+  # The "test" checkbox beside Send in Save & Share; ?test= in the URL presets it.
+  test:
+    id: XU5x6e
+    options: { "yes": d5fQLL }
 
   # ── Send & Share (the contact details) ────────────────────────────────────
   app_name: { id: t3pia5 }                 # App Name

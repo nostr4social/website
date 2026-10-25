@@ -23,6 +23,8 @@ const KIND = ['messaging', 'feed', 'community', 'marketplace'] // what kind of a
 
 //   omit      a value that means the same as "not given"; the results link
 //             leaves it out so a link only carries what was said
+//   start     the form's starting answer for an optional question: the
+//             illustrative app's own, drawn as an answer, not a suggestion
 const band = (options, omit) => ({ type: 'option', required: false, default: null, options, omit })
 
 export const INPUTS = {
@@ -41,7 +43,7 @@ export const INPUTS = {
 
   // Users: the opener, then growth
   mau: { type: 'integer', required: true, default: 50000, min: 1, max: 2e9 },
-  growth: band(GROWTH), // users a year from now, as a share of today's; blank means the assumptions' default
+  growth: { ...band(GROWTH), start: '0.25' }, // users a year from now, as a share of today's; blank means the assumptions' default (flat); the form starts on Steady
 
   // Content: the opener, then the two per-user numbers (blank means derived from the kind of app)
   kind: band(KIND),
@@ -52,8 +54,8 @@ export const INPUTS = {
   mod_who: band(WHO),
   mod_heads: band(HEADS_BAND),
 
-  // Team: the opener, then engineering hours a week per area (blank means derived from the team size) and legal spend
-  team: band(TEAM),
+  // Team: the opener, required (the engineering defaults rest on it: no silent team size), then hours a week per area (blank means derived from the team size) and legal spend
+  team: { type: 'option', required: true, default: 'ten', options: TEAM },
   eng_accounts: band(HOURS), // managing user accounts
   eng_content: band(HOURS), // managing user content
   eng_infra: band(HOURS), // managing infrastructure

@@ -656,14 +656,21 @@ required after any change — an unbuilt edit simply fails to load.
 ## The calculator
 
 `/calculator/` is the second page that runs JavaScript. Its words are in
-`_data/pages/calculator.yml`; its numbers are in `_data/assumptions/v1.json`,
-which is served unchanged at `/calculator/assumptions.v1.json` and explained
-in `calculator/assumptions.v1.md`, written from the same file by
-`npm run build:assumptions` (`check:assumptions` fails CI when it is stale).
-Every assumption has a typical, low and high value, a source and a
+`_data/pages/calculator.yml`; its numbers are in `_data/assumptions/v<N>.json`
+(version 2 at the time of writing), served unchanged at
+`/calculator/assumptions.v<N>.json` and explained in
+`calculator/assumptions.v<N>.md`, written from the same file by
+`npm run build:assumptions` (`check:assumptions` fails CI when the latest is
+stale). Every assumption has a typical, low and high value, a source and a
 confidence grade; the page shows typical and the band, and lets the reader
-change any value. The model is one pure module,
-`assets/js/calculator/src/model.js`, tested by `npm run test:model`.
+change any value. Only the assumptions marked `scenario_varies` (Nostr4's
+thesis: the time to scale, what remains at scale, the Nostr-native fees) move
+the band; the custodial side is held at typical in every case. Changing a
+number means a new version: a new JSON, a new explainer, and the template,
+tests and e2e pointed at it. Old versions stay published, and a results link
+made with one is recomputed under the current version with a note saying so.
+The model is one pure module, `assets/js/calculator/src/model.js`, tested by
+`npm run test:model`; research notes, dated, sit under `tools/calculator/`.
 
 Results are a link: the inputs and any changed assumptions as query
 parameters, never anything about the person. A calculation is also saved as
@@ -683,8 +690,9 @@ npm run e2e:calculator               # the page in headless Chrome; saves throug
 ```
 
 Until a snapshot is committed the page submits nothing and says nothing
-about it. A `?test=…` on the page marks a submission as a test so it can be
-filtered out.
+about it. A small "test" checkbox beside Send in the Save & Share modal marks
+a submission as a test, with the form's own option, so it can be filtered
+out; it is on by default for now. A `?test=…` on the page presets it.
 
 ## Building and checking
 
