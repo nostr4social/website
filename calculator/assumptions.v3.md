@@ -38,7 +38,7 @@ their prices are what the market will bear. Treat the range, not the typical val
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `scale_progress_today` | Share of the at-scale saving the network already delivers to an app integrated today | 30% | 15% | 45% | ratio | unsourced | none |
-| `p2p_store_fee_remains_share` | Share of the store commission that still applies to in-app payments once they are peer to peer on the network | 50% | 100% | 10% | ratio | unsourced | [CNBC: Jack Dorsey's Damus may be thwarted by Apple's strict payment rules (the precedent, not a figure)](https://www.cnbc.com/2023/06/13/jack-dorseys-damus-may-be-thwarted-by-apples-strict-payment-rules.html) (2023-06) |
+| `p2p_store_fee_remains_share` | Share of the store commission that still applies to in-app payments once they are peer to peer on the network | 50% | 100% | 10% | ratio | unsourced | [CNBC: a Nostr client given 14 days over tips outside in-app purchase (the precedent, not a figure)](https://www.cnbc.com/2023/06/13/jack-dorseys-damus-may-be-thwarted-by-apples-strict-payment-rules.html) (2023-06) |
 | `scale_months` | Months until Nostr is at scale: standards and infrastructure in place | 36 | 48 | 24 | months | unsourced | none |
 | `media_sponsor_share` | Media hosting an app still sponsors after moving to Nostr | 25% | 50% | 10% | ratio | unsourced | none |
 | `cache_per_mau_year` | A thin cache in front of relays | 0.05 | 0.2 | 0.02 | USD per MAU per year | unsourced | none |
@@ -62,27 +62,27 @@ their prices are what the market will bear. Treat the range, not the typical val
 | `relay_floor_year` | Relay capacity rented, the least an app pays | 600 | 1,200 | 240 | USD per year | low | [OpenSats: Advancements in Nostr Relays](https://opensats.org/blog/advancements-in-nostr-relays) (2026-03) |
 
 - `scale_progress_today`: What an app integrated today already gets: keys, signed events, relays and follows carry most of the custodial cost and work now. User-paid providers, a media market, label and ranking providers and payment conversion are the rest. The ramp runs from here.
-- `p2p_store_fee_remains_share`: On Nostr the app is not a party to the payment, so the store's in-app-purchase rule should not reach it. Apple has claimed otherwise: in June 2023 it told Damus that tips associated with receiving content from creators through a mechanism other than in-app purchase broke its payment guideline, and gave the app 14 days to comply (CNBC, June 2023). Precedent pending. The low case keeps the whole commission; the high case treats the precedent as settled.
+- `p2p_store_fee_remains_share`: In our reading, an app on Nostr is not a party to the payment, so a store's in-app-purchase rule should not reach it. Some app-store vendors have read it otherwise: in June 2023 one told a Nostr client that tips associated with receiving content from creators through a mechanism other than in-app purchase broke its payment guideline, and gave the app 14 days to comply (CNBC, June 2023). Precedent pending as of October 2026. The low case keeps the whole commission; the high case treats the precedent as settled.
 - `scale_months`: Nostr4's estimate of the time for the network to establish the standards and infrastructure that support Nostr at scale; user growth carries the rest. The ramp starts at scale_progress_today and is front-loaded: the share of the at-scale saving the network delivers in month m is p + (1 − p)(1 − (1 − m/M)²), because the standards already adopted (keys, signed events, relays, follows) carry the bulk of custodial cost (accounts, graph, storage) and deliver early, while the pieces still maturing (user-paid providers, a media market, label and ranking providers, payment conversion) are the tail. A calendar, not a stopwatch: month 1 is January of start_year for every app, and later versions of this file will shorten the time to scale as the network matures. An app's own integration, its time and its cost, is not estimated here: it is settled case by case, in a consult.
 - `media_sponsor_share`: Blossom or similar: users can host their own media, apps often still pay for some of it.
 - `cache_per_mau_year`: A thin cache in front of relays, what a Nostr app still serves itself. What the market will bear: no public price list exists, including ours, and at scale there is no vendor to lock an app in.
-- `verify_remains_share`: Age assurance becomes an external layer the app reads rather than buys: the Texas and Utah laws put it at the app store, the EU is building a device-level age wallet under the DSA. The UK Online Safety Act is the residual: Ofcom's duty attaches to the service a child can use, wherever sign-up happened, so a client showing others' content may still have to check. Low keeps the UK duty in full; high is the ideal.
-- `key_handoff_live_share`: Keys cannot be reset. A non-custodial app's support is a redirect to the user's own or a recommended key-management service; only a share of those redirects reach a person. The contact costs are Gartner's.
+- `verify_remains_share`: Age assurance becomes an external layer the app reads rather than buys: as we read them in October 2026, the Texas and Utah laws put it at the app-store, and the EU is building a device-level age wallet under the DSA. The UK Online Safety Act is the residual: in our reading the duty attaches to the service a child can use, wherever sign-up happened, so a client showing others' content may still have to check. Low keeps the UK duty in full; high is the ideal.
+- `key_handoff_live_share`: A key cannot be reset by the app. A non-custodial app's support is a redirect to the user's own or a recommended key-management service; only a share of those redirects reach a person. The contact costs are Gartner's.
 - `ranking_fee_per_mau_year`: Web-of-trust ranking or discovery as a service. What the market will bear: no public price list exists, including ours, and at scale there is no vendor to lock an app in.
 - `graph_eng_remains_share`: At scale, assembling feeds from relays on the client is the app's own feed logic.
-- `content_law_remains_share`: The DSA's notice-and-action duties fall on hosting services, and a client that hosts nothing is a weaker target than a platform; the UK Online Safety Act still reaches a service a child can use. Low keeps three quarters of both programs, the same world as moderation's low case: the duties follow whatever the app still hosts.
+- `content_law_remains_share`: In our reading, as of October 2026, the DSA's notice-and-action duties fall on hosting services, and a client that hosts nothing is a weaker target than a platform; the UK Online Safety Act still reaches a service a child can use. Low keeps three quarters of both programs, the same world as moderation's low case: the duties follow whatever the app still hosts.
 - `privacy_remains_share`: For whatever the app still retains privately.
 - `insurance_remains_share`: A policy sized to the data still held.
 - `retained_data_share`: Personal data an app still holds on Nostr: scales the expected breach loss and the access requests that remain.
 - `tooling_remains_share`: Classifiers, queues and hash matching give way to label providers and web of trust; what remains is hash matching on anything the app itself hosts.
 - `label_provider_per_mau_year`: Labels and trust scores as a service, the moderation line's Nostr-native cost. What the market will bear: no public price list exists, including ours, and at scale there is no vendor to lock an app in.
-- `moderation_remains_share`: Review and ranking move to the network: web-of-trust weighting, interoperable algorithm configs and label events let users curate what they see, so an app that hosts nothing moderates nothing of its own. What remains is illegal-content handling for any relay or media host the app runs, and app-store filter, report and block rules. Low keeps half, the same world as the content-law low case.
-- `lightning_rate`: OpenNode about 1%; BTCPay Server 0%. The at-scale saving is full conversion of the app's own revenue to peer-to-peer rails (bitcoin, stablecoins); store rails are unchanged on both sides. Apple's rules still restrict bypassing in-app purchase for digital goods inside the iOS app outside the EU, Japan and the US link-out ruling, and on-ramp costs are borne by users: they affect conversion, not the app's P&L.
+- `moderation_remains_share`: Review and ranking move to the network: web-of-trust weighting, interoperable algorithm configs and label events let users curate what they see, so, in our reading, an app that hosts nothing moderates nothing of its own. What remains is illegal-content handling for any relay or media host the app runs, the defaults a new user starts with, and the default filter and the report and block controls the app-stores require. Low keeps half, the same world as the content-law low case.
+- `lightning_rate`: OpenNode about 1%; BTCPay Server 0%. The at-scale saving is full conversion of in-app payments to peer-to-peer rails (bitcoin, stablecoins); store rails are unchanged on both sides. As of October 2026 some app-stores' rules still restrict bypassing in-app purchase for digital goods inside the app in some regions, and on-ramp costs are borne by users: they affect conversion, not the app's P&L.
 - `mt_remains_share`: An app that never holds funds has far less exposure.
 - `accounts_eng_remains_share`: At scale a Nostr app still builds and keeps signer login, the key hand-off and session handling. Zero remaining is not defensible.
 - `infra_eng_remains_share`: At scale, relay connection management, caching, media handling and the relay capacity the app rents still need engineering time.
 - `relay_per_mau_year`: No operator publishes cost per user. Typical is the sourced operator figure: a thousand active users per vCPU and 2 GB, about 12 USD a month on a European VPS, which is 0.14 a user a year. Low is the same capacity with backups and monitoring; high is the strfry-efficiency claim. Applied to the share of users the app sponsors (relay_sponsored_share), rented from a provider who carries the hosting duties.
-- `relay_sponsored_share`: Users who bring their own relay cost the app nothing. The app sponsors capacity for the rest, rented from a provider who carries the hosting duties. What that sponsorship earns as a premium or sponsored add-on is not modelled.
+- `relay_sponsored_share`: Users who bring their own relay cost the app nothing. The app sponsors capacity for the rest, rented from a provider who, in our reading, carries the hosting duties. What that sponsorship earns as a premium or sponsored add-on is not modelled.
 - `relay_floor_year`: The least an app pays however few its users: one managed relay with backups, about 50 a month. The per-user rate takes over above about 4,300 sponsored users, about 8,600 active users at the typical sponsored share.
 
 ## Used by more than one line
@@ -179,7 +179,7 @@ their prices are what the market will bear. Treat the range, not the typical val
 - `support_live_contact`: Gartner's 2019 poll: 8.01 a live contact (phone, chat, email); high is the upper end of 2025 benchmarks.
 - `verify_price`: Stripe Identity document plus selfie; Veriff 0.80 to 1.89 with monthly minimums.
 - `verify_share_uk`: Online Safety Act age assurance applies to services likely to be accessed by children. Editable.
-- `verify_share_us`: Most US social apps run no paid identity check today: Meta and YouTube use estimation on accounts they suspect are under age, Reddit checks documents only where a law requires it, and the Texas and Utah app-store laws put the age signal at the store rather than in the app. The share is the users an app still sends to a paid check, not the users whose age it knows.
+- `verify_share_us`: Most US social apps run no paid identity check today: the large platforms use age estimation on accounts they suspect are under age and check documents only where a law requires it, and the Texas and Utah app-store laws, as we read them in October 2026, put the age signal at the store rather than in the app. The share is the users an app still sends to a paid check, not the users whose age it knows.
 - `verify_share_eu`: Editable.
 - `verify_share_other`: Editable.
 
@@ -287,7 +287,7 @@ separate input. The line measures the fee stack custody puts on that volume, not
 | `reseller_rate` | Merchant-of-record rate | 5% | 5% | 8% | ratio of reseller revenue | medium | [Paddle pricing (merchant of record)](https://www.paddle.com/pricing) (2026) |
 | `reseller_fixed` | Merchant-of-record fixed fee | 0.5 | 0.5 | 0.5 | USD per transaction | medium | [Paddle pricing (merchant of record)](https://www.paddle.com/pricing) (2026) |
 | `avg_ticket` | Average transaction size | 10 | 30 | 5 | USD | unsourced | none |
-| `mt_avoidance_year` | Legal work to stay out of money-transmitter status | 10,000 | 2,000 | 50,000 | USD per year | unsourced | none |
+| `mt_avoidance_year` | Legal work on money-transmitter exposure | 10,000 | 2,000 | 50,000 | USD per year | unsourced | none |
 
 - `apple_rate_standard`: 30% worldwide; 26% under the EU terms effective 2026-10-01. Subscriptions drop to 15% after the first year, not modelled.
 - `apple_rate_small`: Under 1M USD of prior-year proceeds.
@@ -299,7 +299,7 @@ separate input. The line measures the fee stack custody puts on that volume, not
 - `reseller_rate`: Paddle and Lemon Squeezy list 5% plus a fixed fee; the reseller is the seller and carries sales tax and VAT.
 - `reseller_fixed`: Per checkout.
 - `avg_ticket`: Turns revenue into a transaction count for the fixed fee. A bigger ticket means fewer fees, so low is the larger ticket.
-- `mt_avoidance_year`: Counsel and structuring for in-app balances or payouts. Charged only when the app holds user balances, credits or wallets.
+- `mt_avoidance_year`: Counsel and structuring for in-app balances or payouts; the exposure, not an outcome. Charged only when the app holds user balances, credits or wallets.
 
 ## Provenance
 

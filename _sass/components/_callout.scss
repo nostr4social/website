@@ -44,6 +44,16 @@
   white-space: nowrap;
 }
 
+// Stacked doors: one above the other, the same width, so the body keeps its measure.
+.callout .actions--stacked {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.callout .actions--stacked .btn {
+  justify-content: center;
+}
+
 @include below($bp-mid) {
   .callout {
     align-items: flex-start;

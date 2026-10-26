@@ -54,8 +54,8 @@ function node(name, attrs = {}, children = []) {
 /**
  * Draw (or redraw) both charts for these projections:
  * { typical, low, start_year, marker }, where `marker` is the gold figure
- * beside the rule at the marker year (the cash saving that year, as the
- * headline has it).
+ * beside the rule at the marker year (the cash saving that year, apart
+ * from the fees and the risk).
  */
 export function drawCharts(projections) {
   last = projections
@@ -95,9 +95,12 @@ export function drawCharts(projections) {
     band: ['custodial', 'nostr'],
     // No labels on the dots: the gold figure beside the rule between them is what they say.
     labels: [],
+    // A dotted segment from today's custody dot to the first Nostr dot: a
+    // rough picture of an app's integration ramp, with no figure on it.
+    ramp: { from: ['custodial', 0], to: ['nostr', 1] },
     // A gold rule from dot to dot, and beside it, hero-sized and gold, its
     // length: what the app saves a year from the year the network is at scale.
-    // The figure is the cash saving that year, as the headline has it; the rule is the whole gap.
+    // The figure is the cash saving that year, apart from the fees and the risk; the rule is the whole gap.
     watermark: { year: MARKER_YEAR, between: ['custodial', 'nostr'], text: marker || compact(scale.custodial - scale.nostr), sub: t('chart.versus.band_sub') },
     title: fmt(t('chart.versus.aria'), { year: label(MARKER_YEAR), custodial: compact(scale.custodial), noncustodial: compact(scale.nostr), saving: compact(scale.custodial - scale.nostr), total: compact(end.cumulative) }),
     // Two horizontal axes: the calendar along the top, from the start, since
@@ -171,6 +174,11 @@ function draw(id, spec) {
   const lines = node('g')
   const marks = node('g', { class: 'chart__marks' })
   let watermarkFit = null // measured once the picture is in the page
+  if (spec.ramp) {
+    const [fromKey, fromYear] = spec.ramp.from
+    const [toKey, toYear] = spec.ramp.to
+    lines.append(node('line', { class: 'chart__ramp', x1: x(fromYear), y1: y(by[fromKey][fromYear]), x2: x(toYear), y2: y(by[toKey][toYear]) }))
+  }
   for (const s of spec.series) {
     lines.append(node('polyline', { class: s.cls, points: pts(s.points).join(' ') }))
     for (const year of s.markers || []) marks.append(node('circle', { class: s.marker || 'chart__marker', cx: x(year), cy: y(s.points[year]), r: 5 }))

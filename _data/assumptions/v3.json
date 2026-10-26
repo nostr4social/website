@@ -303,11 +303,11 @@
       "high": 0.1,
       "confidence": "unsourced",
       "source": {
-        "title": "CNBC: Jack Dorsey's Damus may be thwarted by Apple's strict payment rules (the precedent, not a figure)",
+        "title": "CNBC: a Nostr client given 14 days over tips outside in-app purchase (the precedent, not a figure)",
         "url": "https://www.cnbc.com/2023/06/13/jack-dorseys-damus-may-be-thwarted-by-apples-strict-payment-rules.html",
         "date": "2023-06"
       },
-      "note": "On Nostr the app is not a party to the payment, so the store's in-app-purchase rule should not reach it. Apple has claimed otherwise: in June 2023 it told Damus that tips associated with receiving content from creators through a mechanism other than in-app purchase broke its payment guideline, and gave the app 14 days to comply (CNBC, June 2023). Precedent pending. The low case keeps the whole commission; the high case treats the precedent as settled.",
+      "note": "In our reading, an app on Nostr is not a party to the payment, so a store's in-app-purchase rule should not reach it. Some app-store vendors have read it otherwise: in June 2023 one told a Nostr client that tips associated with receiving content from creators through a mechanism other than in-app purchase broke its payment guideline, and gave the app 14 days to comply (CNBC, June 2023). Precedent pending as of October 2026. The low case keeps the whole commission; the high case treats the precedent as settled.",
       "line": "payments",
       "group": "payments",
       "scenario_varies": true
@@ -467,7 +467,7 @@
         "url": "https://www.scotusblog.com/2026/07/supreme-court-allows-texas-to-enforce-law-requiring-age-verification-and-parental-consent-on-app/",
         "date": "2026-07"
       },
-      "note": "Most US social apps run no paid identity check today: Meta and YouTube use estimation on accounts they suspect are under age, Reddit checks documents only where a law requires it, and the Texas and Utah app-store laws put the age signal at the store rather than in the app. The share is the users an app still sends to a paid check, not the users whose age it knows.",
+      "note": "Most US social apps run no paid identity check today: the large platforms use age estimation on accounts they suspect are under age and check documents only where a law requires it, and the Texas and Utah app-store laws, as we read them in October 2026, put the age signal at the store rather than in the app. The share is the users an app still sends to a paid check, not the users whose age it knows.",
       "line": "accounts",
       "group": "accounts"
     },
@@ -503,7 +503,7 @@
       "high": 0,
       "confidence": "unsourced",
       "source": null,
-      "note": "Age assurance becomes an external layer the app reads rather than buys: the Texas and Utah laws put it at the app store, the EU is building a device-level age wallet under the DSA. The UK Online Safety Act is the residual: Ofcom's duty attaches to the service a child can use, wherever sign-up happened, so a client showing others' content may still have to check. Low keeps the UK duty in full; high is the ideal.",
+      "note": "Age assurance becomes an external layer the app reads rather than buys: as we read them in October 2026, the Texas and Utah laws put it at the app-store, and the EU is building a device-level age wallet under the DSA. The UK Online Safety Act is the residual: in our reading the duty attaches to the service a child can use, wherever sign-up happened, so a client showing others' content may still have to check. Low keeps the UK duty in full; high is the ideal.",
       "line": "accounts",
       "group": "accounts",
       "scenario_varies": true
@@ -516,7 +516,7 @@
       "high": 0,
       "confidence": "unsourced",
       "source": null,
-      "note": "Keys cannot be reset. A non-custodial app's support is a redirect to the user's own or a recommended key-management service; only a share of those redirects reach a person. The contact costs are Gartner's.",
+      "note": "A key cannot be reset by the app. A non-custodial app's support is a redirect to the user's own or a recommended key-management service; only a share of those redirects reach a person. The contact costs are Gartner's.",
       "line": "accounts",
       "group": "accounts",
       "scenario_varies": true
@@ -603,7 +603,7 @@
       "high": 0.25,
       "confidence": "unsourced",
       "source": null,
-      "note": "The DSA's notice-and-action duties fall on hosting services, and a client that hosts nothing is a weaker target than a platform; the UK Online Safety Act still reaches a service a child can use. Low keeps three quarters of both programs, the same world as moderation's low case: the duties follow whatever the app still hosts.",
+      "note": "In our reading, as of October 2026, the DSA's notice-and-action duties fall on hosting services, and a client that hosts nothing is a weaker target than a platform; the UK Online Safety Act still reaches a service a child can use. Low keeps three quarters of both programs, the same world as moderation's low case: the duties follow whatever the app still hosts.",
       "line": "compliance",
       "group": "compliance",
       "scenario_varies": true
@@ -849,7 +849,7 @@
       "high": 0.05,
       "confidence": "unsourced",
       "source": null,
-      "note": "Review and ranking move to the network: web-of-trust weighting, interoperable algorithm configs and label events let users curate what they see, so an app that hosts nothing moderates nothing of its own. What remains is illegal-content handling for any relay or media host the app runs, and app-store filter, report and block rules. Low keeps half, the same world as the content-law low case.",
+      "note": "Review and ranking move to the network: web-of-trust weighting, interoperable algorithm configs and label events let users curate what they see, so, in our reading, an app that hosts nothing moderates nothing of its own. What remains is illegal-content handling for any relay or media host the app runs, the defaults a new user starts with, and the default filter and the report and block controls the app-stores require. Low keeps half, the same world as the content-law low case.",
       "line": "moderation",
       "group": "moderation",
       "scenario_varies": true
@@ -1022,20 +1022,20 @@
         "url": "http://help.opennode.com/en/articles/3176293-pricing-and-fees",
         "date": "2026"
       },
-      "note": "OpenNode about 1%; BTCPay Server 0%. The at-scale saving is full conversion of the app's own revenue to peer-to-peer rails (bitcoin, stablecoins); store rails are unchanged on both sides. Apple's rules still restrict bypassing in-app purchase for digital goods inside the iOS app outside the EU, Japan and the US link-out ruling, and on-ramp costs are borne by users: they affect conversion, not the app's P&L.",
+      "note": "OpenNode about 1%; BTCPay Server 0%. The at-scale saving is full conversion of in-app payments to peer-to-peer rails (bitcoin, stablecoins); store rails are unchanged on both sides. As of October 2026 some app-stores' rules still restrict bypassing in-app purchase for digital goods inside the app in some regions, and on-ramp costs are borne by users: they affect conversion, not the app's P&L.",
       "line": "payments",
       "group": "payments",
       "scenario_varies": true
     },
     "mt_avoidance_year": {
-      "label": "Legal work to stay out of money-transmitter status",
+      "label": "Legal work on money-transmitter exposure",
       "unit": "USD per year",
       "typical": 10000,
       "low": 2000,
       "high": 50000,
       "confidence": "unsourced",
       "source": null,
-      "note": "Counsel and structuring for in-app balances or payouts. Charged only when the app holds user balances, credits or wallets.",
+      "note": "Counsel and structuring for in-app balances or payouts; the exposure, not an outcome. Charged only when the app holds user balances, credits or wallets.",
       "line": "payments",
       "group": "payments"
     },
@@ -1483,7 +1483,7 @@
       "high": 0.25,
       "confidence": "unsourced",
       "source": null,
-      "note": "Users who bring their own relay cost the app nothing. The app sponsors capacity for the rest, rented from a provider who carries the hosting duties. What that sponsorship earns as a premium or sponsored add-on is not modelled.",
+      "note": "Users who bring their own relay cost the app nothing. The app sponsors capacity for the rest, rented from a provider who, in our reading, carries the hosting duties. What that sponsorship earns as a premium or sponsored add-on is not modelled.",
       "line": "storage",
       "group": "thesis",
       "scenario_varies": true

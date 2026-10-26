@@ -4,6 +4,7 @@ The closing band: one idea on the left, one door out on the right.
   head.title, head.lede
   quote     chartered or quoted language, on a purple rail
   actions
+  stack     true → the doors stack in a column rather than running inline
 {%- endcomment -%}
 {%- assign s = include.section -%}
 {%- assign b = include.block -%}
@@ -12,5 +13,9 @@ The closing band: one idea on the left, one door out on the right.
     {% include lib/section-head.html head=s.head %}
     {%- if b.quote %}{% include lib/text.html text=b.quote class="callout__quote" %}{% endif -%}
   </div>
+  {%- if s.stack -%}
+  {% include lib/actions.html actions=s.actions class="actions--stacked" %}
+  {%- else -%}
   {% include lib/actions.html actions=s.actions %}
+  {%- endif -%}
 </div>

@@ -500,7 +500,6 @@ function wire() {
   $('#r-edit')?.addEventListener('click', onEdit)
   $('#calc-reset')?.addEventListener('click', onResetForm)
   $('#r-whose-link')?.addEventListener('click', onEdit)
-  $('#r-sourced-link')?.addEventListener('click', () => activateTab('assumptions', { focus: true }))
   wireCharts()
   $('#a-reset')?.addEventListener('click', onReset)
   $('#a-recalc')?.addEventListener('click', onRecalculate)

@@ -28,20 +28,10 @@ export function renderResults(result, { own = false } = {}) {
   const year = calendarYear(result.start_year, MARKER_YEAR)
 
   // Whose estimate this is, and the app it describes, one piece per section.
+  // The saving a year at scale is in the chart, the gold figure beside the rule.
   renderWhose(result, own)
   const link = $('#r-whose-link')
   if (link) link.textContent = t('whose.link')
-
-  // The headline: the cash saving a year at scale as a range with typical
-  // inside it, for the marker year at that year's users; the fees and the
-  // risk savings apart on smaller lines.
-  const [headLow, headHigh] = ordered(low.totals.at_scale_cash, high.totals.at_scale_cash)
-  text('#r-head-figure', fmt(t('headline'), { low: compact(headLow), high: compact(headHigh), typical: compact(T.at_scale_cash) }))
-  text('#r-head-sub', fmt(t('headline_sub'), { year, users: number(T.scale_users) }))
-  text('#r-head-fees', fmt(t('headline_fees'), { amount: compact(T.at_scale_fees) }))
-  show($('#r-head-fees'), T.at_scale_fees >= 1)
-  text('#r-head-risk', fmt(t('headline_risk'), { risk: compact(T.at_scale_risk) }))
-  show($('#r-head-risk'), T.at_scale_risk >= 1)
 
   // The three facts under the chart, all for the year Nostr is at scale,
   // each label naming it: the custodial cost per user that year (that side
@@ -125,7 +115,8 @@ function renderWhose(result, own) {
     moderation: piece(t(`whose.moderation.${inputs.mod_who || 'benchmark'}`), inputs.mod_who != null),
     payments: piece(inputs.rev > 0 ? fmt(t('whose.payments.some'), { rev: compact(inputs.rev) }) : t('whose.payments.none'), inputs.rev > 0),
     reach: piece(fmt(t('whose.reach.in'), { list: regions.join(t('whose.reach.join')) }), true),
-    nostr: piece(t(`whose.nostr.${eff.nostr_now}`), inputs.nostr_now != null),
+    // The Nostr bands are "0", "0.5" and "1": a key with a dot in it is looked up on the block, not by path.
+    nostr: piece(t('whose.nostr')?.[eff.nostr_now] ?? '', inputs.nostr_now != null),
   }
   clear(host)
   for (const token of t('whose.frame').split(/(\{\w+\})/)) {
@@ -152,31 +143,30 @@ function renderYears(projection, startYear) {
 function renderParts(name, line, inputs) {
   const host = $(`.lt-parts[data-line="${name}"] .parts`)
   if (!host) return
-  // The line's two totals head the list: the year the network is at scale, under custody and on Nostr.
+  // The line's two totals foot the table: the year the network is at scale, under custody and on Nostr.
   text(`.lt-parts[data-line="${name}"] .parts__total-c`, money(line.scale_custodial))
   text(`.lt-parts[data-line="${name}"] .parts__total-nc`, money(line.scale_noncustodial))
   clear(host)
+  // One row per part: the item (a link-styled button that explains how the
+  // figure was made), its custodial cost and its Nostr cost.
   const item = (p) => {
     const meta = partMeta(p, inputs)
-    return el('li', {}, [
-      // A link-styled button: pressing it explains how the figure was made.
-      el('button', { type: 'button', class: 'part', 'data-line': name, 'data-part': p.id, 'aria-haspopup': 'dialog' }, [
-        el('span', { class: 'part__label' }, [
-          t(`parts.${p.id}`, p.id),
+    return el('tr', {}, [
+      el('th', { scope: 'row' }, [
+        el('button', { type: 'button', class: 'part', 'data-line': name, 'data-part': p.id, 'aria-haspopup': 'dialog' }, [
+          el('span', { class: 'part__label', text: t(`parts.${p.id}`, p.id) }),
           meta ? el('span', { class: 'part__meta', text: meta }) : null,
         ]),
-        el('span', { class: 'part__nums' }, [
-          money(p.scale_custodial),
-          ' → ',
-          el('b', { text: money(p.scale_noncustodial) }),
-        ]),
       ]),
+      el('td', { class: 'parts-num', text: money(p.scale_custodial) }),
+      el('td', { class: 'parts-num' }, [el('b', { text: money(p.scale_noncustodial) })]),
     ])
   }
   const subtotal = (label, parts) =>
-    el('li', { class: 'parts__subtotal' }, [
-      el('span', { class: 'parts__subtotal-label', text: label }),
-      el('span', { class: 'part__nums' }, [money(parts.reduce((a, p) => a + p.scale_custodial, 0)), ' → ', el('b', { text: money(parts.reduce((a, p) => a + p.scale_noncustodial, 0)) })]),
+    el('tr', { class: 'parts__subtotal' }, [
+      el('th', { scope: 'row', text: label }),
+      el('td', { class: 'parts-num', text: money(parts.reduce((a, p) => a + p.scale_custodial, 0)) }),
+      el('td', { class: 'parts-num' }, [el('b', { text: money(parts.reduce((a, p) => a + p.scale_noncustodial, 0)) })]),
     ])
   // Fees on in-app payments and an expected loss are not operating bills:
   // where a line carries either kind, each group is listed with its own

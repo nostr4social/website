@@ -646,8 +646,8 @@ var INPUTS = {
   // legal and compliance
   legal_usd: { type: "number", required: false, default: null, min: 0, max: 1e12, omit: "0" },
   // 0 means not given
-  // Payments: the opener, the gross monthly volume of in-app payments the app facilitates in USD (0 means no payments), then the rails (blank means derived from distribution) and balances
-  rev: { type: "number", required: false, default: 0, min: 0, max: 1e12 },
+  // Payments: the opener, the gross monthly volume of in-app payments the app facilitates in USD (0 means no payments; the form starts on 5,000 so the illustrative app shows the line), then the rails (blank means derived from distribution) and balances
+  rev: { type: "number", required: false, default: 0, min: 0, max: 1e12, start: 5e3 },
   rails: { type: "multi", required: false, default: [], options: ["p2p", "apple", "google", "processor", "reseller"] },
   balances: { type: "multi", required: false, default: [], options: ["yes"] },
   // Reach: the opener, then distribution
@@ -1305,9 +1305,12 @@ function drawCharts(projections) {
     band: ["custodial", "nostr"],
     // No labels on the dots: the gold figure beside the rule between them is what they say.
     labels: [],
+    // A dotted segment from today's custody dot to the first Nostr dot: a
+    // rough picture of an app's integration ramp, with no figure on it.
+    ramp: { from: ["custodial", 0], to: ["nostr", 1] },
     // A gold rule from dot to dot, and beside it, hero-sized and gold, its
     // length: what the app saves a year from the year the network is at scale.
-    // The figure is the cash saving that year, as the headline has it; the rule is the whole gap.
+    // The figure is the cash saving that year, apart from the fees and the risk; the rule is the whole gap.
     watermark: { year: MARKER_YEAR, between: ["custodial", "nostr"], text: marker || compact(scale.custodial - scale.nostr), sub: t("chart.versus.band_sub") },
     title: fmt(t("chart.versus.aria"), { year: label(MARKER_YEAR), custodial: compact(scale.custodial), noncustodial: compact(scale.nostr), saving: compact(scale.custodial - scale.nostr), total: compact(end.cumulative) }),
     // Two horizontal axes: the calendar along the top, from the start, since
@@ -1371,6 +1374,11 @@ function draw(id, spec) {
   const lines = node("g");
   const marks = node("g", { class: "chart__marks" });
   let watermarkFit = null;
+  if (spec.ramp) {
+    const [fromKey, fromYear] = spec.ramp.from;
+    const [toKey, toYear] = spec.ramp.to;
+    lines.append(node("line", { class: "chart__ramp", x1: x(fromYear), y1: y(by[fromKey][fromYear]), x2: x(toYear), y2: y(by[toKey][toYear]) }));
+  }
   for (const s of spec.series) {
     lines.append(node("polyline", { class: s.cls, points: pts(s.points).join(" ") }));
     for (const year of s.markers || []) marks.append(node("circle", { class: s.marker || "chart__marker", cx: x(year), cy: y(s.points[year]), r: 5 }));
@@ -1613,7 +1621,7 @@ function writeInputs(form2, inputs) {
 function writeDefaults(form2) {
   const starting2 = {};
   for (const [key, spec] of Object.entries(INPUTS)) {
-    if (spec.type === "option" && spec.start != null) starting2[key] = spec.start;
+    if (spec.start != null) starting2[key] = spec.start;
     else if (spec.type === "multi" || spec.type === "option" && spec.required || (spec.type === "number" || spec.type === "integer") && spec.default != null) starting2[key] = spec.default;
   }
   writeInputs(form2, starting2);
@@ -2591,13 +2599,6 @@ function renderResults(result, { own = false } = {}) {
   renderWhose(result, own);
   const link = $("#r-whose-link");
   if (link) link.textContent = t("whose.link");
-  const [headLow, headHigh] = ordered(low.totals.at_scale_cash, high.totals.at_scale_cash);
-  text("#r-head-figure", fmt(t("headline"), { low: compact(headLow), high: compact(headHigh), typical: compact(T.at_scale_cash) }));
-  text("#r-head-sub", fmt(t("headline_sub"), { year, users: number(T.scale_users) }));
-  text("#r-head-fees", fmt(t("headline_fees"), { amount: compact(T.at_scale_fees) }));
-  show($("#r-head-fees"), T.at_scale_fees >= 1);
-  text("#r-head-risk", fmt(t("headline_risk"), { risk: compact(T.at_scale_risk) }));
-  show($("#r-head-risk"), T.at_scale_risk >= 1);
   for (const id of ["r-permau-c-label", "r-permau-nc-label", "r-scale-nostr-label"]) {
     const node2 = $(`#${id}`);
     if (node2?.dataset.template) node2.textContent = fmt(node2.dataset.template, { year });
@@ -2658,7 +2659,8 @@ function renderWhose(result, own) {
     moderation: piece(t(`whose.moderation.${inputs.mod_who || "benchmark"}`), inputs.mod_who != null),
     payments: piece(inputs.rev > 0 ? fmt(t("whose.payments.some"), { rev: compact(inputs.rev) }) : t("whose.payments.none"), inputs.rev > 0),
     reach: piece(fmt(t("whose.reach.in"), { list: regions.join(t("whose.reach.join")) }), true),
-    nostr: piece(t(`whose.nostr.${eff.nostr_now}`), inputs.nostr_now != null)
+    // The Nostr bands are "0", "0.5" and "1": a key with a dot in it is looked up on the block, not by path.
+    nostr: piece(t("whose.nostr")?.[eff.nostr_now] ?? "", inputs.nostr_now != null)
   };
   clear(host);
   for (const token of t("whose.frame").split(/(\{\w+\})/)) {
@@ -2687,24 +2689,21 @@ function renderParts(name, line, inputs) {
   clear(host);
   const item = (p) => {
     const meta = partMeta(p, inputs);
-    return el("li", {}, [
-      // A link-styled button: pressing it explains how the figure was made.
-      el("button", { type: "button", class: "part", "data-line": name, "data-part": p.id, "aria-haspopup": "dialog" }, [
-        el("span", { class: "part__label" }, [
-          t(`parts.${p.id}`, p.id),
+    return el("tr", {}, [
+      el("th", { scope: "row" }, [
+        el("button", { type: "button", class: "part", "data-line": name, "data-part": p.id, "aria-haspopup": "dialog" }, [
+          el("span", { class: "part__label", text: t(`parts.${p.id}`, p.id) }),
           meta ? el("span", { class: "part__meta", text: meta }) : null
-        ]),
-        el("span", { class: "part__nums" }, [
-          money(p.scale_custodial),
-          " \u2192 ",
-          el("b", { text: money(p.scale_noncustodial) })
         ])
-      ])
+      ]),
+      el("td", { class: "parts-num", text: money(p.scale_custodial) }),
+      el("td", { class: "parts-num" }, [el("b", { text: money(p.scale_noncustodial) })])
     ]);
   };
-  const subtotal = (label, parts) => el("li", { class: "parts__subtotal" }, [
-    el("span", { class: "parts__subtotal-label", text: label }),
-    el("span", { class: "part__nums" }, [money(parts.reduce((a, p) => a + p.scale_custodial, 0)), " \u2192 ", el("b", { text: money(parts.reduce((a, p) => a + p.scale_noncustodial, 0)) })])
+  const subtotal = (label, parts) => el("tr", { class: "parts__subtotal" }, [
+    el("th", { scope: "row", text: label }),
+    el("td", { class: "parts-num", text: money(parts.reduce((a, p) => a + p.scale_custodial, 0)) }),
+    el("td", { class: "parts-num" }, [el("b", { text: money(parts.reduce((a, p) => a + p.scale_noncustodial, 0)) })])
   ]);
   const groups = [
     ["cash", line.parts.filter((p) => !p.kind)],
@@ -3307,7 +3306,6 @@ function wire() {
   $("#r-edit")?.addEventListener("click", onEdit);
   $("#calc-reset")?.addEventListener("click", onResetForm);
   $("#r-whose-link")?.addEventListener("click", onEdit);
-  $("#r-sourced-link")?.addEventListener("click", () => activateTab("assumptions", { focus: true }));
   wireCharts();
   $("#a-reset")?.addEventListener("click", onReset);
   $("#a-recalc")?.addEventListener("click", onRecalculate);

@@ -13,7 +13,7 @@
 meta:
   title: Non-Custodial Savings Calculator
   description: >-
-    This calculator exposes the misunderstood cost center of holding custody, and the savings to be had by releasing custody, of user accounts and data in social apps.
+    This calculator estimates the often overlooked cost of holding custody of user accounts and data in a social app, and the savings our model projects when  non-custody becomes a business model.
 
 sections:
   - type: hero
@@ -26,9 +26,9 @@ sections:
       eyebrow_tone: gold
       title: Non-Custodial Savings Calculator
       lede: |-
-        Holding custody of user accounts and content is a cost most social apps carry without choosing to. It pays for authentication, storage, serving, moderation, compliance and the engineering behind all of it. Nostr lets an app release that custody to its users and to the network, and keep the brand, the product and the business.
+          Holding custody of user accounts and content is a cost most social apps carry without choosing to. Account support, data storage, security, moderation, compliance and the engineering behind all of it add up to a figure few apps ever see in one place. Nostr integration lets an app release that custody burden and put its effort into the brand and the product instead.
 
-        This calculator puts a number on it: what custody costs your app today, what the same app pays on Nostr, and the savings between the two.
+          This calculator estimates what custody costs your app today, what a similar app would cost to run on Nostr, and the saving between the two.
 
   - type: calculator
     id: calculator
@@ -149,6 +149,13 @@ sections:
     # this is the chrome around them. Brief on purpose.
     modal:
       consent: You may email me about these results.
+      # Under the questions: what sending does with the answers, in the page's own terms.
+      data_note: >-
+        Sending publishes your answers as a response on public Nostr relays,
+        encrypted to Nostr4 and signed with your key, which grants Nostr4 access
+        to them; nothing is stored on Nostr4's servers. Nostr4 reads the
+        response and uses any contact details only to follow up. You can ask
+        the relays to delete it at any time.
       save: Book a free consult with these results
       copy: Copy URL for Sharing
       close: Close
@@ -158,13 +165,14 @@ sections:
       sign_note: >-
         Sign with your browser extension or remote signer and the submission
         is yours to update or revisit later from any Nostr client. Otherwise a
-        one-time key made in this tab signs it.
+        one-time key made in this tab signs it. The response itself is public
+        on the relays; its contents are encrypted to Nostr4.
       sign_open: Choose how to sign
       # The dialog Save to Nostr opens: how the response is signed.
       sign:
         title: Sign the response
         extension: With my browser extension
-        extension_note: Alby, nos2x, Amber. You can update or delete the response later from any Nostr client.
+        extension_note: Alby, nos2x, Amber. You can update the response later from any Nostr client, or ask the relays to delete it.
         bunker: With my remote signer
         bunker_note: nsec.app or any bunker. Same as above, approved on your signer.
         session: Without a key
@@ -185,11 +193,8 @@ sections:
             nostr: Cost of Nostr
           # {year} is the year the network is at scale, filled by the script.
           caption: >-
-            The Cost of Nostr line is what an app on Nostr pays each year:
-            lower today, and falling as the network's standards and
-            infrastructure scale. The gap in {year} is the figure above.
-            Integration cost is not estimated here; it varies from app to app
-            and is the subject of a consult.
+            In this model, the cost of running an app on Nostr is lower than custody today, and we expect it to fall over the next three years as the network's standards and infrastructure scale out.
+            Integration cost varies from app to app and is not estimated here. Contact us for a free consult.
       # The three facts under the chart, all for the year Nostr is at scale,
       # like the figure in the chart and the savings list: the two costs per
       # user that year, and the Nostr cost that year. The custodial figure has
@@ -197,11 +202,11 @@ sections:
       # in every case.
       stats:
         custodial_per_mau:
-          label: "Custodial cost per user, {year}"
+          label: "{year} Custodial cost per user"
         nostr_per_mau:
-          label: "Nostr cost per user, {year}"
+          label: "{year} Nostr cost per user"
         nostr_at_scale:
-          label: "Nostr cost a year, {year}"
+          label: "{year} Cost of Nostr app"
       # Measures down, years across from today; the script fills the year
       # heads and the cells, and writes the five years of saving beside the
       # summary.
@@ -213,107 +218,62 @@ sections:
           users: Active users
           custodial: Cost of Custody
           nostr: Cost of Nostr
-          realised: Saved
-          cumulative: Cumulative Savings
+          realised: Estimated Saving
+          cumulative: Cumulative Estimate
       # Where the saving comes from: the six lines as the saving a year once
       # Nostr is at scale, which add up to the figure in the chart.
       table:
         title: Non-Custody Savings in Detail
       columns:
-        line: Cost line
-        saving: Saved per year
-        share: Percent Saved
-        remains: Nostr at Scale
+        line: Value Center
+        saving: 2030 Estimated Savings
+        share: Estimated Share Saved
+        remains: Post Integration
+      # Post Integration: what responsibility remains for a fully
+      # non-custodial app on Nostr with the network at scale. One or two
+      # plain sentences a row; a summary, nothing more.
       lines:
         - id: accounts
           icon: lock-closed
           title: Accounts & personal data
           remains: >-
-            An age signal from the store or wallet where the law still asks
-            for one, the signer login you still build, and a hand-off for
-            users who need a key-management service.
+            Apps integrate signer login and point users who need help with
+            their keys to a key-management service. Where the law asks for an
+            age signal, you read it from the network or the wallet.
         - id: graph
           icon: hub
           title: Social graph & feeds
           remains: >-
-            A client that assembles feeds from relays, and a ranking or
-            discovery provider you run or choose.
-          goes: >-
-            Feeds assemble on the client, and ranking is a service your users
-            choose or you choose for them. Their follows, mutes and feed
-            settings travel with them across apps.
+            Apps assemble feeds on the client from third party services. Ranking and
+            discovery come from a provider chosen by apps or users.
         - id: storage
           icon: storage
           title: Compute & storage
           remains: >-
-            Relay capacity for users who don't bring their own, rented from a
-            provider who carries the hosting duties; media you choose to host;
-            a thin cache; and the engineering to run them.
-          goes: >-
-            Users keep their events on relays and their media with hosts they
-            choose, and both travel with them. You pay for the users who bring
-            neither, as a sponsored or premium add-on.
+            Apps may rent relay capacity for the users who don't bring their own
+            and choose to host only selected media. A thin cache and the
+            engineering to run it may also be provided by apps.
         - id: compliance
           icon: doc
           title: Compliance & liability
           remains: >-
-            Part of the DSA and Online Safety Act programs, for whatever you
-            still host; a privacy program, access requests and a smaller
-            breach exposure for whatever you still retain.
+            In our reading, content-law duties follow only what apps choose to host,
+            and privacy duties, access requests and breach exposure follow
+            what apps choose to retain.
         - id: moderation
           icon: gavel
           title: Moderation
           remains: >-
-            Illegal-content handling for any relay you run, app-store filter
-            and report rules, and a label or web-of-trust provider. An app
-            that rents relay capacity hosts nothing itself; the provider
-            handles illegal content on its relays. Review and ranking move to
-            the network.
-          goes: >-
-            Labels, trust scores and ranking are services on the network,
-            shared across apps. A user's mutes and filters work in every
-            client they use.
+            Review, ranking and filtering come from label and web-of-trust providers on the network, chosen by users. Apps answer for the defaults a new user starts with, the report and block controls that app stores require, and any storage relay run by the app.
         - id: payments
           icon: card
           title: Payments
           remains: >-
-            Store commission on peer-to-peer payments where the store still
-            claims it, until the precedent is settled, and the user's own rail
-            for everything else. The app's own products sold through a store
-            still pay that store's rate. On-ramp costs fall on your users and
-            affect conversion, not your P&L.
-          goes: >-
-            The app is not a party to the payment. Buyers and sellers, tippers
-            and creators settle on their own rails, and the fee stack that
-            custody put on every transaction goes with it.
+            Payments settle on users' own rails. An app-store may still claim its commission on peer-to-peer payments until the precedent for non-custodial payments is settled. An app selling its own products in-app still pays the app-store's commission.
       # Quiet notes under a line's name, where one applies.
       already: Already on Nostr
       partly: Partly on Nostr
       no_payments: No in-app payments
-      # What integration involves: one sentence per piece, in the order the
-      # integration runs. No weeks and no cost: those are the consult's. Then
-      # the doors.
-      integration:
-        title: What integration involves
-        lines:
-          - id: accounts
-            text: "Accounts: signer login and the key hand-off."
-          - id: graph
-            text: "Graph: profiles, follows and feeds as signed events."
-          - id: storage
-            text: "Storage: relay connections, the outbox model and caching."
-          - id: media
-            text: "Media: user-chosen hosting, Blossom or similar."
-          - id: moderation
-            text: "Moderation: labels, web of trust and a ranking provider."
-          - id: payments
-            text: "Payments: in-app payments on the users' own rails."
-        actions:
-          - label: See Services
-            href: /services/
-            style: primary
-          - label: Book a Free Consult
-            href: /contact/?subject=Free+consult
       actions:
         edit:
           label: Customize App Details
@@ -376,17 +336,8 @@ sections:
       range: "Range {low} to {high}"
       range_short: "{low} to {high}"
       per_mau_pair: "{custodial} today, {noncustodial} on Nostr"
-      # The headline: the cash saving a year at scale, a range with typical
-      # inside it; the risk saving on its own smaller line.
-      headline: "{low} to {high} a year, typically {typical}"
-      headline_sub: "in {year}, at {users} active users"
-      headline_fees: "plus {amount} a year less in fees across your in-app payments"
-      headline_risk: "plus {risk} a year less breach exposure"
-      # Under the headline, in the body ink, counted from the file at build time.
-      sourced_line: "{sourced} of {total} assumptions are sourced; every one is listed, graded and yours to change."
-      sourced_link: See Assumptions
       # Beside the year-by-year summary: the five years of saving added up.
-      cumulative_note: "{amount} saved over five years"
+      cumulative_note: "{amount} estimated saving over five years"
       # The moderation line when the form says nobody moderates: the benchmark it would have billed.
       moderation_nobody: "No moderation today. Benchmarks put it at about {people} people, {cost} a year. On Nostr that work moves to the network; nothing is saved because nothing is spent."
       # "How this is calculated": the dialog a part opens. {a.key} is an
@@ -425,7 +376,7 @@ sections:
             nostr: "Nothing. Keys replace accounts, so there is no authentication service to pay for."
           resets:
             today: "{i.mau} users × {a.reset_rate_per_mau_year} resets a year × {a.reset_cost} a reset = {p.custodial}"
-            nostr: "Nothing. Keys cannot be reset, so there is no reset to support."
+            nostr: "Nothing. A key cannot be reset by the app, so there is no reset to support."
           verify:
             today: "{i.mau} users × {p.rate} checked a year (each region's share of users at that region's rate) × {a.verify_price} a check = {p.custodial}"
             nostr: "{a.verify_remains_share} of checks remain at scale, where the law still reaches the client: {p.noncustodial}"
@@ -517,7 +468,7 @@ sections:
             today: "{p.revenue} a year × {a.lightning_rate} = {p.custodial}"
             nostr: "The same: {p.noncustodial}"
           money_transmitter_holds:
-            today: "Holding balances means staying out of money-transmitter rules: {a.mt_avoidance_year} a year."
+            today: "Legal work on money-transmitter exposure while balances are held: {a.mt_avoidance_year} a year."
             nostr: "{a.mt_remains_share} remains at scale: {p.noncustodial}"
           money_transmitter:
             today: "Nothing. No balances are held."
@@ -529,10 +480,10 @@ sections:
       whose:
         illustrative: Estimated
         yours: Your estimate
-        frame: "{lead} for {kind} {reach} that is {nostr} and has {mau} active users, with {team}, {moderation}, and facilitates {payments} a month in in-app payments."
+        frame: "{lead} for {kind} app {reach} that is {nostr} and has {mau} active users, with {team}, {moderation}, and facilitates {payments} a month in in-app payments."
         kind:
-          none: an app
-          messaging: a messaging app
+          none: any
+          messaging: a messaging
           feed: a media feed
           community: a community
           marketplace: a marketplace
@@ -575,7 +526,7 @@ sections:
           realised: "Saved that year: {amount}"
           cumulative: "Saved so far: {amount}"
         versus:
-          band_sub: savings per year
+          band_sub: 2030 Estimated Savings
           start: Today
           users: Active Users
           tip_custody: "Cost of Custody: {amount}"
@@ -583,19 +534,24 @@ sections:
           tip_cumulative: "Cumulative Savings: {amount}"
           aria: "In {year}, when Nostr is at scale, custody costs {custodial} a year against {noncustodial} on Nostr, a saving of {saving} a year; the area between the lines is {total} over five years, with the low case below it."
       version: "Assumptions version {version}"
+      # Beside the version, at the foot of the tab: what the figures are and are not.
+      disclaimer: Estimates from public benchmarks and Nostr4's assumptions; not legal, tax or financial advice.
       contact_subject: Cost of custody estimate
       # What the Save & Share modal says at runtime.
       modal:
         needed: "Still needed: {list}"
         consent_name: your consent to email
-        signed: Signed with your key. You can update or delete this later from any Nostr client.
+        signed: Signed with your key. You can update this later from any Nostr client, or ask the relays to delete it.
         saved: "Sent · {ok} of {total} relays · event {id}"
       changed: changed
       details:
         show: Show the Savings
         hide: Hide the Savings
+        # The three columns beneath a line, and its foot row.
+        part: Item
         today: Cost of Custody
         on_nostr: Cost of Nostr
+        total: Total
         tier_small: small-business tier
         tier_standard: standard tier
         us_small: below the CCPA threshold
@@ -710,18 +666,19 @@ sections:
 
   - type: callout
     band: raised
+    # The two doors stack, so the lede keeps its width.
+    stack: true
     head:
       title: Nostr at Scale
       lede: >-
         Nostr4 exists to grow the network of independent social apps. We are
         actively developing the infrastructure and standards, and the
         onboarding services, that let an app release custody without losing
-        its users. We expect non-custody to be fully supported and profitable
-        on Nostr within three years. That is the tipping point from which
-        Nostr scales.
+        its users. We expect non-custody to be fully supported on Nostr within
+        three years. That is the tipping point from which Nostr scales.
     actions:
-      - label: Read More about Nostr
-        href: /nostr/
+      - label: See Services
+        href: /services/
       - label: Book a Free Consult
         href: /contact/?subject=Free+consult
         style: primary

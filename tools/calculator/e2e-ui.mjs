@@ -74,25 +74,10 @@ await withBrowser(async (api) => {
   check('a fresh page says whose estimate it shows, describes the app section by section, and invites the visitor in', first.whose.startsWith('Estimated for') && first.whose.includes('50,000') && first.whose.includes('the US') && first.whose.endsWith('.') && first.link === 'Customize App Details', `${first.whose} / ${first.link}`)
   const bar = await api.eval(`({ illustrative: document.getElementById('tabbar').classList.contains('is-illustrative'), ring: getComputedStyle(document.getElementById('tab-app')).boxShadow, gold: getComputedStyle(document.getElementById('tab-app')).color !== getComputedStyle(document.getElementById('tab-cost')).color, share: document.getElementById('save-open').className, sticky: getComputedStyle(document.getElementById('tabbar')).position, quiet: parseFloat(getComputedStyle(document.getElementById('tab-assumptions')).fontSize) < parseFloat(getComputedStyle(document.getElementById('tab-cost')).fontSize) })`)
   check('on a fresh page App Details is gold with no ring, Send & Share is outlined, the bar sticks, Assumptions is the quiet tab', bar.illustrative && bar.ring === 'none' && bar.gold && bar.share.includes('btn--secondary') && bar.sticky === 'sticky' && bar.quiet, JSON.stringify(bar))
-  check('the pieces the openers assumed are drawn quiet, the given ones bright (the team size among them), and the link is gold', (await api.eval(`document.querySelectorAll('#r-whose-text .whose__fact--assumed').length + ':' + document.querySelectorAll('#r-whose-text .whose__fact:not(.whose__fact--assumed)').length + ':' + getComputedStyle(document.getElementById('r-whose-link')).color`)) === `4:3:${await api.eval(`getComputedStyle(document.getElementById('tab-app')).color`)}`)
-  const head = await api.eval(`({
-    figure: document.getElementById('r-head-figure').textContent, sub: document.getElementById('r-head-sub').textContent, risk: document.getElementById('r-head-risk').textContent, riskHidden: document.getElementById('r-head-risk').hidden,
-    sourced: document.getElementById('r-sourced').textContent.replace(/\\s+/g, ' ').trim(), sourcedButton: document.getElementById('r-sourced-link').textContent,
-    order: [...document.getElementById('r-headline').parentElement.children].map(n => n.id || n.className.split(' ')[0]).slice(0, 4).join(' '),
-    lines: document.getElementById('r-headline').children.length,
-    text: document.getElementById('panel-cost').textContent,
-  })`)
-  check('the headline is the cash saving a year at scale, a range with typical inside it, for the marker year at that year\'s users', /^\$[\d.]+[kM] to \$[\d.]+[kM] a year, typically \$[\d.]+[kM]$/.test(head.figure) && /^in 2030, at [\d,]+ active users$/.test(head.sub), `${head.figure} / ${head.sub}`)
-  const headNums = head.figure.match(/\$[\d.]+[kM]/g).map(x => parseFloat(x.slice(1)) * (x.endsWith('M') ? 1e6 : 1e3))
-  check('…with typical inside the range', headNums[0] <= headNums[2] && headNums[2] <= headNums[1], headNums.join(' '))
-  check('the risk saving sits apart on a smaller line, and nothing on the tab estimates integration cost or a payback', /^plus \$[\d.]+[kM] a year less breach exposure$/.test(head.risk) && !head.riskHidden && head.lines === 4 && !/payback|pays back|integrated today|person-weeks|overlap/i.test(head.text), `${head.risk} | ${head.lines} lines | ${(head.text.match(/.{30}(payback|pays back|integrated today|person-weeks|overlap).{30}/i) || [''])[0]}`)
-  check('the headline block sits under the title, before the chart', head.order === 'results__head r-headline r-sourced results__view', head.order)
-  check('under it, how many assumptions are sourced, counted from the file, with the door to the tab', /^44 of 108 assumptions are sourced; every one is listed, graded and yours to change\. See Assumptions$/.test(head.sourced) && head.sourcedButton === 'See Assumptions', head.sourced)
-  check('with no in-app payments the fees line stays out of the headline', await api.eval(`document.getElementById('r-head-fees').hidden`))
-  check('the gold watermark in the chart\'s gap is the headline\'s typical figure, and the hero card is gone', /^\$\d+(\.\d+)?[kM]$/.test(first.hero) && first.hero === head.figure.split('typically ')[1] && first.sub === 'savings per year' && !first.heroCard && first.gold !== '1px', `${first.hero} / ${head.figure} / ${first.sub} / rail ${first.gold}`)
-  await api.eval(`document.getElementById('r-sourced-link').click()`)
-  check('the door opens the Assumptions tab', (await api.eval(`document.getElementById('tab-assumptions').getAttribute('aria-selected')`)) === 'true')
-  await api.eval(`document.getElementById('tab-cost').click()`)
+  check('the pieces the openers assumed are drawn quiet, the given ones bright (the team size and the payment volume among them), and the link is gold', (await api.eval(`document.querySelectorAll('#r-whose-text .whose__fact--assumed').length + ':' + document.querySelectorAll('#r-whose-text .whose__fact:not(.whose__fact--assumed)').length + ':' + getComputedStyle(document.getElementById('r-whose-link')).color`)) === `3:4:${await api.eval(`getComputedStyle(document.getElementById('tab-app')).color`)}`)
+  check('the illustrative app facilitates $5k a month, so the payments line shows a saving on a fresh page', first.whose.includes('facilitates $5k a month') && /^\$[\d,]+$/.test(await api.eval(`document.querySelector('.lt-row[data-line="payments"] .lt-saving').textContent`)) && (await api.eval(`document.querySelector('.lt-row[data-line="payments"] .lt-flag--none').hidden`)), first.whose)
+  const headless = await api.eval(`({ next: document.querySelector('.results__head').nextElementSibling.className, text: document.getElementById('panel-cost').textContent })`)
+  check('no headline: the results head is the title and the whose line, then the picture; the saving a year at scale is the gold watermark in the chart\'s gap, and nothing on the tab estimates integration cost or a payback', /^\$\d+(\.\d+)?[kM]$/.test(first.hero) && first.sub === '2030 Estimated Savings' && !first.heroCard && first.gold !== '1px' && headless.next === 'results__view' && !/payback|pays back|integrated today|person-weeks|overlap|typically/i.test(headless.text), `${first.hero} / ${first.sub} / rail ${first.gold} / ${headless.next}`)
   const goldMark = await api.eval(`getComputedStyle(document.querySelector('.chart__watermark')).fill === getComputedStyle(document.querySelector('.chart__marker--scale')).fill && getComputedStyle(document.querySelector('.chart__scale-rule')).stroke === getComputedStyle(document.querySelector('.chart__marker--scale')).fill && parseFloat(getComputedStyle(document.querySelector('.chart__watermark')).fontSize) >= 48`)
   check('the watermark is gold, like the two dots and the rule between them, and larger than before', goldMark)
   const startGap = first.starts.map(p => p.split(',').map(Number))
@@ -110,10 +95,27 @@ await withBrowser(async (api) => {
   })()`)
   check('at year three a gold dot sits on each line, a gold rule joins them, and the watermark stands to its right', scaleDots.n === 2 && scaleDots.r === '7,7' && scaleDots.onCustody && scaleDots.onNostr && scaleDots.fill !== scaleDots.plain && scaleDots.fill === scaleDots.gold && scaleDots.rule && scaleDots.right, JSON.stringify(scaleDots))
   check('the legend names the two lines in the page\'s words', first.legend.join(' / ') === 'Cost of Custody / Cost of Nostr', first.legend.join(' / '))
+  const ramp = await api.eval(`(() => {
+    const svg = document.getElementById('chart-custodial-cost-vs-nostr')
+    const pts = (i) => svg.querySelectorAll('polyline')[i].getAttribute('points').split(' ').map(p => p.split(',').map(Number))
+    const custodyDot = svg.querySelector('.chart__marker--custodial')
+    const nostrDot = svg.querySelector('.chart__marker:not(.chart__marker--custodial):not(.chart__marker--scale)')
+    const line = svg.querySelector('.chart__ramp')
+    const near = (a, b) => Math.abs(a - b) < 0.6
+    return {
+      dotFill: getComputedStyle(custodyDot).fill, lineStroke: getComputedStyle(svg.querySelector('.chart__line--custodial')).stroke, nostrDotFill: getComputedStyle(nostrDot).fill, nostrStroke: getComputedStyle(svg.querySelector('.chart__line:not(.chart__line--custodial)')).stroke,
+      ramp: Boolean(line), rampStroke: line && getComputedStyle(line).stroke, dashed: line && getComputedStyle(line).strokeDasharray !== 'none',
+      fromCustodyToday: line && near(+line.getAttribute('x1'), pts(0)[0][0]) && near(+line.getAttribute('y1'), pts(0)[0][1]),
+      toNostr2028: line && near(+line.getAttribute('x2'), pts(1)[1][0]) && near(+line.getAttribute('y2'), pts(1)[1][1]),
+      labels: svg.querySelectorAll('.chart__marks text').length,
+    }
+  })()`)
+  check('the custody line\'s dots are the colour of the custody line, the Nostr dots the colour of the Nostr line', ramp.dotFill === ramp.lineStroke && ramp.nostrDotFill === ramp.nostrStroke && ramp.dotFill !== ramp.nostrDotFill, `${ramp.dotFill} vs ${ramp.lineStroke} | ${ramp.nostrDotFill} vs ${ramp.nostrStroke}`)
+  check('a dotted ramp in the Nostr line\'s colour runs from today\'s custody dot to the 2028 Nostr dot, with no label', ramp.ramp && ramp.rampStroke === ramp.nostrStroke && ramp.dashed && ramp.fromCustodyToday && ramp.toNostr2028 && ramp.labels === 2, JSON.stringify(ramp))
   check('the picture carries its small title at the top left, with the legend just under it', (await api.eval(`document.querySelector('#panel-cost .chart > .chart__title').textContent + ':' + document.querySelector('#panel-cost .chart > .chart__title').nextElementSibling.className`)) === 'Projected Nostr Integration:legend legend--chart')
-  check('the chart is described without a floor, and the year-by-year table runs from today across and the measures down', first.title.includes('In 2030, when Nostr is at scale') && first.title.includes('over five years') && !/at least|floor|integration/.test(first.title) && first.years === 6 && first.yearOne === 'Today' && first.measures === 'Active users | Cost of Custody | Cost of Nostr | Saved | Cumulative Savings' && first.cells === 30, `${first.years} ${first.yearOne} | ${first.measures} | ${first.cells} | ${first.title}`)
+  check('the chart is described without a floor, and the year-by-year table runs from today across and the measures down', first.title.includes('In 2030, when Nostr is at scale') && first.title.includes('over five years') && !/at least|floor|integration/.test(first.title) && first.years === 6 && first.yearOne === 'Today' && first.measures === 'Active users | Cost of Custody | Cost of Nostr | Estimated Saving | Cumulative Estimate' && first.cells === 30, `${first.years} ${first.yearOne} | ${first.measures} | ${first.cells} | ${first.title}`)
   const caption = await api.eval(`document.getElementById('caption-chart-custodial-cost-vs-nostr').textContent`)
-  check('the caption says what the Nostr line is, names the marker year, and says integration cost is not estimated here', caption.startsWith('The Cost of Nostr line is what an app on Nostr pays each year') && caption.includes('The gap in 2030 is the figure above.') && caption.includes('Integration cost is not estimated here') && !/\{/.test(caption), caption)
+  check('the caption says the cost on Nostr is lower today and falls as the network scales, and that integration cost is not estimated here', caption.startsWith('In this model, the cost of running an app on Nostr is lower than custody today, and we expect it to fall') && caption.includes('Integration cost varies from app to app and is not estimated here') && !/\{/.test(caption), caption)
   const year0 = await api.eval(`(() => { const n = (row) => Number(document.querySelector('#r-years tbody tr[data-row=' + row + '] td:nth-child(2)').textContent.replace(/[^\\d-]/g, '')); return { custodial: n('custodial'), nostr: n('nostr'), realised: n('realised'), cumulative: n('cumulative') } })()`)
   check('today\'s column: the Nostr cost is below custody, the saving is the gap, and the cumulative starts with it', year0.nostr < year0.custodial && Math.abs(year0.realised - (year0.custodial - year0.nostr)) <= 1 && year0.cumulative === year0.realised, JSON.stringify(year0))
   check('the chart is drawn at the figure\'s own width', first.width.split(':')[0] === first.width.split(':')[1], first.width)
@@ -210,7 +212,7 @@ await withBrowser(async (api) => {
   check('number sliders start on their defaults', (await api.eval(`(() => {
     const v = (n) => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.values.split(',')[s.value] + '=' + s.closest('.slider-row').querySelector('output').textContent }
     return [v('mau'), v('posts_per_user'), v('mb'), v('rev'), v('legal_usd')].join(' ')
-  })()`)) === '50000=50k 20=20 50=50 MB 0=0 0=0')
+  })()`)) === '50000=50k 20=20 50=50 MB 5000=$5k 0=0')
 
   // ── a tab named in the address ───────────────────────────────────────────
   for (const [anchor, tab] of [['results', 'cost'], ['app', 'app'], ['assumptions', 'assumptions']]) {
@@ -261,7 +263,6 @@ await withBrowser(async (api) => {
     const row = (l) => document.querySelector('.lt-row[data-line="' + l + '"]')
     return {
       hero: $('.chart__watermark').textContent, whose: $('#r-whose-text').textContent, whoseLink: $('#r-whose-link').textContent,
-      fees: $('#r-head-fees').textContent, feesHidden: $('#r-head-fees').hidden, feesBeforeRisk: $('#r-head-fees').nextElementSibling.id === 'r-head-risk',
       permauC: $('#r-permau-c').textContent, permauCRange: $('#r-permau-c-range').textContent, permauNC: $('#r-permau-nc').textContent, permauNCRange: $('#r-permau-nc-range').textContent, scale: $('#r-scale-nostr').textContent, scaleRange: $('#r-scale-nostr-range').textContent, cumulative: $('#r-cumulative').textContent,
       eyebrows: [...document.querySelectorAll('#panel-cost .stat .eyebrow--gold')].map(e => e.textContent),
       yearTwoUsers: $('#r-years tbody tr[data-row=users] td:nth-child(4)').textContent,
@@ -272,13 +273,13 @@ await withBrowser(async (api) => {
       toggle: row('accounts').querySelector('.lt-toggle').textContent,
       shares: [...document.querySelectorAll('.lt-row .share')].map(b => parseFloat(b.style.getPropertyValue('--w'))),
       storageCut: row('storage').querySelector('.share__pct').textContent,
-      editLink: $('#r-edit').className + ':' + getComputedStyle($('.results__actions')).justifyContent,
+      editLink: $('#r-edit').className + ':' + getComputedStyle($('.results__actions')).justifyContent, editBorder: getComputedStyle($('#r-edit')).borderTopColor, gold: getComputedStyle($('#tab-app')).color,
       versionAlign: getComputedStyle($('#r-version')).textAlign,
-      tabFill: getComputedStyle($('#tab-cost')).backgroundColor + '|' + getComputedStyle($('#tab-app')).backgroundColor,
+      tabFill: getComputedStyle($('#tab-cost')).borderBottomColor + '|' + getComputedStyle($('#tab-app')).borderBottomColor + '|' + getComputedStyle($('#tab-cost')).backgroundColor,
       illustrative: document.getElementById('tabbar').classList.contains('is-illustrative'),
       share: document.getElementById('save-open').className,
       sum: [...document.querySelectorAll('.lt-row .lt-saving')].reduce((a, n) => a + Number(n.textContent.replace(/[^\\d]/g, '')), 0),
-      footRows: document.querySelectorAll('#r-table tfoot tr').length,
+      footRows: document.querySelectorAll('#r-table > tfoot tr').length,
       subtitle: $('.results__sub').textContent,
       link: location.href,
       url: location.search,
@@ -287,21 +288,23 @@ await withBrowser(async (api) => {
     }
   })()`)
   check('the watermark is the saving a year at scale, compact, and the third chip is the Nostr cost that year, a different figure', /^\$\d+(\.\d+)?[kM]$/.test(r.hero) && /^\$\d+(\.\d+)?[kM]$/.test(r.scale) && r.hero !== r.scale, `${r.hero} | ${r.scale}`)
-  check('the three facts are per user at scale (no range: the custodial side does not vary), per user on Nostr with its range in reading order, and the Nostr cost a year at scale with its range, under gold eyebrows that name the year', /^\$\d+\.\d\d$/.test(r.permauC) && r.permauCRange === '' && /^\$\d+\.\d\d$/.test(r.permauNC) && /^Range \$(\d+\.\d\d) to \$(\d+\.\d\d)$/.test(r.permauNCRange) && parseFloat(r.permauNCRange.match(/\$([\d.]+) to/)[1]) <= parseFloat(r.permauNCRange.match(/to \$([\d.]+)/)[1]) && /^Range \$/.test(r.scaleRange) && r.eyebrows.join(' | ') === 'Custodial cost per user, 2030 | Nostr cost per user, 2030 | Nostr cost a year, 2030', `${r.permauC} [${r.permauCRange}] ${r.permauNC} [${r.permauNCRange}] ${r.scale} [${r.scaleRange}] | ${r.eyebrows.join(' | ')}`)
-  check('the five years of saving sit on the year-by-year summary', /^\$[\d.]+[kM] saved over five years$/.test(r.cumulative), r.cumulative)
-  check('with in-app payments the headline shows cash, then fees, then risk', !r.feesHidden && /^plus \$[\d.]+[kM]? a year less in fees across your in-app payments$/.test(r.fees) && r.feesBeforeRisk, r.fees)
+  check('the three facts are per user at scale (no range: the custodial side does not vary), per user on Nostr with its range in reading order, and the Nostr cost a year at scale with its range, under gold eyebrows that name the year', /^\$\d+\.\d\d$/.test(r.permauC) && r.permauCRange === '' && /^\$\d+\.\d\d$/.test(r.permauNC) && /^Range \$(\d+\.\d\d) to \$(\d+\.\d\d)$/.test(r.permauNCRange) && parseFloat(r.permauNCRange.match(/\$([\d.]+) to/)[1]) <= parseFloat(r.permauNCRange.match(/to \$([\d.]+)/)[1]) && /^Range \$/.test(r.scaleRange) && r.eyebrows.join(' | ') === '2030 Custodial cost per user | 2030 Nostr cost per user | 2030 Cost of Nostr app', `${r.permauC} [${r.permauCRange}] ${r.permauNC} [${r.permauNCRange}] ${r.scale} [${r.scaleRange}] | ${r.eyebrows.join(' | ')}`)
+  check('the five years of saving sit on the year-by-year summary, as an estimate', /^\$[\d.]+[kM] estimated saving over five years$/.test(r.cumulative), r.cumulative)
+  const foot = await api.eval(`({ note: document.querySelector('#save-modal .modal__note')?.textContent.replace(/\\s+/g, ' ').trim(), disclaimer: document.querySelector('.results__disclaimer')?.textContent, measures: [...document.querySelectorAll('#r-years tbody th')].map(t => t.textContent).join(' | '), cols: [...document.querySelectorAll('#r-table > thead th')].map(t => t.textContent).join(' | ') })`)
+  check('the figures are called estimates wherever they stand, the foot of the tab says what they are not, and the modal says what sending does with the answers', foot.disclaimer === "Estimates from public benchmarks and Nostr4's assumptions; not legal, tax or financial advice." && foot.measures === 'Active users | Cost of Custody | Cost of Nostr | Estimated Saving | Cumulative Estimate' && foot.cols === 'Value Center | 2030 Estimated Savings | Estimated Share Saved | Post Integration' && foot.note.startsWith('Sending publishes your answers as a response on public Nostr relays') && foot.note.includes('You can ask the relays to delete it'), JSON.stringify(foot))
   const col = await api.eval(`(() => { const n = (row, i) => Number(document.querySelector('#r-years tbody tr[data-row=' + row + '] td:nth-child(' + (i + 2) + ')').textContent.replace(/[^\\d]/g, '')); return { users: n('users', 3), custodial: n('custodial', 3), nostr: n('nostr', 3) } })()`)
   check('the two per-user facts are the 2030 column of the table divided by that year\'s users, and the third is its Nostr cost', Math.abs(parseFloat(r.permauC.slice(1)) - col.custodial / col.users) < 0.01 && Math.abs(parseFloat(r.permauNC.slice(1)) - col.nostr / col.users) < 0.01 && Math.abs(parseFloat(r.scale.replace(/[^\d.]/g, '')) * (r.scale.endsWith('M') ? 1e6 : r.scale.endsWith('k') ? 1e3 : 1) - col.nostr) / col.nostr < 0.01, `${r.permauC} vs ${col.custodial}/${col.users} | ${r.permauNC} vs ${col.nostr}/${col.users} | ${r.scale} vs ${col.nostr}`)
   check('after Calculate the tab says it is the visitor\'s estimate, facilitating that volume a month', r.whose.startsWith('Your estimate') && r.whose.includes('50,000') && r.whose.includes('facilitates $20k a month in in-app payments') && r.whose.includes('the EU') && r.whoseLink === 'Customize App Details', `${r.whose} / ${r.whoseLink}`)
   check('growth compounds in the year-by-year table (50% then decayed)', r.yearTwoUsers === '103,125', r.yearTwoUsers)
   check('each line shows its saving a year at scale in full, its share as a percentage, and no pills', /^\$[\d,]+$/.test(r.accountsSaving) && /^[\d.]+%$/.test(r.accountsPct) && r.badges === 0 && r.toggle === 'Show the Savings', `${r.accountsSaving} | ${r.accountsPct} | ${r.badges} badges | ${r.toggle}`)
   check('each bar is the share of that line\'s own cost that goes away', r.shares.length === 6 && r.shares.every(x => x >= 0 && x <= 100) && /^\d+(\.\d+)?%$/.test(r.storageCut) && parseFloat(r.storageCut) > 50, `${r.shares.join(' ')} | storage ${r.storageCut}`)
-  check('the bottom link is a centred link, the version sits right, and the active tab is a filled segment', r.editLink === 'linkbutton results__edit:center' && r.versionAlign === 'right' && r.tabFill.split('|')[0] !== r.tabFill.split('|')[1], `${r.editLink} | ${r.versionAlign} | ${r.tabFill}`)
+  check('the way back to the form is a centred gold-bordered button, the version sits right, and the active tab is underlined, not filled', r.editLink === 'btn btn--secondary results__edit:center' && r.editBorder === r.gold && r.versionAlign === 'right' && r.tabFill.split('|')[0] !== r.tabFill.split('|')[1] && r.tabFill.split('|')[1] === 'rgba(0, 0, 0, 0)' && r.tabFill.split('|')[2] === 'rgba(0, 0, 0, 0)', `${r.editLink} | ${r.editBorder} vs ${r.gold} | ${r.versionAlign} | ${r.tabFill}`)
+  check('the bar is a hairline with no track: the tabs row has no border or fill, and Assumptions sits at its far end', await api.eval(`(() => { const row = document.getElementById('calc-tabs'); const cs = getComputedStyle(row); const quiet = document.getElementById('tab-assumptions').getBoundingClientRect(); const app = document.getElementById('tab-app').getBoundingClientRect(); return cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.borderTopWidth === '0px' && cs.borderRadius === '0px' && quiet.left - app.right > 80 })()`))
+  check('no integration card on the tab; the services door sits in the closing callout, stacked above the consult door', (await api.eval(`!document.getElementById('r-integ') && [...document.querySelectorAll('.callout .actions--stacked .btn')].map(a => a.textContent + ':' + a.getAttribute('href')).join(' | ') + ' | ' + getComputedStyle(document.querySelector('.callout .actions--stacked')).flexDirection`)) === 'See Services:/services/ | Book a Free Consult:/contact/?subject=Free+consult | column')
   check('once the estimate is the visitor\'s own, the gold ring goes and Send & Share is filled', !r.illustrative && r.share.includes('btn--primary') && !r.share.includes('btn--secondary'), `${r.illustrative} ${r.share}`)
-  const riskNow = await api.eval(`document.getElementById('r-head-risk').textContent`)
   const money = (s) => parseFloat(s.replace(/[^\d.]/g, '')) * (s.endsWith('M') ? 1e6 : s.endsWith('k') ? 1e3 : 1)
-  check('the six lines add up to the figure in the chart plus the fees and the risk savings beside the headline, and there is no foot row', r.footRows === 0 && r.subtitle.trim().length > 0 && Math.abs(r.sum - money(r.hero) - money(r.fees.match(/\$[\d.]+[kM]?/)[0]) - money(riskNow.match(/\$[\d.]+[kM]?/)[0])) / r.sum < 0.01, `${r.sum} vs ${r.hero} + ${r.fees} + ${riskNow}`)
-  check('the Nostr at Scale column names what remains, in the page\'s words', (await api.eval(`document.querySelector('#r-table thead .lt-remains').textContent + ' | ' + document.querySelector('.lt-row[data-line="payments"] .lt-remains').textContent.replace(/\\s+/g, ' ').trim()`)).startsWith('Nostr at Scale | Store commission on peer-to-peer payments where the store still claims it'))
+  check('there is no foot row, and the six lines add up to more than the cash figure in the chart: the fees and the risk are in them', r.footRows === 0 && r.subtitle.trim().length > 0 && r.sum > money(r.hero) * 1.005, `${r.sum} vs ${r.hero}`)
+  check('the Post Integration column summarises what remains, in the page\'s words', (await api.eval(`document.querySelector('#r-table thead .lt-remains').textContent + ' | ' + document.querySelector('.lt-row[data-line="payments"] .lt-remains').textContent.replace(/\\s+/g, ' ').trim()`)).startsWith("Post Integration | Payments settle on users' own rails."))
   check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.includes('growth=0.5') && r.link.includes('team=ten') && r.link.endsWith('v=3'), r.link)
   check('sliders standing on "not given" or on a suggestion stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('eng_legal=') && !r.link.includes('kind=') && r.link.includes('mod_who=team') && r.link.includes('mod_heads=3'), r.link)
   check('the version is named', r.version.includes('3'), r.version)
@@ -329,9 +332,13 @@ await withBrowser(async (api) => {
     const row = document.getElementById('parts-payments')
     const n = (sel) => Number(row.querySelector(sel).textContent.replace(/[^\\d]/g, ''))
     const saved = Number(document.querySelector('.lt-row[data-line="payments"] .lt-saving').textContent.replace(/[^\\d]/g, ''))
-    return { hidden: row.hidden, open: document.querySelector('.lt-row[data-line="payments"]').classList.contains('is-open'), totals: row.querySelector('.parts__totals').textContent.replace(/\\s+/g, ' ').trim(), gap: n('.parts__total-c') - n('.parts__total-nc'), saved, items: [...row.querySelectorAll('.part')].map(p => p.textContent.replace(/\\s+/g, ' ').trim()), subs: [...row.querySelectorAll('.parts__subtotal-label')].map(s => s.textContent) }
+    const table = row.querySelector('.parts-table')
+    const cols = (tr) => [...tr.children].map(c => c.textContent.replace(/\\s+/g, ' ').trim())
+    const right = (sel) => getComputedStyle(table.querySelector(':scope > ' + sel)).textAlign
+    return { hidden: row.hidden, open: document.querySelector('.lt-row[data-line="payments"]').classList.contains('is-open'), heads: cols(table.querySelector('thead tr')), foot: cols(table.querySelector('tfoot tr')), gap: n('.parts__total-c') - n('.parts__total-nc'), saved, items: [...row.querySelectorAll('.part')].map(p => p.textContent.replace(/\\s+/g, ' ').trim()), rows: [...table.querySelectorAll('tbody tr')].map(tr => tr.children.length), subs: [...row.querySelectorAll('.parts__subtotal th')].map(s => s.textContent), aligned: right('tbody .parts-num') === 'right' && right('tfoot .parts-num') === 'right' && right('thead .parts-num') === 'right', nums: [...table.querySelectorAll(':scope > tbody .parts-num, :scope > tfoot .parts-num')].every(c => /^\\$[\\d,]+$/.test(c.textContent.trim())) }
   })()`)
-  check('the savings open under the line, headed by two at-scale totals whose difference is the saving beside them', !parts.hidden && parts.open && parts.items.length === 4 && /^Cost of Custody \$[\d,]+ Cost of Nostr \$[\d,]+$/.test(parts.totals) && Math.abs(parts.gap - parts.saved) <= 1, `${parts.totals} | saved ${parts.saved} | ${parts.items.join(' | ')}`)
+  const partsWhy = { shown: !parts.hidden && parts.open, four: parts.items.length === 4, heads: parts.heads.join(' | ') === 'Item | Cost of Custody | Cost of Nostr', three: parts.rows.every(n => n === 3), foot: /^Total \$[\d,]+ \$[\d,]+$/.test(parts.foot.join(' ')), aligned: parts.aligned, nums: parts.nums, gap: Math.abs(parts.gap - parts.saved) <= 1 }
+  check('the savings open under the line as three columns, item, custody and Nostr, every figure right-aligned in its column, with the two at-scale totals as the foot row whose difference is the saving beside them', Object.values(partsWhy).every(Boolean), `${JSON.stringify(partsWhy)} | ${parts.heads.join(' | ')} | ${parts.foot.join(' ')} | saved ${parts.saved} | ${parts.items.join(' | ')}`)
   check('a store part names its applied rate and tier, and the payments line closes with its fees sub-total', parts.items.some(t => /Apple App Store commission.*15%.*small-business tier/.test(t)) && parts.subs.join('|') === 'Fees on in-app payments', `${parts.items[0]} | ${parts.subs.join('|')}`)
   await api.eval(`document.querySelector('.lt-parts[data-line="payments"] button.part[data-part="store_apple"]').click()`)
   const storeHow = await api.eval(`document.getElementById('how-nostr').textContent + ' || ' + [...document.querySelectorAll('#how-list .how__item')].map(i => i.textContent.replace(/\\s+/g, ' ').trim()).join(' | ')`)
@@ -340,14 +347,16 @@ await withBrowser(async (api) => {
   await api.eval(`document.querySelector('.lt-row[data-line="compliance"] .lt-toggle').click()`)
   const risk = await api.eval(`(() => {
     const row = document.getElementById('parts-compliance')
-    const items = [...row.querySelectorAll('.parts > li')].map(li => (li.classList.contains('parts__subtotal') ? 'SUB:' + li.querySelector('.parts__subtotal-label').textContent : li.querySelector('.part').dataset.part))
-    const n = (li) => li.querySelector('.part__nums').textContent.split('→').map(x => Number(x.replace(/[^\\d]/g, '')))
+    const items = [...row.querySelectorAll('.parts > tr')].map(tr => (tr.classList.contains('parts__subtotal') ? 'SUB:' + tr.querySelector('th').textContent : tr.querySelector('.part').dataset.part))
+    const n = (tr) => [...tr.querySelectorAll('.parts-num')].map(x => Number(x.textContent.replace(/[^\\d]/g, '')))
     const subs = [...row.querySelectorAll('.parts__subtotal')].map(n)
-    const parts = [...row.querySelectorAll('.parts > li:not(.parts__subtotal)')].map(n)
+    const parts = [...row.querySelectorAll('.parts > tr:not(.parts__subtotal)')].map(n)
     const cash = parts.slice(0, 4).reduce((a, p) => [a[0] + p[0], a[1] + p[1]], [0, 0])
     return { items, subs, cash, breach: parts[4], meta: row.querySelector('.part[data-part=breach] .part__meta')?.textContent }
   })()`)
   check('the compliance line lists its cash costs with a sub-total, then the expected breach loss as risk exposure with its own', risk.items.join(' ') === 'privacy_programs legal_labour dsar insurance SUB:Cash costs breach SUB:Risk exposure' && Math.abs(risk.subs[0][0] - risk.cash[0]) <= 2 && Math.abs(risk.subs[0][1] - risk.cash[1]) <= 2 && risk.subs[1][0] === risk.breach[0] && risk.subs[1][1] === risk.breach[1] && risk.meta === 'expected loss, not a bill', JSON.stringify(risk))
+  const feesSaved = Number(await api.eval(`document.querySelector('.lt-row[data-line="payments"] .lt-saving').textContent.replace(/[^\\d]/g, '')`))
+  check('the six lines add up to the cash figure in the chart plus the payments line and the risk sub-total', Math.abs(r.sum - money(r.hero) - feesSaved - (risk.subs[1][0] - risk.subs[1][1])) / r.sum < 0.01, `${r.sum} vs ${r.hero} + ${feesSaved} + ${risk.subs[1][0] - risk.subs[1][1]}`)
 
   // ── an assumption edit, then Recalculate ─────────────────────────────────
   const before = await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-saving').textContent`)
@@ -420,6 +429,7 @@ await withBrowser(async (api) => {
   for (const query of ['mau=50000&posts_per_user=20&eng_accounts=5&mod_who=team&mod_heads=15&team=ten&rails=p2p%2Capple%2Cgoogle%2Cprocessor%2Creseller&rev=50000&balances=yes&jur=eu%2Cuk%2Cus%2Cother&v=2', 'mau=10000000&rails=apple&rev=200000&legal_usd=50000&jur=us&v=1', 'mau=20000&mod_who=vendor&mod_heads=3&team=one&kind=messaging&nostr_now=0.5&jur=eu&v=2']) {
     await api.goto(`${BASE}/calculator/?${query}`)
     await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+    if (query.includes('nostr_now=0.5')) check('a partly integrated app is named in full in the frame', (await api.eval(`document.getElementById('r-whose-text').textContent`)).includes('partially Nostr integrated'), await api.eval(`document.getElementById('r-whose-text').textContent`))
     if (query.endsWith('v=1')) {
       // A version-1 link had no team question; it opens as the team size it assumed, under the current version, and says so.
       const older = await api.eval(`({ status: document.getElementById('r-status').textContent, hidden: document.getElementById('calc-results').hidden, team: document.querySelector('input[name=team]').dataset.values.split(',')[document.querySelector('input[name=team]').value], url: location.search })`)
@@ -468,12 +478,6 @@ await withBrowser(async (api) => {
   // ── the payback figure, the services band and the sign disclosure ─────────
   await api.goto(`${BASE}/calculator/`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
-  const band = await api.eval(`(() => {
-    const band = document.getElementById('r-integ')
-    return { title: band.querySelector('.integ__title').textContent, items: [...band.querySelectorAll('.integ__item')].map(li => li.textContent), actions: [...band.querySelectorAll('.btn')].map(a => a.textContent + '→' + a.getAttribute('href') + ':' + (a.classList.contains('btn--primary') ? 'primary' : 'secondary')), afterTable: document.getElementById('r-table').compareDocumentPosition(band) === Node.DOCUMENT_POSITION_FOLLOWING, beforeEdit: band.compareDocumentPosition(document.getElementById('r-edit')) === Node.DOCUMENT_POSITION_FOLLOWING, goes: document.querySelector('.lt-row[data-line="storage"] .lt-goes')?.textContent.replace(/\\s+/g, ' ').trim() }
-  })()`)
-  check('what integration involves sits under the savings table, before Customize App Details: six pieces in order, no weeks and no cost, and the two doors', band.title === 'What integration involves' && band.items.length === 6 && band.items[0] === 'Accounts: signer login and the key hand-off.' && band.items[5] === "Payments: in-app payments on the users' own rails." && !band.items.some(i => /\d/.test(i)) && band.actions.join(' | ') === 'See Services→/services/:primary | Book a Free Consult→/contact/?subject=Free+consult:secondary' && band.afterTable && band.beforeEdit, JSON.stringify(band))
-  check('each line says where the cost goes, under what remains', typeof band.goes === 'string' && band.goes.startsWith('Users keep their events on relays'), band.goes)
   await api.eval(`document.getElementById('save-open').click()`)
   const disclosure = await api.eval(`({ open: document.getElementById('save-modal').open, save: document.getElementById('save-submit').textContent, closed: !document.getElementById('save-sign').open, summary: document.querySelector('#save-sign summary').textContent, chipInside: document.querySelector('#save-sign #sign-signed') !== null, mining: document.getElementById('save-mining').getAttribute('aria-live') })`)
   check('the modal opens on one button, Book a free consult with these results, with the signing options folded under "Already on Nostr?"', disclosure.open && disclosure.save === 'Book a free consult with these results' && disclosure.closed && disclosure.summary === 'Already on Nostr? Sign with your key' && disclosure.chipInside && disclosure.mining === 'polite', JSON.stringify(disclosure))

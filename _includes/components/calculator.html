@@ -1,16 +1,13 @@
 {%- comment -%}
 The Non-Custodial Savings Calculator, in three tabs and a modal.
 
-  Estimated Cost    the results: whose estimate it is, the headline (the cash
-                    saving a year at scale as a range, the fees and the risk
-                    savings apart), the sourced-assumptions line, the cost
-                    chart with the at-scale
+  Estimated Cost    the results: whose estimate it is, the cost chart with
+                    the at-scale
                     year as a gold dot on each line, a gold rule between them
                     and the saving a year beside it, three facts (the Nostr
                     cost a year at scale among them), the year-by-year table
                     with the five-year cumulative on its summary, then the six
-                    lines as savings at scale, the parts, what integration
-                    involves with the doors to the services, and the link back
+                    lines as savings at scale, the parts, and the button back
                     to the form. Integration cost and payback are never
                     estimated here: they are the consult's. The page's front:
                     a fresh page shows the illustrative app's estimate.
@@ -231,24 +228,6 @@ simply stack.
     </div>
 
     {%- comment -%}
-      The headline: the cash saving a year at scale as a range with typical
-      inside it, the fees and the risk savings apart on smaller lines. The
-      script fills every slot. Under it, how many of the assumptions are
-      sourced, counted here from the file, with the door to the tab that
-      lists them.
-    {%- endcomment -%}
-    <div class="headline" id="r-headline">
-      <p class="headline__figure" id="r-head-figure"></p>
-      <p class="headline__sub" id="r-head-sub"></p>
-      <p class="headline__fees" id="r-head-fees"></p>
-      <p class="headline__risk" id="r-head-risk"></p>
-    </div>
-    {%- assign sourced = 0 -%}{%- assign total = 0 -%}
-    {%- for entry in data.assumptions -%}{%- assign total = total | plus: 1 -%}{%- if entry[1].source -%}{%- assign sourced = sourced | plus: 1 -%}{%- endif -%}{%- endfor -%}
-    {%- assign sourced_line = s.strings.sourced_line | replace: "{sourced}", sourced | replace: "{total}", total -%}
-    <p class="results__sourced" id="r-sourced">{{ sourced_line }} <button type="button" class="linkbutton results__sourced-link" id="r-sourced-link">{{ s.strings.sourced_link }}</button></p>
-
-    {%- comment -%}
       The picture and its three facts: the facts in a row beneath it, or, on
       the widest screens, stacked to its right, where the picture alone
       would be wider than it needs to be.
@@ -333,43 +312,43 @@ simply stack.
             <span class="lt-range lt-saving-range"></span>
           </td>
           <td class="lt-share" data-label="{{ r.columns.share }}" aria-hidden="true"><span class="share"></span><span class="share__pct"></span></td>
-          <td class="lt-remains" data-label="{{ r.columns.remains }}">{{ line.remains }}{% if line.goes %}<span class="lt-goes">{{ line.goes }}</span>{% endif %}</td>
+          <td class="lt-remains" data-label="{{ r.columns.remains }}">{{ line.remains }}</td>
         </tr>
+        {%- comment -%}
+          The costs beneath a line, three columns: the item, its custodial
+          cost and its Nostr cost in the marker year. The script fills the
+          body; the foot is the line's two totals, in the same columns.
+        {%- endcomment -%}
         <tr class="lt-parts" id="parts-{{ line.id }}" data-line="{{ line.id }}" hidden>
           <td colspan="4">
-            <div class="parts__totals">
-              <span class="parts__total"><span class="parts__total-label">{{ s.strings.details.today }}</span> <b class="parts__total-c"></b></span>
-              <span class="parts__total"><span class="parts__total-label">{{ s.strings.details.on_nostr }}</span> <b class="parts__total-nc"></b></span>
-            </div>
-            <ul class="parts"></ul>
+            <table class="parts-table">
+              <thead>
+                <tr>
+                  <th scope="col">{{ s.strings.details.part }}</th>
+                  <th scope="col" class="parts-num">{{ s.strings.details.today }}</th>
+                  <th scope="col" class="parts-num">{{ s.strings.details.on_nostr }}</th>
+                </tr>
+              </thead>
+              <tbody class="parts"></tbody>
+              <tfoot>
+                <tr class="parts__total">
+                  <th scope="row">{{ s.strings.details.total }}</th>
+                  <td class="parts-num parts__total-c"></td>
+                  <td class="parts-num parts__total-nc"></td>
+                </tr>
+              </tfoot>
+            </table>
           </td>
         </tr>
       {%- endfor -%}
       </tbody>
     </table>
 
-    {%- comment -%}
-      What integration involves: one sentence per piece, in the order the
-      integration runs, and the doors to the services and a consult. No
-      weeks, no cost: those are the consult's.
-    {%- endcomment -%}
-    {%- if r.integration -%}
-    <div class="integ" id="r-integ">
-      <h3 class="integ__title">{{ r.integration.title }}</h3>
-      <ol class="integ__list">
-      {%- for item in r.integration.lines -%}
-        <li class="integ__item">{{ item.text }}</li>
-      {%- endfor -%}
-      </ol>
-      {% include lib/actions.html actions=r.integration.actions %}
-    </div>
-    {%- endif -%}
-
     <div class="results__actions">
-      <button type="button" class="linkbutton results__edit" id="r-edit">{{ r.actions.edit.label }}</button>
+      <button type="button" class="btn btn--secondary results__edit" id="r-edit">{{ r.actions.edit.label }}</button>
     </div>
     <p class="results__status" id="r-status" role="status"></p>
-    <p class="results__version" id="r-version"></p>
+    <p class="results__version"><span id="r-version"></span>{% if s.strings.disclaimer %} · <span class="results__disclaimer">{{ s.strings.disclaimer }}</span>{% endif %}</p>
   </section>
   </section>
 
@@ -409,6 +388,7 @@ simply stack.
       {%- endfor -%}
       </div>
 
+      {%- if s.modal.data_note %}<p class="modal__note">{{ s.modal.data_note }}</p>{% endif -%}
       <div class="modal__actions">
         {%- comment -%} Send and the test marker, tucked against it, read as one control. {%- endcomment -%}
         <span class="modal__send">

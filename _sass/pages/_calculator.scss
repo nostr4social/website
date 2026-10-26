@@ -8,60 +8,62 @@
 // there are two series, and the full table so nothing is colour-alone.
 
 // The section is flush: the tab bar sits a short step under the hero's lede,
-// and the calculator keeps the usual band rhythm before the closing callout.
+// and the small print at the foot sits close above the closing callout.
 .calc {
   display: flex;
   flex-direction: column;
   gap: var(--s-7);
-  padding-block: var(--s-4) var(--band-y);
+  padding-block: var(--s-4) var(--s-4);
 }
 
 // ── the tabs ─────────────────────────────────────────────────────────────────
 // Three panels, one shown at a time once the script runs; without it all
 // three stack, in order. The Save & Share button sits on the same rule.
 
-// The tab bar: a segmented control at the left, Send & Share at the right,
-// stuck to the top of the viewport on a translucent band as the page scrolls.
+// The tab bar: the labels stand on one hairline, the active one underlined
+// in its own accent; Send & Share at the right. Stuck to the top of the
+// viewport on a translucent band as the page scrolls.
 .tabbar {
-  align-items: center;
+  align-items: stretch;
   backdrop-filter: blur(10px);
   background: color-mix(in srgb, var(--bg-0) 88%, transparent);
   border-bottom: 1px solid var(--line);
   display: flex;
   gap: var(--s-4);
   justify-content: space-between;
-  padding: var(--s-3) 0;
   position: sticky;
   top: 0;
   z-index: 5;
 }
 
+// No track and no fills: the row spans the bar so the appendix can sit at its far end.
 .tabs {
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  display: inline-flex;
-  gap: var(--s-1);
-  padding: var(--s-1);
+  align-items: stretch;
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--s-5);
+  min-width: 0;
 }
 
 // Each tab carries its own accent: Results the lifted purple, App Details
-// gold, Assumptions the grey of its text. The active one is a filled segment.
+// gold, Assumptions the grey of its text. The active one is underlined in
+// it, the line overlapping the bar's hairline.
 .tab {
   --accent: var(--purple-lift);
   align-items: center;
   background: none;
   border: 0;
-  border-radius: 999px;
-  color: var(--ink-2);
+  border-bottom: 2px solid transparent;
+  color: var(--ink-1);
   cursor: pointer;
   display: inline-flex;
   font-size: var(--fs-m);
   font-weight: var(--fw-ui);
   gap: var(--s-2);
-  padding: var(--s-2) var(--s-4);
+  margin-bottom: -1px;
+  padding: var(--s-4) var(--s-1) calc(var(--s-4) - 2px);
   position: relative;
-  transition: background-color 120ms, color 120ms, box-shadow 120ms;
+  transition: border-color 120ms, color 120ms;
   white-space: nowrap;
 }
 
@@ -74,12 +76,12 @@
 }
 
 .tab:hover {
+  border-bottom-color: var(--line-raised);
   color: var(--ink-0);
 }
 
 .tab[aria-selected="true"] {
-  background: var(--bg-2);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  border-bottom-color: var(--accent);
   color: var(--ink-0);
 }
 
@@ -94,11 +96,13 @@
   color: var(--gold);
 }
 
-// The quiet third: the appendix.
+// The quiet third, the appendix: smaller, in the quiet ink, at the far end of the row.
 .tab--quiet {
   --accent: var(--ink-2);
   color: var(--ink-3);
   font-size: var(--fs-s);
+  margin-left: auto;
+  margin-right: var(--s-5);
 }
 
 .tab--quiet[aria-selected="true"] {
@@ -107,18 +111,22 @@
 
 .tab:focus-visible {
   outline: var(--focus-ring);
-  outline-offset: var(--focus-offset);
+  outline-offset: calc(-1 * var(--focus-offset));
 }
 
-// The phone row: the active tab and a caret. Hidden at full width, where the
-// whole track shows.
+.tabbar .btn {
+  align-self: center;
+  margin: var(--s-2) 0;
+}
+
+// The phone row: the active tab and a caret, on the same hairline. Hidden at
+// full width, where the whole row shows.
 .tabs__current {
   --accent: var(--purple-lift);
   align-items: center;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-ui);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid var(--accent);
   color: var(--ink-0);
   cursor: pointer;
   display: none;
@@ -126,7 +134,8 @@
   font-weight: var(--fw-ui);
   gap: var(--s-2);
   justify-content: space-between;
-  padding: var(--s-3) var(--s-4);
+  margin-bottom: -1px;
+  padding: var(--s-3) 0 calc(var(--s-3) - 2px);
   width: 100%;
 }
 
@@ -611,14 +620,12 @@
   margin: 0;
 }
 
-.whose__link,
-.results__edit {
+.whose__link {
   color: var(--gold);
   font-size: inherit;
 }
 
-.whose__link:hover,
-.results__edit:hover {
+.whose__link:hover {
   color: var(--gold);
   text-decoration: underline;
 }
@@ -631,62 +638,6 @@
 
 .whose__fact--assumed {
   color: var(--ink-2);
-}
-
-// ── the headline ─────────────────────────────────────────────────────────────
-// The cash saving a year at scale as a range, typical inside it; the risk
-// and the fees savings on smaller lines.
-.headline {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-2);
-}
-
-.headline__figure {
-  color: var(--ink-0);
-  font-size: var(--fs-h1);
-  font-weight: var(--fw-title);
-  letter-spacing: var(--ls-heading);
-  line-height: var(--lh-heading);
-  margin: 0;
-}
-
-.headline__sub {
-  color: var(--ink-1);
-  font-size: var(--fs-l);
-  line-height: var(--lh-card);
-  margin: 0;
-}
-
-.headline__fees,
-.headline__risk {
-  color: var(--ink-2);
-  font-size: var(--fs-m);
-  line-height: var(--lh-card);
-  margin: 0;
-}
-
-.headline__fees[hidden],
-.headline__risk[hidden] {
-  display: none;
-}
-
-// How many assumptions are sourced, in the body ink, with the door to them.
-.results__sourced {
-  color: var(--ink-2);
-  font-size: var(--fs-s);
-  line-height: var(--lh-card);
-  margin: 0;
-}
-
-.results__sourced-link {
-  color: var(--gold);
-  font-size: inherit;
-}
-
-.results__sourced-link:hover {
-  color: var(--gold);
-  text-decoration: underline;
 }
 
 .stat {
@@ -818,7 +769,9 @@
   text-transform: uppercase;
 }
 
-.chart__marker--custodial {
+// The custody line's dots take the line's own colour; the generic marker rule
+// below must not win over them.
+.chart__marker.chart__marker--custodial {
   fill: var(--ink-2);
   stroke: var(--bg-1);
   stroke-width: 2;
@@ -867,6 +820,15 @@
 .chart__scale-rule {
   stroke: var(--gold);
   stroke-opacity: 0.85;
+  stroke-width: 2;
+}
+
+// The integration ramp: a dotted segment in the Nostr line's colour, from
+// today's custody dot to the first Nostr dot. No figure, no label.
+.chart__ramp {
+  stroke: var(--purple-lift);
+  stroke-dasharray: 1 5;
+  stroke-linecap: round;
   stroke-width: 2;
 }
 
@@ -1248,14 +1210,6 @@
   line-height: var(--lh-body);
 }
 
-.lt-goes {
-  color: var(--ink-3);
-  display: block;
-  font-size: var(--fs-xs);
-  line-height: var(--lh-card);
-  margin-top: var(--s-2);
-}
-
 // A line nobody moderates: zero to zero, in the quiet ink, with its note.
 .lt-row.is-nobody .lt-value,
 .lt-row.is-nobody .lt-range {
@@ -1271,68 +1225,81 @@
   color: var(--ink-3);
 }
 
-// The costs beneath a line: the two totals, then one part per row.
-.lt-parts td {
+// The costs beneath a line: a three-column table, the item, its custodial
+// cost and its Nostr cost, with the line's two totals as the foot row, so
+// every figure sits in its column on every width.
+.lt-parts > td {
   background: var(--bg-sunk);
   border: 1px solid var(--line);
   border-radius: 0 0 var(--r-card) var(--r-card);
   border-top: 0;
-  padding: var(--s-4) var(--s-6) var(--s-5);
+  padding: var(--s-3) var(--s-6) var(--s-5);
 }
 
-.parts__totals {
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2) var(--s-6);
-  margin-bottom: var(--s-3);
-  padding-bottom: var(--s-3);
-}
-
-.parts__total {
-  color: var(--ink-2);
+.parts-table {
+  border-collapse: collapse;
   font-size: var(--fs-s);
+  width: 100%;
 }
 
-.parts__total-label {
+.parts-table th,
+.parts-table td {
+  background: none;
+  border: 0;
+  padding: var(--s-2) var(--s-3);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.parts-table th:first-child,
+.parts-table td:first-child {
+  padding-left: 0;
+}
+
+.parts-table th:last-child,
+.parts-table td:last-child {
+  padding-right: 0;
+}
+
+.parts-table thead th {
+  border-bottom: 1px solid var(--line);
   color: var(--ink-3);
   font-size: var(--fs-xs);
+  font-weight: var(--fw-body);
   letter-spacing: 0.04em;
-  margin-right: var(--s-1);
   text-transform: uppercase;
 }
 
-.parts__total b {
-  color: var(--ink-0);
-  font-size: var(--fs-m);
+.parts-table tbody th {
+  color: var(--ink-1);
+  font-weight: var(--fw-body);
+}
+
+// The two figure columns shrink to their widest number and read in tabular figures.
+.parts-table .parts-num {
+  color: var(--ink-1);
   font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.parts-table .parts-num b {
+  color: var(--ink-0);
   font-weight: var(--fw-ui);
 }
 
-.parts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-2);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-// A part is a link-styled button: pressing it explains the figure.
+// A part is a link-styled button: pressing it explains the figure. Its
+// applied rate or tier sits beneath it in the quiet ink.
 .part {
-  align-items: baseline;
   background: none;
   border: 0;
   color: inherit;
   cursor: pointer;
-  display: flex;
+  display: block;
   font: inherit;
-  font-size: var(--fs-s);
-  gap: var(--s-4);
-  justify-content: space-between;
   padding: 0;
   text-align: left;
-  width: 100%;
 }
 
 .part__label {
@@ -1352,87 +1319,56 @@
 
 .part__meta {
   color: var(--ink-3);
+  display: block;
   font-size: var(--fs-xs);
-  margin-left: var(--s-2);
+  line-height: var(--lh-card);
 }
 
-.part__nums {
-  color: var(--ink-1);
-  flex: none;
-  font-variant-numeric: tabular-nums;
-}
-
-.part__nums b {
-  color: var(--ink-0);
-  font-weight: var(--fw-ui);
-}
-
-// Where a line carries an expected loss, the cash costs and the risk
-// exposure each close with a sub-total row, ruled off from the parts.
-.parts__subtotal {
+// Where a line carries fees or an expected loss, each kind closes with a
+// sub-total row, ruled off from the parts; the line's total is the foot.
+.parts__subtotal th,
+.parts__subtotal td {
   border-top: 1px solid var(--line);
-  color: var(--ink-2);
-  display: flex;
-  font-size: var(--fs-s);
-  gap: var(--s-4);
-  justify-content: space-between;
-  margin-top: var(--s-1);
-  padding-top: var(--s-2);
 }
 
-.parts__subtotal-label {
+.parts__subtotal th,
+.parts__total th {
   color: var(--ink-3);
   font-size: var(--fs-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-// What integration involves: the pieces in order, each with its weeks, and
-// the doors to the services. A raised band with the page's gold rail.
-.integ {
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-left: var(--rail) solid var(--gold);
-  border-radius: var(--r-card);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-4);
-  padding: var(--pad-card);
+.parts__total th,
+.parts__total td {
+  border-top: 1px solid var(--line-raised);
+  padding-top: var(--s-3);
 }
 
-.integ__title {
+.parts__total .parts-num {
   color: var(--ink-0);
   font-size: var(--fs-m);
-  font-weight: var(--fw-title);
-  letter-spacing: var(--ls-heading);
-  line-height: var(--lh-heading);
-  margin: 0;
+  font-weight: var(--fw-ui);
 }
 
-.integ__list {
-  color: var(--ink-2);
-  display: grid;
-  font-size: var(--fs-s);
-  gap: var(--s-2) var(--s-6);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  line-height: var(--lh-card);
-  margin: 0;
-  padding-left: 1.4em;
-}
-
-.integ .actions {
-  margin-top: 0;
-}
-
+// The way back to the form: a gold-bordered button, with room above and below it.
 .results__actions {
   border-top: 1px solid var(--line);
   display: flex;
   justify-content: center;
-  padding-top: var(--s-5);
+  padding: var(--s-7) 0;
 }
 
 .results__edit {
+  border-color: var(--gold);
+  color: var(--gold);
   font-size: var(--fs-m);
+}
+
+.results__edit:hover {
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border-color: var(--gold);
+  color: var(--gold);
 }
 
 
@@ -2029,14 +1965,8 @@ tr.is-changed .assume-input {
 
 @include below($bp-narrow) {
   .group__fields,
-  .parts,
-  .stats,
-  .integ__list {
+  .stats {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .headline__figure {
-    font-size: var(--fs-h2);
   }
 
   .calc-form__submit {
@@ -2047,44 +1977,46 @@ tr.is-changed .assume-input {
   .tabbar {
     align-items: stretch;
     flex-direction: column;
-    gap: var(--s-3);
+    gap: 0;
+    padding-bottom: var(--s-3);
   }
 
-  // On a phone the track collapses to the active tab's row; pressing it
-  // drops the full track, stacked, beneath.
+  // On a phone the row collapses to the active tab; pressing it drops the
+  // other tabs beneath it as a short list on the same hairline logic.
   .tabs__current {
     display: flex;
   }
 
   .tabs {
-    border-radius: var(--r-card);
     display: none;
     flex-direction: column;
-    gap: var(--s-1);
-    padding: var(--s-1);
+    gap: 0;
   }
 
   .tabbar.is-open .tabs {
     display: flex;
   }
 
-  // The row above already names the active tab; the dropped track offers only the others.
+  // The row above already names the active tab; the dropped list offers only the others.
   .tabbar.is-open .tab[aria-selected="true"] {
     display: none;
   }
 
   .tab {
-    border-radius: var(--r-ui);
+    border-bottom: 1px solid var(--line);
     justify-content: flex-start;
-    padding: var(--s-3) var(--s-4);
+    margin: 0;
+    padding: var(--s-3) 0;
   }
 
   .tab--quiet {
     font-size: var(--fs-s);
+    margin: 0;
   }
 
   .tabbar .btn {
     align-self: stretch;
+    margin: var(--s-3) 0 0;
   }
 
   .modal__actions {
@@ -2161,10 +2093,90 @@ tr.is-changed .assume-input {
     box-shadow: none;
   }
 
-  .ledger-table .lt-parts td {
+  .ledger-table .lt-parts > td {
     border-radius: 0 0 var(--r-card) var(--r-card);
     border-top: 0;
     padding: var(--s-3) var(--s-4) var(--s-4);
+  }
+
+  // The costs beneath a line stay a three-column table on a phone: the item
+  // wraps, the two figures keep their column.
+  .ledger-table .parts-table {
+    display: table;
+    width: 100%;
+  }
+
+  .ledger-table .parts-table thead {
+    display: table-header-group;
+  }
+
+  .ledger-table .parts-table tbody {
+    display: table-row-group;
+  }
+
+  .ledger-table .parts-table tfoot {
+    display: table-footer-group;
+  }
+
+  .ledger-table .parts-table tr {
+    display: table-row;
+    background: none;
+    border: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  .ledger-table .parts-table th,
+  .ledger-table .parts-table td {
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    display: table-cell;
+    padding: var(--s-2) var(--s-2);
+    text-align: left;
+    width: auto;
+  }
+
+  .ledger-table .parts-table th:first-child,
+  .ledger-table .parts-table td:first-child {
+    padding-left: 0;
+  }
+
+  .ledger-table .parts-table th:last-child,
+  .ledger-table .parts-table td:last-child {
+    padding-right: 0;
+  }
+
+  .ledger-table .parts-table .parts-num {
+    text-align: right;
+    white-space: nowrap;
+    width: 1%;
+  }
+
+  .ledger-table .parts-table thead th,
+  .ledger-table .parts-table thead th.parts-num {
+    border-bottom: 1px solid var(--line);
+    letter-spacing: 0.02em;
+    line-height: var(--lh-heading);
+    vertical-align: bottom;
+    white-space: normal;
+  }
+
+
+  .ledger-table .parts-table .parts__subtotal th,
+  .ledger-table .parts-table .parts__total th {
+    white-space: normal;
+  }
+
+  .ledger-table .parts-table .parts__subtotal th,
+  .ledger-table .parts-table .parts__subtotal td {
+    border-top: 1px solid var(--line);
+  }
+
+  .ledger-table .parts-table .parts__total th,
+  .ledger-table .parts-table .parts__total td {
+    border-top: 1px solid var(--line-raised);
   }
 
   .ledger-table td[data-label]::before,
