@@ -658,6 +658,7 @@
   margin: 0;
 }
 
+.headline__fees,
 .headline__risk {
   color: var(--ink-2);
   font-size: var(--fs-m);
@@ -665,6 +666,7 @@
   margin: 0;
 }
 
+.headline__fees[hidden],
 .headline__risk[hidden] {
   display: none;
 }

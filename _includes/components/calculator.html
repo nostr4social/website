@@ -45,7 +45,7 @@ simply stack.
 {%- assign map = site.data.forms.map -%}
 {%- assign shared = site.data.assets.shared -%}
 {%- assign a = site.data.assets.calculator -%}
-{%- assign filled = "result_custodial,result_noncustodial,link,overrides,version,test" | split: "," -%}
+{%- assign filled = "result_custodial,result_noncustodial,fees_saved,payback_month,integ_weeks,link,overrides,version,test" | split: "," -%}
 {%- comment -%} The Save & Share section: the one holding the email question. {%- endcomment -%}
 {%- assign email_id = map.fields.email.id -%}
 {%- assign share_section = nil -%}
@@ -231,7 +231,7 @@ simply stack.
 
     {%- comment -%}
       The headline: the cash saving a year at scale as a range with typical
-      inside it, the risk saving apart on a smaller line, then one dim
+      inside it, the fees and the risk savings apart on smaller lines, then one dim
       figure for today and the payback month beside it; the payback opens
       the integration behind it in the how-dialog. The script fills every
       slot. Under it, how many of the assumptions are sourced, counted here
@@ -240,6 +240,7 @@ simply stack.
     <div class="headline" id="r-headline">
       <p class="headline__figure" id="r-head-figure"></p>
       <p class="headline__sub" id="r-head-sub"></p>
+      <p class="headline__fees" id="r-head-fees"></p>
       <p class="headline__risk" id="r-head-risk"></p>
       <p class="headline__row">
         <span class="headline__today" id="r-today"></span>

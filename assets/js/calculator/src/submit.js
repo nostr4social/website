@@ -85,6 +85,7 @@ export function composeLead({ inputs, result, link, contact, fieldLabels, open }
   if (result.five_year) lines.push(fmt(t('compose.five_year'), { five_year: result.five_year, low: result.low }))
   if ('payback' in result) lines.push(result.payback != null ? fmt(t('compose.payback'), { n: result.payback }) : t('compose.no_payback'))
   if (result.today) lines.push(fmt(t('compose.today'), { amount: result.today }))
+  if (result.fees) lines.push(fmt(t('compose.fees'), { amount: result.fees }))
   lines.push(fmt(t('compose.link'), { link }))
   if (open) lines.push(fmt(t('compose.open'), { link: open }))
   lines.push('')

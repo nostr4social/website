@@ -295,6 +295,23 @@
       "group": "projection",
       "scenario_varies": true
     },
+    "p2p_store_fee_remains_share": {
+      "label": "Share of the store commission that still applies to in-app payments once they are peer to peer on the network",
+      "unit": "ratio",
+      "typical": 0.5,
+      "low": 1.0,
+      "high": 0.1,
+      "confidence": "unsourced",
+      "source": {
+        "title": "CNBC: Jack Dorsey's Damus may be thwarted by Apple's strict payment rules (the precedent, not a figure)",
+        "url": "https://www.cnbc.com/2023/06/13/jack-dorseys-damus-may-be-thwarted-by-apples-strict-payment-rules.html",
+        "date": "2023-06"
+      },
+      "note": "On Nostr the app is not a party to the payment, so the store's in-app-purchase rule should not reach it. Apple has claimed otherwise: in June 2023 it told Damus that tips associated with receiving content from creators through a mechanism other than in-app purchase broke its payment guideline, and gave the app 14 days to comply (CNBC, June 2023). Precedent pending. The low case keeps the whole commission; the high case treats the precedent as settled.",
+      "line": "payments",
+      "group": "payments",
+      "scenario_varies": true
+    },
     "scale_months": {
       "label": "Months until Nostr is at scale: standards and infrastructure in place",
       "unit": "months",
@@ -374,7 +391,7 @@
       "scenario_varies": true
     },
     "integ_weeks_payments": {
-      "label": "Engineering weeks to move the app's own revenue to a peer-to-peer rail",
+      "label": "Engineering weeks to move in-app payments to peer-to-peer rails",
       "unit": "weeks",
       "typical": 2,
       "low": 4,

@@ -274,7 +274,8 @@ function valuesFor(result, contact) {
     distribution: i.distribution,
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
-    // The payback month and the typical integration weeks travel too, once the form has questions for them (map.yml).
+    // The fees saved at scale, the payback month and the typical integration weeks travel too (map.yml).
+    fees_saved: Math.round(T.at_scale_fees),
     payback_month: T.payback_month ?? '',
     integ_weeks: Math.round(result.typical.integration.weeksTotal * 10) / 10,
     link: result.link,
@@ -408,6 +409,7 @@ async function tell(signer, result, contact, open) {
       low: compact(result.low.totals.five_year),
       payback: result.typical.totals.payback_month,
       today: compact(result.typical.totals.today_if_integrated),
+      fees: result.typical.totals.at_scale_fees >= 1 ? compact(result.typical.totals.at_scale_fees) : '',
     },
     link: result.link,
     contact,

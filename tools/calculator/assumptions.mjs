@@ -96,6 +96,12 @@ for (const [line, title] of Object.entries(LINES)) {
   if (!rows.length) continue
   lines.push(`## ${title}`)
   lines.push('')
+  if (line === 'payments') {
+    lines.push('The input this line reads, `rev`, is **in-app payments, gross monthly volume (USD)**: all payments the app')
+    lines.push("facilitates: purchases, subscriptions, tips and sales between users. The app's own take is a share of this, not a")
+    lines.push('separate input. The line measures the fee stack custody puts on that volume, not the revenue itself.')
+    lines.push('')
+  }
   if (line === 'thesis') {
     lines.push('These are not estimates of the world as it is but of the world Nostr4 is building. No public price list')
     lines.push('exists for the Nostr-native services, including ours, and at scale there is no vendor to lock an app in, so')

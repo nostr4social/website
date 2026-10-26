@@ -3,10 +3,10 @@
 # the build when the live template no longer matches it. The page submits
 # responses against the ids here and never fetches the template itself.
 
-naddr: naddr1qvzqqqr4mqpzp85tguhd488hwe52qaf4xnk39fa3ua8fwu65tvwdqtl8wm0ssz2eqy2hwumn8ghj7un9d3shjtnyv9kh2uewd9hj7qgwwaehxw309ahx7uewd3hkctcpr9mhxue69uhhyetvv9ujuumwdae8gtnnda3kjctv9uq3samnwvaz7tmjv4kxz7fwvehhymtnw3ezuctswqhsz8nhwden5te0wfjkccte9ehx7um5wgh8w6tjv4jxuet59e48qtcpr4mhxue69uhkummnw3ez6vp39eukz6mfdphkumn99e3k7mf0qqfxxatnw3hkg7fdvdskccm4d3shgmmjjxekjq
+naddr: naddr1qvzqqqr4mqpzp85tguhd488hwe52qaf4xnk39fa3ua8fwu65tvwdqtl8wm0ssz2eqyv8wumn8ghj7un9d3shjtnxdaex6um5wghxzurs9uq3uamnwvaz7tmjv4kxz7fwdehhxarj9emkjun9v3hx2apwdfcz7qgwwaehxw309ahx7uewd3hkctcpz4mhxue69uhhyetvv9ujuerpd46hxtnfduhsz8thwden5te0dehhxarj95crztnev94kj6r0dehx2tnrdakj7qqjvd6hxar0v3uj6cmpd33h2mrpw3hhy23ypvk
 pubkey: 9e8b472eda9cf77668a0753534ed12a7b1e74e9773545b1cd02fe776df080959
 d: custody-calculator
-name: "Nostr4 : Calculate The Cost of Custody"
+name: "Nostr4 : Non-Custodial Savings Calculator"
 description: "calculator available online at https://nostr4.social/calculator"
 encrypted: false
 anonymous_allowed: true
@@ -57,7 +57,7 @@ sections:
   - id: TEXS3eNF
     title: "Results"
     description: ""
-    questions: [XU5x6e, OHi8fq, LxmN8x, iHHHuZ, C93CmL, qPZrNj]
+    questions: [XU5x6e, OHi8fq, LxmN8x, iHHHuZ, C93CmL, qPZrNj, qoG7lg, 3fzgOc, AjdSdq]
 fields:
   - id: OKIJzE
     type: number
@@ -93,13 +93,13 @@ fields:
     type: number
     render: number
     required: false
-    label: "What is your approximate in-app revenue (gross monthly USD)"
+    label: "What is the approximate monthly volume of in-app payments (purchases, subscriptions, and p2p tips or sales in USD)?"
     options: []
   - id: 88UlKt
     type: option
     render: checkboxes
     required: false
-    label: "What in-app payments do you facilitate in your app?"
+    label: "Which rails carry those payments today?"
     options:
       - { id: Q9rNXl, label: "Peer to Peer (bitcoin, lightning, or other crypto)" }
       - { id: sO56FE, label: "Apple in-app purchase" }
@@ -233,6 +233,15 @@ fields:
       - { id: oxUuFg, label: "up to 10" }
       - { id: ZF1WiC, label: "up to 50" }
       - { id: 0UDUBh, label: "more" }
+  - id: e1kIdv
+    type: option
+    render: radioButton
+    required: false
+    label: "Does your app already use Nostr?"
+    options:
+      - { id: yCVhVv, label: "Not at all" }
+      - { id: 5hTX0I, label: "Somewhat" }
+      - { id: BABOJV, label: "Fully Integrated" }
   - id: 5UFMyH
     type: text
     render: shortText
@@ -245,15 +254,6 @@ fields:
     required: false
     label: "Contact Name"
     options: []
-  - id: e1kIdv
-    type: option
-    render: radioButton
-    required: false
-    label: "Does your app already use Nostr?"
-    options:
-      - { id: yCVhVv, label: "Not at all" }
-      - { id: 5hTX0I, label: "Somewhat" }
-      - { id: BABOJV, label: "Fully Integrated" }
   - id: PgP68U
     type: text
     render: shortText
@@ -286,3 +286,21 @@ fields:
     label: "test submission. do not record."
     options:
       - { id: d5fQLL, label: "test" }
+  - id: qoG7lg
+    type: text
+    render: shortText
+    required: false
+    label: "Fees saved (at scale)"
+    options: []
+  - id: 3fzgOc
+    type: text
+    render: shortText
+    required: false
+    label: "Payback month"
+    options: []
+  - id: AjdSdq
+    type: text
+    render: shortText
+    required: false
+    label: "Integration weeks (typical)"
+    options: []

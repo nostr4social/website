@@ -6,10 +6,9 @@
 # `npm run snapshot:form` and `npm run check:form`, and give any new question
 # its id in the map. Labels are free to change; ids are what the build checks.
 #
-# Pending in the builder (brief of 2026-10-26, assumptions version 3): the
-# title, the two payment relabels, the Send & Share description, and the two
-# hidden Results questions marked "pending" below. Until they are published
-# and snapshotted, the page sends them nowhere; their keys wait in the map.
+# Published 2026-10-26 for assumptions version 3 (30 questions): the title,
+# the two payment questions on in-app volume, and the three hidden Results
+# questions. One item is still pending in the builder, marked below.
 
 title: "Nostr4 : Non-Custodial Savings Calculator"
 description: calculator available online at https://nostr4.social/calculator
@@ -91,11 +90,12 @@ sections:
 
   - title: Payments
     questions:
+      # Gross monthly volume of the in-app payments the app facilitates, not its own revenue.
       - key: rev
-        label: What is your app's own monthly revenue (subscriptions, premium features, sponsorships; not marketplace sales)
+        label: What is the approximate monthly volume of in-app payments (purchases, subscriptions, and p2p tips or sales in USD)?
         type: number
       - key: rails
-        label: How is that revenue collected?
+        label: Which rails carry those payments today?
         type: checkboxes
         # Peer to Peer stays, for apps already paid in sats.
         options:
@@ -124,6 +124,8 @@ sections:
   # The section whose title names the Save & Share button; the page draws
   # its questions in the modal, with the consent line under the email.
   - title: Send & Share
+    # Pending in the builder: the published description still reads the
+    # earlier text ("Send your calculated results to us as a Nostr event…").
     description: >-
       Send us your results and we will follow up to schedule a free consult.
       If you already use Nostr, sign with your key to update or revisit these
@@ -165,11 +167,12 @@ sections:
       - key: result_custodial
         label: Annual custodial cost (USD, typical)
         type: number
+      - key: fees_saved
+        label: Fees saved (at scale)
+        type: short text
       - key: payback_month
         label: Payback month
-        type: number
-        pending: true
+        type: short text
       - key: integ_weeks
         label: Integration weeks (typical)
-        type: number
-        pending: true
+        type: short text

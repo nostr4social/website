@@ -17,9 +17,10 @@
 // and 1; the custodial figure then moves that far toward the non-custodial
 // one. deriveInputs() fills what the form's opening questions imply.
 //
-// The saving splits in two: cash, from the parts that are bills, and risk,
-// from the one part that is an expected loss (the breach). The page shows
-// them apart; the total is what the chart and the cumulative use.
+// The saving splits three ways: cash, from the parts that are bills; fees,
+// from the payments line, the fee stack custody puts on in-app payments;
+// and risk, from the one part that is an expected loss (the breach). The
+// page shows them apart; the total is what the chart and the cumulative use.
 //
 // Units: USD per year unless a name says otherwise.
 
@@ -417,32 +418,42 @@ function moderation(inputs, v) {
   return { parts, implied, nobody }
 }
 
+// The payments line is the fee stack custody puts on in-app payments: `rev`
+// is the gross monthly volume the app facilitates (purchases, subscriptions,
+// tips, sales between users), split evenly across the rails given, each at
+// its sourced rate, a store's tier by the proceeds through that store. On
+// Nostr the app is not a party to the payment: the store's commission
+// reaches it only as far as the precedent leaves (p2p_store_fee_remains_share),
+// and the user's own rail carries everything else. Every part is `kind:
+// 'fees'`, so the page keeps the line apart from operating cost.
 function payments(inputs, v) {
   const rails = inputs.rails
   if (!rails.length || !(inputs.rev > 0)) return { parts: [], none: true }
   // (rails_from marks rails the openers derived from distribution)
   const annual = inputs.rev * 12
   const share = 1 / rails.length
-  const small = annual < v.store_small_threshold
+  const proceeds = annual * share
+  const small = proceeds < v.store_small_threshold
+  const fee = (id, custodial, noncustodial, extra = {}) => part(id, custodial, noncustodial, { kind: 'fees', ...extra })
   const parts = []
   for (const rail of rails) {
-    const rev = annual * share
+    const rev = proceeds
     if (rail === 'apple' || rail === 'google') {
       const rate = rail === 'apple' ? (small ? v.apple_rate_small : v.apple_rate_standard) : small ? v.google_rate_small : v.google_rate_standard
-      parts.push(part(`store_${rail}`, rev * rate, rev * rate, { rate, tier: small ? 'small' : 'standard', revenue: rev }))
+      parts.push(fee(`store_${rail}`, rev * rate, rev * rate * v.p2p_store_fee_remains_share + rev * v.lightning_rate, { rate, tier: small ? 'small' : 'standard', revenue: rev }))
     } else if (rail === 'processor') {
-      const fee = rev * v.processor_rate + (rev / v.avg_ticket) * v.processor_fixed
-      parts.push(part('processor', fee, rev * v.lightning_rate, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev, tickets: rev / v.avg_ticket }))
+      const cost = rev * v.processor_rate + (rev / v.avg_ticket) * v.processor_fixed
+      parts.push(fee('processor', cost, rev * v.lightning_rate, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev, tickets: rev / v.avg_ticket }))
     } else if (rail === 'reseller') {
-      const fee = rev * v.reseller_rate + (rev / v.avg_ticket) * v.reseller_fixed
-      parts.push(part('reseller', fee, rev * v.lightning_rate, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev, tickets: rev / v.avg_ticket }))
+      const cost = rev * v.reseller_rate + (rev / v.avg_ticket) * v.reseller_fixed
+      parts.push(fee('reseller', cost, rev * v.lightning_rate, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev, tickets: rev / v.avg_ticket }))
     } else {
-      const fee = rev * v.lightning_rate
-      parts.push(part('p2p', fee, fee, { rate: v.lightning_rate, revenue: rev }))
+      const cost = rev * v.lightning_rate
+      parts.push(fee('p2p', cost, cost, { rate: v.lightning_rate, revenue: rev }))
     }
   }
   const holds = inputs.balances.includes('yes')
-  parts.push(part('money_transmitter', holds ? v.mt_avoidance_year : 0, holds ? v.mt_avoidance_year * v.mt_remains_share : 0, { holds }))
+  parts.push(fee('money_transmitter', holds ? v.mt_avoidance_year : 0, holds ? v.mt_avoidance_year * v.mt_remains_share : 0, { holds }))
   return { parts, tier: small ? 'small' : 'standard', rails_from: inputs.derived?.rails }
 }
 
@@ -491,8 +502,8 @@ export const PART_ASSUMPTIONS = {
   'moderation.appeals': ['appeals_share', 'moderation_remains_share'],
   'moderation.tooling': ['ts_tooling_per_mau_year', 'tooling_remains_share'],
   'moderation.labels': ['label_provider_per_mau_year'],
-  'payments.store_apple': ['apple_rate_standard', 'apple_rate_small', 'store_small_threshold'],
-  'payments.store_google': ['google_rate_standard', 'google_rate_small', 'store_small_threshold'],
+  'payments.store_apple': ['apple_rate_standard', 'apple_rate_small', 'store_small_threshold', 'p2p_store_fee_remains_share', 'lightning_rate'],
+  'payments.store_google': ['google_rate_standard', 'google_rate_small', 'store_small_threshold', 'p2p_store_fee_remains_share', 'lightning_rate'],
   'payments.processor': ['processor_rate', 'processor_fixed', 'avg_ticket', 'lightning_rate'],
   'payments.reseller': ['reseller_rate', 'reseller_fixed', 'avg_ticket', 'lightning_rate'],
   'payments.p2p': ['lightning_rate'],
@@ -508,6 +519,7 @@ export function evaluate(inputs, v) {
   const lines = {}
   let custodial = 0
   let noncustodial = 0
+  let fees = 0
   let risk = 0
   for (const name of LINES) {
     const r = LINE_FN[name](inputs, v)
@@ -515,14 +527,19 @@ export function evaluate(inputs, v) {
     const full = sum(r.parts, 'custodial')
     const share = Math.min(1, Math.max(0, shares[name]))
     const c = full - share * (full - nc)
-    // The expected loss moves with the line's share like every other part; its saving is the risk part.
-    const riskParts = r.parts.filter((p) => p.kind === 'risk')
-    const riskFull = sum(riskParts, 'custodial')
-    const riskNc = sum(riskParts, 'noncustodial')
-    const riskSaving = riskFull - share * (riskFull - riskNc) - riskNc
-    lines[name] = { ...r, custodial: c, noncustodial: nc, full, share, already: share >= 0.999, partly: share > 0 && share < 0.999, saving: c - nc, saving_cash: c - nc - riskSaving, saving_risk: riskSaving }
+    // A kind's parts move with the line's share like every other part; their saving is that kind's.
+    const kindSaving = (kind) => {
+      const parts = r.parts.filter((p) => p.kind === kind)
+      const kindFull = sum(parts, 'custodial')
+      const kindNc = sum(parts, 'noncustodial')
+      return kindFull - share * (kindFull - kindNc) - kindNc
+    }
+    const feesSaving = kindSaving('fees')
+    const riskSaving = kindSaving('risk')
+    lines[name] = { ...r, custodial: c, noncustodial: nc, full, share, already: share >= 0.999, partly: share > 0 && share < 0.999, saving: c - nc, saving_cash: c - nc - feesSaving - riskSaving, saving_fees: feesSaving, saving_risk: riskSaving }
     custodial += c
     noncustodial += nc
+    fees += feesSaving
     risk += riskSaving
   }
   const { mau } = inputs
@@ -533,7 +550,8 @@ export function evaluate(inputs, v) {
       custodial,
       noncustodial,
       saving: custodial - noncustodial,
-      saving_cash: custodial - noncustodial - risk,
+      saving_cash: custodial - noncustodial - fees - risk,
+      saving_fees: fees,
       saving_risk: risk,
       per_mau_custodial: custodial / mau,
       per_mau_noncustodial: noncustodial / mau,
@@ -691,6 +709,7 @@ export function project(inputs, v, today = evaluate(inputs, v)) {
       nostr: T.custodial - T.saving * share,
       saving: T.saving,
       saving_cash: T.saving_cash,
+      saving_fees: T.saving_fees,
       saving_risk: T.saving_risk,
       share,
       realised: total('realised'),
@@ -709,7 +728,7 @@ export function project(inputs, v, today = evaluate(inputs, v)) {
  * with its projection, the clean inputs the page should echo back, and the
  * overrides that applied. "At scale" is the marker year's column of the
  * projection: what the app pays under custody that year, what an app on
- * Nostr pays, and the saving between the two, cash and risk apart. Every
+ * Nostr pays, and the saving between the two, cash, fees and risk apart. Every
  * line and part carries its figures for that year, and the lines add up to
  * the total's own, so the chart, the savings list and the facts all show
  * one set of numbers. The five-year figure is the net cumulative, after
@@ -741,8 +760,10 @@ export function calculate(rawInputs, data, rawOverrides = {}) {
     r.totals.payback_month = integ.paybackMonth
     r.totals.at_scale = scale.custodial - scale.nostr
     r.totals.at_scale_cash = scale.saving_cash * scale.share
+    r.totals.at_scale_fees = scale.saving_fees * scale.share
     r.totals.at_scale_risk = scale.saving_risk * scale.share
     r.totals.today_if_integrated = today.saving_cash * today.share
+    r.totals.today_if_integrated_fees = today.saving_fees * today.share
     r.totals.today_if_integrated_risk = today.saving_risk * today.share
     r.totals.scale_custodial = scale.custodial
     r.totals.scale_nostr = scale.nostr

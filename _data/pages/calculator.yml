@@ -280,17 +280,15 @@ sections:
           icon: card
           title: Payments
           remains: >-
-            Store rules still apply to what is sold inside the app: outside
-            the EU, Japan and the US link-out ruling, Apple still requires
-            in-app purchase for digital goods. Your own revenue can move to
-            peer-to-peer rails, bitcoin or stablecoins, at about 1% instead
-            of 3% plus 15 to 30%. On-ramp costs fall on your users and
-            affect conversion, not your P&L. For a marketplace: transaction
-            revenue is not a cost line. On an open market, listings and
-            settlement are peer to peer and the app is not a party to the
-            sale, so there is no commission to save or to collect. See Conduit
-            (conduit.market) and the Open Markets specification
-            (openmarkets.pub).
+            Store commission on peer-to-peer payments where the store still
+            claims it, until the precedent is settled, and the user's own rail
+            for everything else. The app's own products sold through a store
+            still pay that store's rate. On-ramp costs fall on your users and
+            affect conversion, not your P&L.
+          goes: >-
+            The app is not a party to the payment. Buyers and sellers, tippers
+            and creators settle on their own rails, and the fee stack that
+            custody put on every transaction goes with it.
       # Quiet notes under a line's name, where one applies.
       already: Already on Nostr
       partly: Partly on Nostr
@@ -312,7 +310,7 @@ sections:
           - id: moderation
             text: "Moderation: labels, web of trust and a ranking provider, about {weeks} weeks."
           - id: payments
-            text: "Payments: your own revenue on a peer-to-peer rail, about {weeks} weeks."
+            text: "Payments: in-app payments on the users' own rails, about {weeks} weeks."
         actions:
           - label: See Services
             href: /services/
@@ -385,6 +383,7 @@ sections:
       # inside it; the risk saving on its own smaller line.
       headline: "{low} to {high} a year, typically {typical}"
       headline_sub: "in {year}, at {users} active users"
+      headline_fees: "plus {amount} a year less in fees across your in-app payments"
       headline_risk: "plus {risk} a year less breach exposure"
       # Under it, dim: what the network would deliver this year to an app
       # already integrated, and beside it the payback month.
@@ -525,16 +524,16 @@ sections:
             nostr: "{i.mau} users × {a.label_provider_per_mau_year} a year for a label or web-of-trust provider = {p.noncustodial}"
           store_apple:
             today: "{p.revenue} a year through the App Store × {p.rate} ({d.tier}) = {p.custodial}"
-            nostr: "The same. Store rules still apply to what is sold inside the app."
+            nostr: "{p.revenue} × {p.rate} × {a.p2p_store_fee_remains_share} store commission while the precedent is open, plus {p.revenue} × {a.lightning_rate} on the user's rail = {p.noncustodial}"
           store_google:
             today: "{p.revenue} a year through Google Play × {p.rate} ({d.tier}) = {p.custodial}"
-            nostr: "The same. Store rules still apply to what is sold inside the app."
+            nostr: "{p.revenue} × {p.rate} × {a.p2p_store_fee_remains_share} store commission while the precedent is open, plus {p.revenue} × {a.lightning_rate} on the user's rail = {p.noncustodial}"
           processor:
             today: "{p.revenue} a year × {p.rate}, plus {p.tickets} payments × {p.fixed} = {p.custodial}"
-            nostr: "{p.revenue} × {a.lightning_rate} on a peer-to-peer rail = {p.noncustodial}"
+            nostr: "{p.revenue} × {a.lightning_rate} on the user's rail = {p.noncustodial}"
           reseller:
             today: "{p.revenue} a year × {p.rate}, plus {p.tickets} payments × {p.fixed} = {p.custodial}"
-            nostr: "{p.revenue} × {a.lightning_rate} on a peer-to-peer rail = {p.noncustodial}"
+            nostr: "{p.revenue} × {a.lightning_rate} on the user's rail = {p.noncustodial}"
           p2p:
             today: "{p.revenue} a year × {a.lightning_rate} = {p.custodial}"
             nostr: "The same: {p.noncustodial}"
@@ -551,7 +550,7 @@ sections:
       whose:
         illustrative: Estimated
         yours: Your estimate
-        frame: "{lead} for {kind} {reach} that is {nostr} and has {mau} active users, with {team}, {moderation}, and processes {payments} in-app payments."
+        frame: "{lead} for {kind} {reach} that is {nostr} and has {mau} active users, with {team}, {moderation}, and facilitates {payments} a month in in-app payments."
         kind:
           none: an app
           messaging: a messaging app
@@ -570,7 +569,7 @@ sections:
           vendor: third-party moderation
         payments:
           none: $0
-          some: "{rev} per month"
+          some: "{rev}"
         reach:
           in: "in {list}"
           join: " and "
@@ -637,8 +636,9 @@ sections:
         expected_loss: expected loss, not a bill
         relay_minimum: one managed relay
         dsar_users: "{n} users under a privacy law"
-        # An expected loss sits apart from the bills, each group with its own sub-total.
+        # Fees on in-app payments and an expected loss sit apart from the bills, each group with its own sub-total.
         cash: Cash costs
+        fees: Fees on in-app payments
         risk: Risk exposure
       parts:
         auth: Authentication service
@@ -691,6 +691,7 @@ sections:
         payback: "Payback: month {n}."
         no_payback: "Payback: not within five years."
         today: "Today if integrated: {amount} a year."
+        fees: "Fees saved at scale: {amount} a year."
         link: "Results: {link}"
         open: "Open in the calculator: {link}"
       errors:

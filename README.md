@@ -680,6 +680,11 @@ calendar and `integ_overlap_months` the time both stacks run. They are
 placeholders until the research group supplies member figures; the payback
 month and the net cumulative rest on them, the saving does not. The ramp
 starts at `scale_progress_today` and month 1 is January of `start_year`.
+The payments line measures the fee stack custody puts on in-app payments:
+`rev` is the gross monthly volume the app facilitates (purchases,
+subscriptions, tips and sales between users), not the app's own revenue; on
+Nostr the app is not a party to the payment, and the store's commission
+reaches it only as far as `p2p_store_fee_remains_share` leaves.
 Moderation has three states: unanswered bills the benchmark (so many
 reviewers per million users), a team or a vendor is priced by head, and an
 explicit Nobody bills nothing on either side and claims no saving, showing

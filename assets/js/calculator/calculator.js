@@ -646,7 +646,7 @@ var INPUTS = {
   // legal and compliance
   legal_usd: { type: "number", required: false, default: null, min: 0, max: 1e12, omit: "0" },
   // 0 means not given
-  // Payments: the opener (0 means no payments), then the rails (blank means derived from distribution) and balances
+  // Payments: the opener, the gross monthly volume of in-app payments the app facilitates in USD (0 means no payments), then the rails (blank means derived from distribution) and balances
   rev: { type: "number", required: false, default: 0, min: 0, max: 1e12 },
   rails: { type: "multi", required: false, default: [], options: ["p2p", "apple", "google", "processor", "reseller"] },
   balances: { type: "multi", required: false, default: [], options: ["yes"] },
@@ -1010,26 +1010,28 @@ function payments(inputs, v) {
   if (!rails.length || !(inputs.rev > 0)) return { parts: [], none: true };
   const annual = inputs.rev * 12;
   const share = 1 / rails.length;
-  const small = annual < v.store_small_threshold;
+  const proceeds = annual * share;
+  const small = proceeds < v.store_small_threshold;
+  const fee = (id, custodial, noncustodial, extra = {}) => part(id, custodial, noncustodial, { kind: "fees", ...extra });
   const parts = [];
   for (const rail of rails) {
-    const rev = annual * share;
+    const rev = proceeds;
     if (rail === "apple" || rail === "google") {
       const rate = rail === "apple" ? small ? v.apple_rate_small : v.apple_rate_standard : small ? v.google_rate_small : v.google_rate_standard;
-      parts.push(part(`store_${rail}`, rev * rate, rev * rate, { rate, tier: small ? "small" : "standard", revenue: rev }));
+      parts.push(fee(`store_${rail}`, rev * rate, rev * rate * v.p2p_store_fee_remains_share + rev * v.lightning_rate, { rate, tier: small ? "small" : "standard", revenue: rev }));
     } else if (rail === "processor") {
-      const fee = rev * v.processor_rate + rev / v.avg_ticket * v.processor_fixed;
-      parts.push(part("processor", fee, rev * v.lightning_rate, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev, tickets: rev / v.avg_ticket }));
+      const cost = rev * v.processor_rate + rev / v.avg_ticket * v.processor_fixed;
+      parts.push(fee("processor", cost, rev * v.lightning_rate, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev, tickets: rev / v.avg_ticket }));
     } else if (rail === "reseller") {
-      const fee = rev * v.reseller_rate + rev / v.avg_ticket * v.reseller_fixed;
-      parts.push(part("reseller", fee, rev * v.lightning_rate, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev, tickets: rev / v.avg_ticket }));
+      const cost = rev * v.reseller_rate + rev / v.avg_ticket * v.reseller_fixed;
+      parts.push(fee("reseller", cost, rev * v.lightning_rate, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev, tickets: rev / v.avg_ticket }));
     } else {
-      const fee = rev * v.lightning_rate;
-      parts.push(part("p2p", fee, fee, { rate: v.lightning_rate, revenue: rev }));
+      const cost = rev * v.lightning_rate;
+      parts.push(fee("p2p", cost, cost, { rate: v.lightning_rate, revenue: rev }));
     }
   }
   const holds = inputs.balances.includes("yes");
-  parts.push(part("money_transmitter", holds ? v.mt_avoidance_year : 0, holds ? v.mt_avoidance_year * v.mt_remains_share : 0, { holds }));
+  parts.push(fee("money_transmitter", holds ? v.mt_avoidance_year : 0, holds ? v.mt_avoidance_year * v.mt_remains_share : 0, { holds }));
   return { parts, tier: small ? "small" : "standard", rails_from: inputs.derived?.rails };
 }
 var LINE_FN = { accounts, graph, storage, compliance, moderation, payments };
@@ -1068,8 +1070,8 @@ var PART_ASSUMPTIONS = {
   "moderation.appeals": ["appeals_share", "moderation_remains_share"],
   "moderation.tooling": ["ts_tooling_per_mau_year", "tooling_remains_share"],
   "moderation.labels": ["label_provider_per_mau_year"],
-  "payments.store_apple": ["apple_rate_standard", "apple_rate_small", "store_small_threshold"],
-  "payments.store_google": ["google_rate_standard", "google_rate_small", "store_small_threshold"],
+  "payments.store_apple": ["apple_rate_standard", "apple_rate_small", "store_small_threshold", "p2p_store_fee_remains_share", "lightning_rate"],
+  "payments.store_google": ["google_rate_standard", "google_rate_small", "store_small_threshold", "p2p_store_fee_remains_share", "lightning_rate"],
   "payments.processor": ["processor_rate", "processor_fixed", "avg_ticket", "lightning_rate"],
   "payments.reseller": ["reseller_rate", "reseller_fixed", "avg_ticket", "lightning_rate"],
   "payments.p2p": ["lightning_rate"],
@@ -1081,6 +1083,7 @@ function evaluate(inputs, v) {
   const lines = {};
   let custodial = 0;
   let noncustodial = 0;
+  let fees = 0;
   let risk = 0;
   for (const name of LINES) {
     const r = LINE_FN[name](inputs, v);
@@ -1088,13 +1091,18 @@ function evaluate(inputs, v) {
     const full2 = sum(r.parts, "custodial");
     const share = Math.min(1, Math.max(0, shares[name]));
     const c = full2 - share * (full2 - nc);
-    const riskParts = r.parts.filter((p) => p.kind === "risk");
-    const riskFull = sum(riskParts, "custodial");
-    const riskNc = sum(riskParts, "noncustodial");
-    const riskSaving = riskFull - share * (riskFull - riskNc) - riskNc;
-    lines[name] = { ...r, custodial: c, noncustodial: nc, full: full2, share, already: share >= 0.999, partly: share > 0 && share < 0.999, saving: c - nc, saving_cash: c - nc - riskSaving, saving_risk: riskSaving };
+    const kindSaving = (kind) => {
+      const parts = r.parts.filter((p) => p.kind === kind);
+      const kindFull = sum(parts, "custodial");
+      const kindNc = sum(parts, "noncustodial");
+      return kindFull - share * (kindFull - kindNc) - kindNc;
+    };
+    const feesSaving = kindSaving("fees");
+    const riskSaving = kindSaving("risk");
+    lines[name] = { ...r, custodial: c, noncustodial: nc, full: full2, share, already: share >= 0.999, partly: share > 0 && share < 0.999, saving: c - nc, saving_cash: c - nc - feesSaving - riskSaving, saving_fees: feesSaving, saving_risk: riskSaving };
     custodial += c;
     noncustodial += nc;
+    fees += feesSaving;
     risk += riskSaving;
   }
   const { mau } = inputs;
@@ -1105,7 +1113,8 @@ function evaluate(inputs, v) {
       custodial,
       noncustodial,
       saving: custodial - noncustodial,
-      saving_cash: custodial - noncustodial - risk,
+      saving_cash: custodial - noncustodial - fees - risk,
+      saving_fees: fees,
       saving_risk: risk,
       per_mau_custodial: custodial / mau,
       per_mau_noncustodial: noncustodial / mau
@@ -1201,6 +1210,7 @@ function project(inputs, v, today = evaluate(inputs, v)) {
       nostr: T.custodial - T.saving * share,
       saving: T.saving,
       saving_cash: T.saving_cash,
+      saving_fees: T.saving_fees,
       saving_risk: T.saving_risk,
       share,
       realised: total("realised"),
@@ -1237,8 +1247,10 @@ function calculate(rawInputs, data, rawOverrides = {}) {
     r.totals.payback_month = integ.paybackMonth;
     r.totals.at_scale = scale.custodial - scale.nostr;
     r.totals.at_scale_cash = scale.saving_cash * scale.share;
+    r.totals.at_scale_fees = scale.saving_fees * scale.share;
     r.totals.at_scale_risk = scale.saving_risk * scale.share;
     r.totals.today_if_integrated = today.saving_cash * today.share;
+    r.totals.today_if_integrated_fees = today.saving_fees * today.share;
     r.totals.today_if_integrated_risk = today.saving_risk * today.share;
     r.totals.scale_custodial = scale.custodial;
     r.totals.scale_nostr = scale.nostr;
@@ -2478,6 +2490,7 @@ function composeLead({ inputs, result, link, contact, fieldLabels, open }) {
   if (result.five_year) lines.push(fmt(t("compose.five_year"), { five_year: result.five_year, low: result.low }));
   if ("payback" in result) lines.push(result.payback != null ? fmt(t("compose.payback"), { n: result.payback }) : t("compose.no_payback"));
   if (result.today) lines.push(fmt(t("compose.today"), { amount: result.today }));
+  if (result.fees) lines.push(fmt(t("compose.fees"), { amount: result.fees }));
   lines.push(fmt(t("compose.link"), { link }));
   if (open) lines.push(fmt(t("compose.open"), { link: open }));
   lines.push("");
@@ -2681,6 +2694,8 @@ function renderResults(result, { own = false } = {}) {
   const [headLow, headHigh] = ordered(low.totals.at_scale_cash, high.totals.at_scale_cash);
   text("#r-head-figure", fmt(t("headline"), { low: compact(headLow), high: compact(headHigh), typical: compact(T.at_scale_cash) }));
   text("#r-head-sub", fmt(t("headline_sub"), { year, users: number(T.scale_users) }));
+  text("#r-head-fees", fmt(t("headline_fees"), { amount: compact(T.at_scale_fees) }));
+  show($("#r-head-fees"), T.at_scale_fees >= 1);
   text("#r-head-risk", fmt(t("headline_risk"), { risk: compact(T.at_scale_risk) }));
   show($("#r-head-risk"), T.at_scale_risk >= 1);
   text("#r-today", fmt(t("today_if"), { amount: compact(T.today_if_integrated) }));
@@ -2800,13 +2815,15 @@ function renderParts(name, line, inputs) {
     el("span", { class: "parts__subtotal-label", text: label }),
     el("span", { class: "part__nums" }, [money(parts.reduce((a, p) => a + p.scale_custodial, 0)), " \u2192 ", el("b", { text: money(parts.reduce((a, p) => a + p.scale_noncustodial, 0)) })])
   ]);
-  const cash = line.parts.filter((p) => p.kind !== "risk");
-  const risk = line.parts.filter((p) => p.kind === "risk");
-  for (const p of cash) host.append(item(p));
-  if (risk.length) {
-    host.append(subtotal(t("details.cash"), cash));
-    for (const p of risk) host.append(item(p));
-    host.append(subtotal(t("details.risk"), risk));
+  const groups = [
+    ["cash", line.parts.filter((p) => !p.kind)],
+    ["fees", line.parts.filter((p) => p.kind === "fees")],
+    ["risk", line.parts.filter((p) => p.kind === "risk")]
+  ].filter(([, parts]) => parts.length);
+  const labelled = groups.some(([kind]) => kind !== "cash");
+  for (const [kind, parts] of groups) {
+    for (const p of parts) host.append(item(p));
+    if (labelled) host.append(subtotal(t(`details.${kind}`), parts));
   }
 }
 var howKeys = [];
@@ -3198,7 +3215,8 @@ function valuesFor(result, contact) {
     distribution: i.distribution,
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
-    // The payback month and the typical integration weeks travel too, once the form has questions for them (map.yml).
+    // The fees saved at scale, the payback month and the typical integration weeks travel too (map.yml).
+    fees_saved: Math.round(T.at_scale_fees),
     payback_month: T.payback_month ?? "",
     integ_weeks: Math.round(result.typical.integration.weeksTotal * 10) / 10,
     link: result.link,
@@ -3317,7 +3335,8 @@ async function tell(signer, result, contact, open) {
       five_year: compact(result.typical.totals.five_year),
       low: compact(result.low.totals.five_year),
       payback: result.typical.totals.payback_month,
-      today: compact(result.typical.totals.today_if_integrated)
+      today: compact(result.typical.totals.today_if_integrated),
+      fees: result.typical.totals.at_scale_fees >= 1 ? compact(result.typical.totals.at_scale_fees) : ""
     },
     link: result.link,
     contact,

@@ -50,7 +50,7 @@ try {
 
   // ── the page's submit module, bundled for node ────────────────────────────
   const dir = await mkdtemp(join(tmpdir(), 'nostr4-form-e2e-'))
-  const strings = { compose: { header: 'via test:', subject: 'lead', results: '{custodial} / {noncustodial}', five_year: 'five years {five_year}, low {low}', payback: 'payback {n}', no_payback: 'no payback', today: 'today {amount}', link: 'link {link}', open: 'open {link}' } }
+  const strings = { compose: { header: 'via test:', subject: 'lead', results: '{custodial} / {noncustodial}', five_year: 'five years {five_year}, low {low}', payback: 'payback {n}', no_payback: 'no payback', today: 'today {amount}', fees: 'fees {amount}', link: 'link {link}', open: 'open {link}' } }
   const config = { relays: { fallback_dm: [RELAY], discovery: [RELAY] }, timeouts: { publish: 4000, discovery: 2000 }, pow: { response: 12 } }
   const shim = join(dir, 'shim.mjs')
   await writeFile(shim, `
@@ -96,7 +96,7 @@ try {
   const bad = m.prepareForm({ ...snapshot, fields: snapshot.fields.slice(1) }, map)
   check('a template missing a mapped question is refused', bad === null)
 
-  const values = { mau: 50000, posts_per_user: 20, rails: ['apple', 'processor'], rev: 20000, jur: ['eu', 'us'], growth: '0.5', balances: [], engineering: { accounts: 5, infra: 25 }, mod_who: 'team', mod_heads: '3', team: 'ten', kind: 'feed', nostr_now: '0.5', nostr: { keys: 1, media_storage: 0.5 }, legal_usd: '', result_custodial: 967914, result_noncustodial: 266254, link: 'https://nostr4.social/calculator/?mau=50000', overrides: '', version: '1', email: 'founder@example.com', test: '' }
+  const values = { mau: 50000, posts_per_user: 20, rails: ['apple', 'processor'], rev: 20000, jur: ['eu', 'us'], growth: '0.5', balances: [], engineering: { accounts: 5, infra: 25 }, mod_who: 'team', mod_heads: '3', team: 'ten', kind: 'feed', nostr_now: '0.5', nostr: { keys: 1, media_storage: 0.5 }, legal_usd: '', result_custodial: 967914, result_noncustodial: 266254, fees_saved: 4200, payback_month: 14, integ_weeks: 22, link: 'https://nostr4.social/calculator/?mau=50000', overrides: '', version: '1', email: 'founder@example.com', test: '' }
   const signer = m.createGuestSigner()
   const started = Date.now()
   const { event, relays, ok } = await m.submitResponse(form, { signer, values, pow: 12 })
@@ -117,6 +117,7 @@ try {
   check('the form secret decrypts the answers', answers.length > 0 && answers.every((a) => a[0] === 'response' && a[3] === '{}'))
   const label = (key) => byId[map.fields[key].id].label
   check('numbers come back as given', byLabel[label('mau')] === '50000' && byLabel[label('result_custodial')] === '967914', JSON.stringify(byLabel))
+  check('the fees saved, the payback month and the integration weeks travel as their own questions', byLabel[label('fees_saved')] === '4200' && byLabel[label('payback_month')] === '14' && byLabel[label('integ_weeks')] === '22', JSON.stringify([byLabel[label('fees_saved')], byLabel[label('payback_month')], byLabel[label('integ_weeks')]]))
   const railIds = byLabel[label('rails')].split(';')
   check('a multi-choice answer is option ids joined by ;', railIds.join(';') === `${map.fields.rails.options.apple};${map.fields.rails.options.processor}`)
   const eng = JSON.parse(byLabel[label('engineering')])
@@ -128,8 +129,8 @@ try {
   check('a stranger cannot decrypt it', (() => { try { decrypt(got.content, getConversationKey(generateSecretKey(), got.pubkey)); return false } catch { return true } })())
 
   // ── the lead message ──────────────────────────────────────────────────────
-  const text = m.composeLead({ inputs: { mau: 50000, jur: ['eu', 'us'] }, result: { custodial: '$968k', noncustodial: '$266k', five_year: '$3.1M', low: '$400k', payback: 14, today: '$93k' }, link: 'https://x', contact: { email: 'founder@example.com' }, fieldLabels: { mau: { label: 'Monthly active users' } } })
-  check('the lead text names the source, the inputs, the figures, the payback, today\'s figure, the link and the contact', text.startsWith('via test:') && text.includes('Monthly active users: 50000') && text.includes('jur: eu, us') && text.includes('$968k / $266k') && text.includes('five years $3.1M, low $400k') && text.includes('payback 14') && text.includes('today $93k') && text.includes('link https://x') && text.endsWith('email: founder@example.com'), text)
+  const text = m.composeLead({ inputs: { mau: 50000, jur: ['eu', 'us'] }, result: { custodial: '$968k', noncustodial: '$266k', five_year: '$3.1M', low: '$400k', payback: 14, today: '$93k', fees: '$4.2k' }, link: 'https://x', contact: { email: 'founder@example.com' }, fieldLabels: { mau: { label: 'Monthly active users' } } })
+  check('the lead text names the source, the inputs, the figures, the payback, today\'s figure, the link and the contact', text.startsWith('via test:') && text.includes('Monthly active users: 50000') && text.includes('jur: eu, us') && text.includes('$968k / $266k') && text.includes('five years $3.1M, low $400k') && text.includes('payback 14') && text.includes('today $93k') && text.includes('fees $4.2k') && text.includes('link https://x') && text.endsWith('email: founder@example.com'), text)
   const never = m.composeLead({ inputs: {}, result: { custodial: '$1', noncustodial: '$1', payback: null }, link: 'https://x', contact: {}, fieldLabels: {} })
   check('a lead that never pays back says so', never.includes('no payback'), never)
 

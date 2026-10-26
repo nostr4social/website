@@ -44,6 +44,8 @@ export function renderResults(result, { own = false } = {}) {
   const [headLow, headHigh] = ordered(low.totals.at_scale_cash, high.totals.at_scale_cash)
   text('#r-head-figure', fmt(t('headline'), { low: compact(headLow), high: compact(headHigh), typical: compact(T.at_scale_cash) }))
   text('#r-head-sub', fmt(t('headline_sub'), { year, users: number(T.scale_users) }))
+  text('#r-head-fees', fmt(t('headline_fees'), { amount: compact(T.at_scale_fees) }))
+  show($('#r-head-fees'), T.at_scale_fees >= 1)
   text('#r-head-risk', fmt(t('headline_risk'), { risk: compact(T.at_scale_risk) }))
   show($('#r-head-risk'), T.at_scale_risk >= 1)
   text('#r-today', fmt(t('today_if'), { amount: compact(T.today_if_integrated) }))
@@ -191,15 +193,18 @@ function renderParts(name, line, inputs) {
       el('span', { class: 'parts__subtotal-label', text: label }),
       el('span', { class: 'part__nums' }, [money(parts.reduce((a, p) => a + p.scale_custodial, 0)), ' → ', el('b', { text: money(parts.reduce((a, p) => a + p.scale_noncustodial, 0)) })]),
     ])
-  // An expected loss is not a bill: where a line carries one, the cash costs
-  // and the risk exposure are listed apart, each with its own sub-total.
-  const cash = line.parts.filter((p) => p.kind !== 'risk')
-  const risk = line.parts.filter((p) => p.kind === 'risk')
-  for (const p of cash) host.append(item(p))
-  if (risk.length) {
-    host.append(subtotal(t('details.cash'), cash))
-    for (const p of risk) host.append(item(p))
-    host.append(subtotal(t('details.risk'), risk))
+  // Fees on in-app payments and an expected loss are not operating bills:
+  // where a line carries either kind, each group is listed with its own
+  // sub-total, cash costs first.
+  const groups = [
+    ['cash', line.parts.filter((p) => !p.kind)],
+    ['fees', line.parts.filter((p) => p.kind === 'fees')],
+    ['risk', line.parts.filter((p) => p.kind === 'risk')],
+  ].filter(([, parts]) => parts.length)
+  const labelled = groups.some(([kind]) => kind !== 'cash')
+  for (const [kind, parts] of groups) {
+    for (const p of parts) host.append(item(p))
+    if (labelled) host.append(subtotal(t(`details.${kind}`), parts))
   }
 }
 

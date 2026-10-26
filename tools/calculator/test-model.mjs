@@ -68,7 +68,7 @@ await test('low is the smaller saving: the custodial column is the same in every
 
 await test('only the thesis varies across scenarios: no custodial-side assumption moves, and every varying one is at-scale, Nostr-native or the integration', () => {
   const vary = varyingKeys(data)
-  assert.equal(vary.length, 30, `${vary.length} varying keys`)
+  assert.equal(vary.length, 31, `${vary.length} varying keys`)
   const thesis = /^(scale_months|scale_progress_today|integ_weeks_\w+|integ_overlap_months|integ_engineers|.*_remains_share|media_sponsor_share|retained_data_share|.*_per_mau_year|relay_floor_year|relay_sponsored_share|key_handoff_live_share|lightning_rate)$/
   for (const key of vary) assert.ok(thesis.test(key), `${key} varies but is not a thesis key`)
   // The custodial side's own rates never vary, whatever the file says in its low and high columns.
@@ -94,8 +94,8 @@ await test('only the thesis varies across scenarios: no custodial-side assumptio
     assert.ok(down || up, `${key}: low ${a.low}, typical ${a.typical}, high ${a.high} are not in order`)
     assert.equal(up && !down, ['scale_progress_today', 'integ_engineers'].includes(key), `${key} runs the wrong way`)
   }
-  // The thesis section opens with where the network is today, then how long to scale.
-  assert.deepEqual(vary.slice(0, 2), ['scale_progress_today', 'scale_months'])
+  // The thesis section opens with where the network is today, then the contested store commission, then how long to scale.
+  assert.deepEqual(vary.slice(0, 3), ['scale_progress_today', 'p2p_store_fee_remains_share', 'scale_months'])
 })
 
 await test('the non-custodial column is never zero where an obligation remains', () => {
@@ -140,16 +140,58 @@ await test('store tiers step at the small-business threshold', () => {
   assert.equal(big.parts.find((p) => p.id === 'store_apple').rate, data.assumptions.apple_rate_standard.typical)
 })
 
-await test('store commission is identical in both columns; processor and reseller fees are not', () => {
+await test('on Nostr a store rail keeps only the commission the precedent leaves plus the user\'s rail; processor and reseller fees fall to the rail; peer to peer is unchanged', () => {
+  const v = resolveAssumptions(data, 'typical')
   const r = calculate({ ...base, rails: ['apple', 'processor', 'reseller', 'p2p'] }, data).typical.lines.payments
   const apple = r.parts.find((p) => p.id === 'store_apple')
   const web = r.parts.find((p) => p.id === 'processor')
   const mor = r.parts.find((p) => p.id === 'reseller')
   const p2p = r.parts.find((p) => p.id === 'p2p')
-  assert.equal(apple.custodial, apple.noncustodial)
-  assert.ok(web.noncustodial < web.custodial)
+  assert.ok(Math.abs(apple.noncustodial - (apple.custodial * v.p2p_store_fee_remains_share + apple.revenue * v.lightning_rate)) < 1e-6)
+  assert.ok(apple.noncustodial < apple.custodial)
+  assert.ok(web.noncustodial < web.custodial && Math.abs(web.noncustodial - web.revenue * v.lightning_rate) < 1e-6)
   assert.ok(mor.custodial > web.custodial && mor.noncustodial === web.noncustodial)
   assert.equal(p2p.custodial, p2p.noncustodial)
+  for (const p of r.parts) assert.equal(p.kind, 'fees', `${p.id} is a fee`)
+})
+
+await test('payments are the fee stack on in-app volume: a feed app at 500k users with 50,000 a month on Apple and Google', () => {
+  const inputs = { mau: 500000, kind: 'feed', jur: ['us'], team: 'ten', rev: 50000, rails: ['apple', 'google'] }
+  const r = calculate(inputs, data)
+  const volume = 50000 * 12
+  for (const [s, remains, commission] of [['typical', 0.5, 45000], ['low', 1, 90000], ['high', 0.1, 9000]]) {
+    const line = r[s].lines.payments
+    const v = r[s].values
+    assert.equal(v.p2p_store_fee_remains_share, remains)
+    assert.ok(Math.abs(line.custodial - 90000) < 1e-6, `${s}: custodial ${line.custodial}`)
+    assert.ok(Math.abs(line.noncustodial - (commission + volume * v.lightning_rate)) < 1e-6, `${s}: non-custodial ${line.noncustodial} vs ${commission} plus ${volume * v.lightning_rate}`)
+    for (const p of line.parts) assert.equal(p.kind, 'fees')
+    assert.equal(line.saving_cash, 0, 'the payments line contributes nothing to the cash saving')
+    assert.ok(Math.abs(line.saving_fees - line.saving) < 1e-6)
+  }
+  // Each store's tier is by the proceeds through that store: 300k each, the small-business rate.
+  for (const id of ['store_apple', 'store_google']) assert.equal(r.typical.lines.payments.parts.find((p) => p.id === id).tier, 'small')
+  // A web rail alone: the user's rail carries the volume.
+  const web = calculate({ ...inputs, rails: ['processor'] }, data).typical
+  assert.ok(Math.abs(web.lines.payments.noncustodial - volume * web.values.lightning_rate) < 1e-6)
+  // Peer to peer alone: nothing to save.
+  const p2p = calculate({ ...inputs, rails: ['p2p'] }, data).typical
+  assert.ok(Math.abs(p2p.lines.payments.custodial - p2p.lines.payments.noncustodial) < 1e-6)
+  assert.ok(Math.abs(p2p.lines.payments.at_scale) < 1e-6)
+  // A version-2 link carries the same volume under the same key.
+  const link = decode('?mau=500000&rev=50000&rails=apple%2Cgoogle&jur=us&team=ten&v=2')
+  assert.equal(link.version, 2)
+  assert.equal(calculate(link.inputs, data).inputs.rev, 50000)
+  // The store commission row is read by the Apple and Google parts, and by no other.
+  for (const [key, keys] of Object.entries(PART_ASSUMPTIONS)) assert.equal(keys.includes('p2p_store_fee_remains_share'), key === 'payments.store_apple' || key === 'payments.store_google', key)
+  const proxyRead = (inputsRaw) => {
+    const read = new Set()
+    const recorder = new Proxy(resolveAssumptions(data, 'typical'), { get: (target, k) => { if (typeof k === 'string') read.add(k); return target[k] } })
+    for (const line of LINES) LINE_FUNCTIONS[line](normalizeInputs(inputsRaw), recorder)
+    return read
+  }
+  assert.ok(proxyRead(inputs).has('p2p_store_fee_remains_share'))
+  assert.ok(!proxyRead({ ...inputs, rails: ['processor', 'p2p'] }).has('p2p_store_fee_remains_share'), 'only a store rail reads it')
 })
 
 await test('the money-transmitter allowance applies only when balances are held', () => {
@@ -458,7 +500,7 @@ await test('the Nostr line is what an app on Nostr pays that year: year 0 is bel
       for (const q of p) {
         assert.ok(Math.abs(q.custodial - q.nostr - q.saving * q.share) < 1e-6, `${s} year ${q.year}`)
         assert.ok(q.nostr >= q.noncustodial - 1e-6, 'never below the at-scale cost')
-        assert.ok(Math.abs(q.saving_cash + q.saving_risk - q.saving) < 1e-6)
+        assert.ok(Math.abs(q.saving_cash + q.saving_fees + q.saving_risk - q.saving) < 1e-6)
       }
       assert.ok(p[1].nostr - p[1].noncustodial < p[0].nostr - p[0].noncustodial, 'the line falls toward the at-scale cost as the network scales')
       assert.ok(Math.abs(p[YEARS].nostr - p[YEARS].noncustodial) < 1e-6, 'at scale, the Nostr line is the non-custodial cost')
@@ -579,28 +621,34 @@ await test('the default app pays back in year 1 under typical; low is later, hig
   assert.ok(never.typical.projection.every((p) => p.cumulative < 0))
 })
 
-await test('two savings: cash from the bills, risk from the expected loss; they add up to the saving today and at scale', () => {
-  for (const inputs of [base, illustrative, { ...base, n_keys: '1', n_event_storage: '0.5' }, min({ mau: 5000000, jur: JURISDICTIONS })]) {
+await test('three savings: cash from the bills, fees from the payments line, risk from the expected loss; they add up to the saving today and at scale', () => {
+  for (const inputs of [base, illustrative, { ...base, n_keys: '1', n_event_storage: '0.5' }, min({ mau: 5000000, jur: JURISDICTIONS }), { ...base, n_p2p: '0.5' }]) {
     const r = calculate(inputs, data)
     for (const s of SCENARIOS) {
       const T = r[s].totals
-      assert.ok(Math.abs(T.saving_cash + T.saving_risk - T.saving) < 1e-6, `${s} today`)
-      assert.ok(Math.abs(T.at_scale_cash + T.at_scale_risk - T.at_scale) < 1e-6, `${s} at scale`)
-      assert.ok(T.saving_risk >= 0 && T.saving_cash > 0, 'neither part is negative')
-      if (inputs === base) assert.ok(T.saving_risk > 0 && T.saving_risk < T.saving_cash, 'for the baseline the risk saving is the smaller part')
+      assert.ok(Math.abs(T.saving_cash + T.saving_fees + T.saving_risk - T.saving) < 1e-6, `${s} today`)
+      assert.ok(Math.abs(T.at_scale_cash + T.at_scale_fees + T.at_scale_risk - T.at_scale) < 1e-6, `${s} at scale`)
+      assert.ok(T.saving_risk >= 0 && T.saving_fees >= 0 && T.saving_cash > 0, 'no part is negative')
+      if (inputs === base) assert.ok(T.saving_risk > 0 && T.saving_fees > 0 && T.saving_risk < T.saving_cash && T.saving_fees < T.saving_cash, 'for the baseline the fees and the risk are the smaller parts')
       const breach = r[s].lines.compliance.parts.find((p) => p.id === 'breach')
       const line = r[s].lines.compliance
       assert.ok(Math.abs(line.saving_risk - (breach.custodial - line.share * (breach.custodial - breach.noncustodial) - breach.noncustodial)) < 1e-6, 'the risk saving is the breach part, moved by the line\'s share like the rest')
       for (const l of LINES) if (l !== 'compliance') assert.equal(r[s].lines[l].saving_risk, 0)
+      // The fees saving is the whole payments line, moved by its share; no other line has one, and the payments line has no cash saving.
+      const pay = r[s].lines.payments
+      assert.ok(Math.abs(pay.saving_fees - pay.saving) < 1e-6 && pay.saving_cash === 0, `${s}: payments ${pay.saving_fees} vs ${pay.saving}`)
+      for (const l of LINES) if (l !== 'payments') assert.equal(r[s].lines[l].saving_fees, 0)
       assert.ok(Math.abs(LINES.reduce((a, l) => a + r[s].lines[l].saving_cash, 0) - T.saving_cash) < 1e-6)
+      assert.ok(Math.abs(T.saving_fees - pay.saving_fees) < 1e-6)
       // At scale the split is the marker year's, at that year's users.
       const at = r[s].projection[MARKER_YEAR]
       assert.ok(Math.abs(T.at_scale_cash - at.saving_cash * at.share) < 1e-6)
+      assert.ok(Math.abs(T.at_scale_fees - at.saving_fees * at.share) < 1e-6)
       assert.ok(Math.abs(T.at_scale_risk - at.saving_risk * at.share) < 1e-6)
-      // Today if integrated: the cash saving the network delivers in year 0, with its risk part beside it.
+      // Today if integrated: the cash saving the network delivers in year 0, with its fees and risk parts beside it.
       const today = r[s].projection[0]
       assert.ok(Math.abs(T.today_if_integrated - today.saving_cash * today.share) < 1e-6)
-      assert.ok(Math.abs(T.today_if_integrated + T.today_if_integrated_risk - (today.custodial - today.nostr)) < 1e-6)
+      assert.ok(Math.abs(T.today_if_integrated + T.today_if_integrated_fees + T.today_if_integrated_risk - (today.custodial - today.nostr)) < 1e-6)
       assert.ok(T.today_if_integrated < T.at_scale_cash, 'less than at scale')
     }
   }
@@ -771,8 +819,10 @@ await test('the expected breach loss is marked as risk, apart from the cash cost
   const r = calculate(base, data).typical.lines.compliance
   const breach = r.parts.find((p) => p.id === 'breach')
   assert.equal(breach.kind, 'risk')
-  assert.ok(r.parts.filter((p) => p.kind === 'risk').length === 1 && r.parts.filter((p) => p.kind !== 'risk').length === 4)
+  assert.ok(r.parts.filter((p) => p.kind === 'risk').length === 1 && r.parts.filter((p) => !p.kind).length === 4)
   for (const l of LINES) if (l !== 'compliance') for (const p of calculate(base, data).typical.lines[l].parts) assert.notEqual(p.kind, 'risk')
+  // Every payments part is a fee; no part of any other line is.
+  for (const l of LINES) for (const p of calculate(base, data).typical.lines[l].parts) assert.equal(p.kind === 'fees', l === 'payments', `${l}.${p.id}`)
   // The kind travels into the projection's parts, so the page can keep them apart in every year.
   const at = calculate(base, data).typical.projection[MARKER_YEAR].lines.compliance.parts
   assert.equal(at.find((p) => p.id === 'breach').kind, 'risk')
@@ -845,7 +895,7 @@ await test('a baseline printout, for the eye', () => {
   const r = calculate(base, data).typical
   const f = (n) => Math.round(n).toLocaleString('en-US').padStart(12)
   for (const l of LINES) console.log(`     ${l.padEnd(11)} ${f(r.lines[l].custodial)} ${f(r.lines[l].noncustodial)}`)
-  console.log(`     ${'total'.padEnd(11)} ${f(r.totals.custodial)} ${f(r.totals.noncustodial)}   per MAU ${r.totals.per_mau_custodial.toFixed(2)} → ${r.totals.per_mau_noncustodial.toFixed(2)}   cash ${f(r.totals.saving_cash)} risk ${f(r.totals.saving_risk)}`)
+  console.log(`     ${'total'.padEnd(11)} ${f(r.totals.custodial)} ${f(r.totals.noncustodial)}   per MAU ${r.totals.per_mau_custodial.toFixed(2)} → ${r.totals.per_mau_noncustodial.toFixed(2)}   cash ${f(r.totals.saving_cash)} fees ${f(r.totals.saving_fees)} risk ${f(r.totals.saving_risk)}`)
   console.log(`     integration ${r.integration.weeksTotal} weeks, ${r.integration.months} months, ${f(r.integration.cost)}; overlap ${r.integration.overlap} months; payback month ${r.integration.paybackMonth}`)
   for (const p of r.projection) console.log(`     year ${p.year}  ${String(p.users).padStart(9)} users  custody ${f(p.custodial)}  nostr ${f(p.nostr)}  net ${f(p.net)}  so far ${f(p.cumulative)}`)
 })
