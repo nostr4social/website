@@ -1,0 +1,1596 @@
+{
+  "version": 3,
+  "date": "2026-10-27",
+  "currency": "USD",
+  "gbp_usd": 1.3,
+  "scenarios": [
+    "low",
+    "typical",
+    "high"
+  ],
+  "start_year": 2027,
+  "assumptions": {
+    "eng_base_salary": {
+      "label": "Backend or infra engineer, base salary",
+      "unit": "USD per year",
+      "typical": 135980,
+      "low": 110000,
+      "high": 180000,
+      "confidence": "high",
+      "source": {
+        "title": "BLS Occupational Outlook: software developers, median annual wage",
+        "url": "https://www.bls.gov/ooh/computer-and-information-technology/software-developers.htm",
+        "date": "2025-05"
+      },
+      "note": "US median for software developers. Infra specialists run higher; the median is the defensible default.",
+      "line": "shared",
+      "group": "people"
+    },
+    "loaded_multiplier": {
+      "label": "Benefits multiplier on base salary",
+      "unit": "multiplier",
+      "typical": 1.43,
+      "low": 1.3,
+      "high": 1.6,
+      "confidence": "high",
+      "source": {
+        "title": "BLS Employer Costs for Employee Compensation, private industry",
+        "url": "https://www.bls.gov/news.release/ecec.nr0.htm",
+        "date": "2026-06"
+      },
+      "note": "Private-industry total compensation divided by wages: benefits are 30% of compensation.",
+      "line": "shared",
+      "group": "people"
+    },
+    "overhead_multiplier": {
+      "label": "Overhead multiplier (equipment, office, software)",
+      "unit": "multiplier",
+      "typical": 1.15,
+      "low": 1.05,
+      "high": 1.25,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "ECEC excludes non-compensation overhead. A conservative allowance, editable.",
+      "line": "shared",
+      "group": "people"
+    },
+    "default_hours_accounts": {
+      "label": "Engineering hours a week on accounts, where the sliders start",
+      "unit": "hours per week",
+      "typical": 5,
+      "low": 2,
+      "high": 10,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "The form's bands (0, 1 to 10, 11 to 40, over 40) are read as 0, 5, 25 and 60 hours a week. The slider starts on the band nearest this; a results link that gives no band uses it directly.",
+      "line": "accounts",
+      "group": "people"
+    },
+    "default_hours_content": {
+      "label": "Engineering hours a week on user content, feeds and the graph, where the sliders start",
+      "unit": "hours per week",
+      "typical": 10,
+      "low": 4,
+      "high": 25,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Same bands as above.",
+      "line": "graph",
+      "group": "people"
+    },
+    "default_hours_infra": {
+      "label": "Engineering hours a week on infrastructure and storage, where the sliders start",
+      "unit": "hours per week",
+      "typical": 10,
+      "low": 4,
+      "high": 25,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Same bands as above.",
+      "line": "storage",
+      "group": "people"
+    },
+    "default_hours_legal": {
+      "label": "Engineering hours a week on legal and compliance work, where the sliders start",
+      "unit": "hours per week",
+      "typical": 2,
+      "low": 0,
+      "high": 5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Deletion flows, export tooling, retention jobs. Same bands as above.",
+      "line": "compliance",
+      "group": "people"
+    },
+    "ts_base_salary": {
+      "label": "Trust and safety analyst, base salary",
+      "unit": "USD per year",
+      "typical": 85000,
+      "low": 70480,
+      "high": 101409,
+      "confidence": "low",
+      "source": {
+        "title": "Payscale: Trust and Safety Analyst salary",
+        "url": "https://www.payscale.com/research/US/Job=Trust_and_Safety_Analyst/Salary",
+        "date": "2025-03"
+      },
+      "note": "Payscale median 70,480; Glassdoor average 101,409 (small samples, self-reported).",
+      "line": "moderation",
+      "group": "people"
+    },
+    "moderator_base_salary": {
+      "label": "In-house content moderator, base salary",
+      "unit": "USD per year",
+      "typical": 42500,
+      "low": 38000,
+      "high": 55000,
+      "confidence": "low",
+      "source": {
+        "title": "Payscale: Content Moderator hourly rate",
+        "url": "https://www.payscale.com/research/US/Job=Content_Moderator/Hourly_Rate",
+        "date": "2025-07"
+      },
+      "note": "Payscale median 20.44 per hour over 2,080 hours.",
+      "line": "moderation",
+      "group": "people"
+    },
+    "moderator_seat_outsourced": {
+      "label": "Outsourced moderation seat, all-in",
+      "unit": "USD per seat per year",
+      "typical": 16000,
+      "low": 12000,
+      "high": 32000,
+      "confidence": "low",
+      "source": {
+        "title": "365outsource: content moderation outsourcing rates",
+        "url": "https://365outsource.com/content-moderation-services/",
+        "date": "2026"
+      },
+      "note": "Offshore list price about 8 per hour over 2,000 hours; US BPO 15 to 25 per hour. List prices, not contracts.",
+      "line": "moderation",
+      "group": "people"
+    },
+    "mods_per_million_mau": {
+      "label": "Moderators per million monthly users",
+      "unit": "people per 1M MAU",
+      "typical": 5,
+      "low": 3,
+      "high": 15,
+      "confidence": "high",
+      "source": {
+        "title": "Snap DSA transparency report H2 2025 (human resources and AMAR files)",
+        "url": "https://values.snap.com/privacy/transparency/european-union-h2-2025",
+        "date": "2026-04"
+      },
+      "note": "From DSA transparency reports: LinkedIn about 3, Pinterest at most 5, Snap about 15 per million EU users. Used when the form gives no reviewers at all.",
+      "line": "moderation",
+      "group": "people"
+    },
+    "blob_gb_month": {
+      "label": "Object storage",
+      "unit": "USD per GB-month",
+      "typical": 0.023,
+      "low": 0.00695,
+      "high": 0.026,
+      "confidence": "high",
+      "source": {
+        "title": "AWS Price List API, Amazon S3 us-east-1",
+        "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.csv",
+        "date": "2026-10"
+      },
+      "note": "S3 Standard first 50 TB. Low is Backblaze B2; high is GCS multi-region.",
+      "line": "storage",
+      "group": "infra"
+    },
+    "db_gb_month": {
+      "label": "Database storage",
+      "unit": "USD per GB-month",
+      "typical": 0.23,
+      "low": 0.115,
+      "high": 0.345,
+      "confidence": "high",
+      "source": {
+        "title": "AWS Price List API, Amazon RDS PostgreSQL gp3 us-east-1",
+        "url": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/us-east-1/index.csv",
+        "date": "2026-10"
+      },
+      "note": "RDS PostgreSQL gp3 Multi-AZ. Low is single-AZ; high is Multi-AZ with readable standbys. Compute instances are extra and not modelled here.",
+      "line": "graph",
+      "group": "infra"
+    },
+    "egress_gb": {
+      "label": "Egress to the internet",
+      "unit": "USD per GB",
+      "typical": 0.02,
+      "low": 0,
+      "high": 0.09,
+      "confidence": "high",
+      "source": {
+        "title": "Amazon CloudFront pay-as-you-go pricing: data transfer out, United States and Europe",
+        "url": "https://aws.amazon.com/cloudfront/pricing/pay-as-you-go/",
+        "date": "2026-10"
+      },
+      "note": "Nobody serves media from origin. CloudFront steps from 0.085 (first 10 TB) to 0.030 (over 500 TB), 0.025 (over 1 PB) and 0.020 (over 5 PB); Bunny lists 0.01 standard and 0.005 to 0.003 on its volume tier; Cloudflare R2 egress is zero. The typical value is a large CDN at volume; the high is AWS direct to the internet for anyone still doing that.",
+      "line": "storage",
+      "group": "infra"
+    },
+    "egress_gb_per_mau_month": {
+      "label": "Egress per active user",
+      "unit": "GB per MAU per month",
+      "typical": 1,
+      "low": 0.3,
+      "high": 5,
+      "confidence": "unsourced",
+      "source": {
+        "title": "Ericsson Mobility Report key figures (22 GB per smartphone per month, all apps)",
+        "url": "https://www.ericsson.com/en/reports-and-papers/mobility-report/key-figures",
+        "date": "2025"
+      },
+      "note": "No platform publishes bytes served per user. The only proxy is 22 GB per smartphone per month across all apps.",
+      "line": "storage",
+      "group": "infra"
+    },
+    "db_mb_per_mau": {
+      "label": "Graph and profile metadata per user",
+      "unit": "MB per MAU",
+      "typical": 20,
+      "low": 5,
+      "high": 100,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Follows, profile, indexes and counters. Editable.",
+      "line": "graph",
+      "group": "infra"
+    },
+    "db_kb_per_post": {
+      "label": "Metadata per post or message, retained twelve months",
+      "unit": "KB per post",
+      "typical": 2,
+      "low": 1,
+      "high": 5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Row plus indexes, not the media. Retention of twelve months is a model constant.",
+      "line": "graph",
+      "group": "infra"
+    },
+    "compute_per_mau_year": {
+      "label": "Serving and feed compute per active user",
+      "unit": "USD per MAU per year",
+      "typical": 1,
+      "low": 0.5,
+      "high": 3,
+      "confidence": "medium",
+      "source": {
+        "title": "Pinterest FY2025 Form 10-K: cost of revenue and MAU",
+        "url": "https://www.sec.gov/Archives/edgar/data/1506293/000150629326000021/pins-20251231.htm",
+        "date": "2026-02"
+      },
+      "note": "Derived: Pinterest cost of revenue is 1.36 per MAU-year and Reddit 1.60 per DAU-year (both include hosting, ops staff and fees); Snap infrastructure alone is 3.40 per DAU-year. The typical value nets out storage and egress, which this model counts separately.",
+      "line": "shared",
+      "group": "infra"
+    },
+    "feed_compute_share": {
+      "label": "Share of that compute spent on feeds and recommendations",
+      "unit": "ratio",
+      "typical": 0.4,
+      "low": 0.3,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "The rest is serving. Editable.",
+      "line": "graph",
+      "group": "infra"
+    },
+    "scale_progress_today": {
+      "label": "Share of the at-scale saving the network already delivers to an app integrated today",
+      "unit": "ratio",
+      "typical": 0.3,
+      "low": 0.15,
+      "high": 0.45,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "What an app integrated today already gets: keys, signed events, relays and follows carry most of the custodial cost and work now. User-paid providers, a media market, label and ranking providers and payment conversion are the rest. The ramp runs from here.",
+      "line": "shared",
+      "group": "projection",
+      "scenario_varies": true
+    },
+    "scale_months": {
+      "label": "Months until Nostr is at scale: standards and infrastructure in place",
+      "unit": "months",
+      "typical": 36,
+      "low": 48,
+      "high": 24,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Nostr4's estimate of the time for the network to establish the standards and infrastructure that support Nostr at scale; user growth carries the rest. The ramp starts at scale_progress_today and is front-loaded: the share of the at-scale saving the network delivers in month m is p + (1 − p)(1 − (1 − m/M)²), because the standards already adopted (keys, signed events, relays, follows) carry the bulk of custodial cost (accounts, graph, storage) and deliver early, while the pieces still maturing (user-paid providers, a media market, label and ranking providers, payment conversion) are the tail. A calendar, not a stopwatch: month 1 is January of start_year for every app, and later versions of this file will shorten the time to scale as the network matures. An app's own integration time and cost are the integ_* rows, counted apart from this ramp.",
+      "line": "shared",
+      "group": "projection",
+      "scenario_varies": true
+    },
+    "integ_weeks_accounts": {
+      "label": "Engineering weeks to integrate signer login and the key hand-off",
+      "unit": "weeks",
+      "typical": 4,
+      "low": 8,
+      "high": 2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.",
+      "line": "accounts",
+      "group": "integration",
+      "scenario_varies": true
+    },
+    "integ_weeks_graph": {
+      "label": "Engineering weeks to move the graph, profiles and feeds to signed events",
+      "unit": "weeks",
+      "typical": 6,
+      "low": 12,
+      "high": 3,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.",
+      "line": "graph",
+      "group": "integration",
+      "scenario_varies": true
+    },
+    "integ_weeks_storage": {
+      "label": "Engineering weeks for relay connections, outbox model and caching",
+      "unit": "weeks",
+      "typical": 4,
+      "low": 8,
+      "high": 2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.",
+      "line": "storage",
+      "group": "integration",
+      "scenario_varies": true
+    },
+    "integ_weeks_media": {
+      "label": "Engineering weeks for user-chosen media hosting (Blossom or similar)",
+      "unit": "weeks",
+      "typical": 3,
+      "low": 6,
+      "high": 1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.",
+      "line": "storage",
+      "group": "integration",
+      "scenario_varies": true
+    },
+    "integ_weeks_moderation": {
+      "label": "Engineering weeks for labels, web of trust and a ranking provider",
+      "unit": "weeks",
+      "typical": 3,
+      "low": 6,
+      "high": 1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.",
+      "line": "moderation",
+      "group": "integration",
+      "scenario_varies": true
+    },
+    "integ_weeks_payments": {
+      "label": "Engineering weeks to move the app's own revenue to a peer-to-peer rail",
+      "unit": "weeks",
+      "typical": 2,
+      "low": 4,
+      "high": 1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.",
+      "line": "payments",
+      "group": "integration",
+      "scenario_varies": true
+    },
+    "integ_overlap_months": {
+      "label": "Months both stacks run before the custodial one is retired",
+      "unit": "months",
+      "typical": 6,
+      "low": 12,
+      "high": 3,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Placeholder pending member figures from the research group. While both stacks run the app pays its Nostr costs on top of custody and saves nothing yet; migrating users in stages is not modelled, these months stand in for it.",
+      "line": "shared",
+      "group": "integration",
+      "scenario_varies": true
+    },
+    "integ_engineers": {
+      "label": "Engineers on the integration at once",
+      "unit": "people",
+      "typical": 2,
+      "low": 1,
+      "high": 3,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Sets the calendar time, not the cost: the person-weeks are divided among them. Placeholder pending member figures from the research group; low is the slower integration and the later payback.",
+      "line": "shared",
+      "group": "integration",
+      "scenario_varies": true
+    },
+    "media_sponsor_share": {
+      "label": "Media hosting an app still sponsors after moving to Nostr",
+      "unit": "ratio",
+      "typical": 0.25,
+      "low": 0.5,
+      "high": 0.1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Blossom or similar: users can host their own media, apps often still pay for some of it.",
+      "line": "storage",
+      "group": "infra",
+      "scenario_varies": true
+    },
+    "cache_per_mau_year": {
+      "label": "A thin cache in front of relays",
+      "unit": "USD per MAU per year",
+      "typical": 0.05,
+      "low": 0.2,
+      "high": 0.02,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "A thin cache in front of relays, what a Nostr app still serves itself. What the market will bear: no public price list exists, including ours, and at scale there is no vendor to lock an app in.",
+      "line": "storage",
+      "group": "infra",
+      "scenario_varies": true
+    },
+    "auth_per_mau_month": {
+      "label": "Authentication as a service",
+      "unit": "USD per MAU per month",
+      "typical": 0.0046,
+      "low": 0.0025,
+      "high": 0.02,
+      "confidence": "high",
+      "source": {
+        "title": "Google Cloud Identity Platform pricing",
+        "url": "https://cloud.google.com/identity-platform/pricing",
+        "date": "2026"
+      },
+      "note": "Identity Platform 100k to 1M tier. Low is its 10M-plus tier; high is Clerk beyond 50k.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "reset_rate_per_mau_year": {
+      "label": "Password resets per user",
+      "unit": "resets per MAU per year",
+      "typical": 0.25,
+      "low": 0.1,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "No consumer-app source. Editable.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "reset_cost": {
+      "label": "Cost of one password reset",
+      "unit": "USD per reset",
+      "typical": 0.5,
+      "low": 0.1,
+      "high": 5,
+      "confidence": "low",
+      "source": {
+        "title": "BleepingComputer, citing Forrester on helpdesk password resets",
+        "url": "https://www.bleepingcomputer.com/news/security/the-true-cost-of-password-resets/",
+        "date": "2024-11"
+      },
+      "note": "Self-service email or SMS plus a share of support. The 70-dollar figure often cited from Forrester is for enterprise helpdesks and is not used.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "support_self_service_contact": {
+      "label": "Cost of a self-service support contact",
+      "unit": "USD per contact",
+      "typical": 0.1,
+      "low": 0.1,
+      "high": 0.25,
+      "confidence": "high",
+      "source": {
+        "title": "Gartner, 2019 Customer Service and Support Leader poll",
+        "url": "https://www.gartner.com/en/newsroom/press-releases/2019-09-25-gartner-says-only-9--of-customers-report-solving-thei",
+        "date": "2019-09"
+      },
+      "note": "Gartner's 2019 poll: live channels 8.01 a contact, self-service about 0.10. Read when a key hand-off is served by a help page or a redirect rather than a person.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "support_live_contact": {
+      "label": "Cost of a live support contact",
+      "unit": "USD per contact",
+      "typical": 8.01,
+      "low": 8.01,
+      "high": 12,
+      "confidence": "high",
+      "source": {
+        "title": "Gartner, 2019 Customer Service and Support Leader poll",
+        "url": "https://www.gartner.com/en/newsroom/press-releases/2019-09-25-gartner-says-only-9--of-customers-report-solving-thei",
+        "date": "2019-09"
+      },
+      "note": "Gartner's 2019 poll: 8.01 a live contact (phone, chat, email); high is the upper end of 2025 benchmarks.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_price": {
+      "label": "Identity or age verification",
+      "unit": "USD per check",
+      "typical": 1.5,
+      "low": 0.8,
+      "high": 1.89,
+      "confidence": "high",
+      "source": {
+        "title": "Stripe Identity pricing",
+        "url": "https://stripe.com/identity",
+        "date": "2026"
+      },
+      "note": "Stripe Identity document plus selfie; Veriff 0.80 to 1.89 with monthly minimums.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_share_uk": {
+      "label": "Users needing a check per year, UK",
+      "unit": "ratio of MAU",
+      "typical": 0.25,
+      "low": 0.1,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Online Safety Act age assurance applies to services likely to be accessed by children. Editable.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_share_us": {
+      "label": "Users needing a check per year, US",
+      "unit": "ratio of MAU",
+      "typical": 0.02,
+      "low": 0,
+      "high": 0.1,
+      "confidence": "low",
+      "source": {
+        "title": "SCOTUSblog: Supreme Court allows Texas to enforce its app store age-verification law (SB 2420)",
+        "url": "https://www.scotusblog.com/2026/07/supreme-court-allows-texas-to-enforce-law-requiring-age-verification-and-parental-consent-on-app/",
+        "date": "2026-07"
+      },
+      "note": "Most US social apps run no paid identity check today: Meta and YouTube use estimation on accounts they suspect are under age, Reddit checks documents only where a law requires it, and the Texas and Utah app-store laws put the age signal at the store rather than in the app. The share is the users an app still sends to a paid check, not the users whose age it knows.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_share_eu": {
+      "label": "Users needing a check per year, EU",
+      "unit": "ratio of MAU",
+      "typical": 0.05,
+      "low": 0.01,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Editable.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_share_other": {
+      "label": "Users needing a check per year, other",
+      "unit": "ratio of MAU",
+      "typical": 0.02,
+      "low": 0,
+      "high": 0.1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Editable.",
+      "line": "accounts",
+      "group": "accounts"
+    },
+    "verify_remains_share": {
+      "label": "Age checks that remain on Nostr",
+      "unit": "ratio",
+      "typical": 0.1,
+      "low": 0.5,
+      "high": 0,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Age assurance becomes an external layer the app reads rather than buys: the Texas and Utah laws put it at the app store, the EU is building a device-level age wallet under the DSA. The UK Online Safety Act is the residual: Ofcom's duty attaches to the service a child can use, wherever sign-up happened, so a client showing others' content may still have to check. Low keeps the UK duty in full; high is the ideal.",
+      "line": "accounts",
+      "group": "accounts",
+      "scenario_varies": true
+    },
+    "key_handoff_live_share": {
+      "label": "Share of key hand-offs that reach a live support contact rather than self-service",
+      "unit": "ratio",
+      "typical": 0.02,
+      "low": 0.1,
+      "high": 0,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Keys cannot be reset. A non-custodial app's support is a redirect to the user's own or a recommended key-management service; only a share of those redirects reach a person. The contact costs are Gartner's.",
+      "line": "accounts",
+      "group": "accounts",
+      "scenario_varies": true
+    },
+    "ranking_fee_per_mau_year": {
+      "label": "A ranking or discovery provider",
+      "unit": "USD per MAU per year",
+      "typical": 0.05,
+      "low": 0.25,
+      "high": 0.01,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Web-of-trust ranking or discovery as a service. What the market will bear: no public price list exists, including ours, and at scale there is no vendor to lock an app in.",
+      "line": "graph",
+      "group": "graph",
+      "scenario_varies": true
+    },
+    "graph_eng_remains_share": {
+      "label": "Graph engineering that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.3,
+      "low": 0.5,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "At scale, assembling feeds from relays on the client is the app's own feed logic.",
+      "line": "graph",
+      "group": "graph",
+      "scenario_varies": true
+    },
+    "gdpr_program_year": {
+      "label": "GDPR program for a small app (EU or UK)",
+      "unit": "USD per year",
+      "typical": 30000,
+      "low": 10000,
+      "high": 50000,
+      "confidence": "low",
+      "source": {
+        "title": "Legiscope: GDPR compliance cost ranges for SMEs (vendor estimate)",
+        "url": "https://legiscope.com/blog/gdpr-compliance-cost",
+        "date": "2026"
+      },
+      "note": "Vendor ranges: micro 5k to 15k EUR, small 15k to 50k. Outsourced DPO alone runs 1,500 to 8,000 per month.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "uk_osa_year": {
+      "label": "UK Online Safety Act, small or micro service",
+      "unit": "USD per year",
+      "typical": 11000,
+      "low": 3000,
+      "high": 65000,
+      "confidence": "medium",
+      "source": {
+        "title": "DSIT Online Safety Act enactment impact assessment, tables 49 to 52",
+        "url": "https://assets.publishing.service.gov.uk/media/6716222b9242eecc6c849b09/Online_Safety_act_enactment_impact_assessment.pdf",
+        "date": "2024-10"
+      },
+      "note": "Impact assessment, 2019 prices: ongoing 6,040 GBP with moderation and risk assessment, plus 7,460 GBP transition spread over three years; low is the 87 GBP basic case; high is a small high-risk service at 50,800 GBP. Converted at 1.30 USD per GBP.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "dsa_year": {
+      "label": "EU Digital Services Act, non-VLOP platform",
+      "unit": "USD per year",
+      "typical": 5000,
+      "low": 1500,
+      "high": 20000,
+      "confidence": "unsourced",
+      "source": {
+        "title": "ACT position paper citing the Commission's DSA notice-and-action setup floor",
+        "url": "https://www.acte.be/",
+        "date": "2021"
+      },
+      "note": "Point of contact, legal representative outside the EU, notice-and-action, statements of reasons. The only published floor is the Commission's 1,500 EUR setup estimate.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "content_law_remains_share": {
+      "label": "Content-law programs that remain on Nostr",
+      "unit": "ratio",
+      "typical": 0.5,
+      "low": 0.75,
+      "high": 0.25,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "The DSA's notice-and-action duties fall on hosting services, and a client that hosts nothing is a weaker target than a platform; the UK Online Safety Act still reaches a service a child can use. Low keeps three quarters of both programs, the same world as moderation's low case: the duties follow whatever the app still hosts.",
+      "line": "compliance",
+      "group": "compliance",
+      "scenario_varies": true
+    },
+    "us_privacy_year_small": {
+      "label": "US privacy program, below the CCPA threshold",
+      "unit": "USD per year",
+      "typical": 3000,
+      "low": 1000,
+      "high": 10000,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Policy, COPPA posture, basic counsel.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "us_privacy_year_large": {
+      "label": "US privacy program, at or above the CCPA threshold",
+      "unit": "USD per year",
+      "typical": 15000,
+      "low": 5000,
+      "high": 50000,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Counsel, opt-out mechanisms, state-law tracking.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "ccpa_consumer_threshold": {
+      "label": "CCPA consumer threshold",
+      "unit": "consumers",
+      "typical": 100000,
+      "low": 100000,
+      "high": 100000,
+      "confidence": "high",
+      "source": {
+        "title": "California Attorney General: CCPA thresholds",
+        "url": "https://oag.ca.gov/privacy/ccpa",
+        "date": "2026"
+      },
+      "note": "The law applies above 25M USD revenue, or 100k California consumers or households, or 50% of revenue from selling personal information. Compared against US users × the California share.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "annual_users_per_mau": {
+      "label": "Annual unique users as a multiple of monthly actives",
+      "unit": "multiplier",
+      "typical": 2,
+      "low": 1,
+      "high": 3,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Used only to test the CCPA threshold, which counts consumers a year, not monthly actives. Access-request volume stays per monthly user.",
+      "line": "compliance",
+      "group": "programs"
+    },
+    "dsar_rate_per_mau_year": {
+      "label": "Data subject access requests per user",
+      "unit": "requests per MAU per year",
+      "typical": 0.0002,
+      "low": 0.00005,
+      "high": 0.001,
+      "confidence": "low",
+      "source": {
+        "title": "DataGrail 2025 Data Privacy Trends (webinar): 1,215 requests per 5 million monthly unique visitors in 2024",
+        "url": "https://www.datagrail.io/resources/webinars/2025-data-privacy-trends-managing-rising-dsr-volumes-compliance-costs/",
+        "date": "2025"
+      },
+      "note": "DataGrail's 2024 benchmark is about 0.00024 a visitor a year; its 2023 report put it at 859 per million identities (0.00086), which is the high. Its customers are companies that bought privacy tooling, so both figures lean high for a consumer app. The 3.2 per thousand figure attributed to DLA Piper is an enterprise, manual-handling number and is not used. Applied to EU and UK users always, and to US users only at or above the CCPA threshold.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "dsar_cost": {
+      "label": "Cost of handling one request",
+      "unit": "USD per request",
+      "typical": 25,
+      "low": 5,
+      "high": 150,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Automated consumer export: a support touch plus an export job. Gartner's 1,524 a request (via DataGrail) is for an enterprise request handled by hand and is not used; the high is a quarter-hour of a privacy engineer plus review. On Nostr the requests fall with the data retained (retained_data_share), not to zero.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "cyber_insurance_year": {
+      "label": "Cyber liability insurance, small business",
+      "unit": "USD per year",
+      "typical": 1552,
+      "low": 1200,
+      "high": 7000,
+      "confidence": "medium",
+      "source": {
+        "title": "Insureon: cyber liability insurance cost for small businesses",
+        "url": "https://www.insureon.com/small-business-insurance/cyber-liability/cost",
+        "date": "2026-04"
+      },
+      "note": "Median of policies sold. Scales with data held.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "breach_prob_year": {
+      "label": "Probability of a breach in a year",
+      "unit": "ratio",
+      "typical": 0.05,
+      "low": 0.02,
+      "high": 0.1,
+      "confidence": "medium",
+      "source": {
+        "title": "Cyentia Institute, IRIS 2025: annualized incident probability (Figure 6, Figure A2)",
+        "url": "https://www.cyentia.com/wp-content/uploads/2026/03/IRIS-2025.pdf",
+        "date": "2026-03"
+      },
+      "note": "IRIS 2025 models a 9.3% chance that a typical firm has a significant incident in a year (2024), with firms under 10M revenue at 0.60× that (5.6%) and the information sector at 8.4%. Cross-check: a small-business cyber policy at 1,552 a year and the 2025 industry loss ratio of 53% (NAIC) imply insurers expect to pay out about 820 a year per small policy, far below this row's expected loss, because the row counts the whole loss and the policy pays only part of it. Shown as risk exposure, apart from the cash costs.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "breach_cost_per_user": {
+      "label": "Breach cost per affected user",
+      "unit": "USD per user",
+      "typical": 20,
+      "low": 5,
+      "high": 150,
+      "confidence": "unsourced",
+      "source": {
+        "title": "IBM Cost of a Data Breach Report 2026: global average",
+        "url": "https://www.ibm.com/reports/data-breach",
+        "date": "2026"
+      },
+      "note": "IBM stopped publishing a per-record figure; earlier editions ran around 150 to 165 per record for large organisations. IRIS 2025 puts the median loss for a firm under 100M revenue at 357k. The typical value is deliberately far below the per-record figure.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "breach_cost_cap": {
+      "label": "Breach cost cap",
+      "unit": "USD",
+      "typical": 4990000,
+      "low": 4990000,
+      "high": 11500000,
+      "confidence": "high",
+      "source": {
+        "title": "IBM Cost of a Data Breach Report 2026: global average",
+        "url": "https://www.ibm.com/reports/data-breach",
+        "date": "2026"
+      },
+      "note": "The 2026 global mean. High is the US mean reported from the same edition. Expected loss is never scaled above it.",
+      "line": "compliance",
+      "group": "compliance"
+    },
+    "privacy_remains_share": {
+      "label": "Privacy program that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.3,
+      "low": 0.5,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "For whatever the app still retains privately.",
+      "line": "compliance",
+      "group": "compliance",
+      "scenario_varies": true
+    },
+    "insurance_remains_share": {
+      "label": "Insurance that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.5,
+      "low": 0.8,
+      "high": 0.3,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "A policy sized to the data still held.",
+      "line": "compliance",
+      "group": "compliance",
+      "scenario_varies": true
+    },
+    "retained_data_share": {
+      "label": "Personal data an app still holds on Nostr",
+      "unit": "ratio",
+      "typical": 0.1,
+      "low": 0.3,
+      "high": 0.05,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Personal data an app still holds on Nostr: scales the expected breach loss and the access requests that remain.",
+      "line": "compliance",
+      "group": "compliance",
+      "scenario_varies": true
+    },
+    "ts_tooling_per_mau_year": {
+      "label": "Moderation tooling",
+      "unit": "USD per MAU per year",
+      "typical": 0.05,
+      "low": 0.01,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Classifiers, queues, hash matching. Vendor pricing is per item and unpublished at small scale.",
+      "line": "moderation",
+      "group": "moderation"
+    },
+    "tooling_remains_share": {
+      "label": "Moderation tooling that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.2,
+      "low": 0.5,
+      "high": 0.1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Classifiers, queues and hash matching give way to label providers and web of trust; what remains is hash matching on anything the app itself hosts.",
+      "line": "moderation",
+      "group": "moderation",
+      "scenario_varies": true
+    },
+    "label_provider_per_mau_year": {
+      "label": "A label or web-of-trust provider",
+      "unit": "USD per MAU per year",
+      "typical": 0.01,
+      "low": 0.05,
+      "high": 0.005,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Labels and trust scores as a service, the moderation line's Nostr-native cost. What the market will bear: no public price list exists, including ours, and at scale there is no vendor to lock an app in.",
+      "line": "moderation",
+      "group": "moderation",
+      "scenario_varies": true
+    },
+    "appeals_share": {
+      "label": "Appeals and escalation on top of review labour",
+      "unit": "ratio",
+      "typical": 0.1,
+      "low": 0.05,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Editable.",
+      "line": "moderation",
+      "group": "moderation"
+    },
+    "moderation_remains_share": {
+      "label": "Moderation that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.1,
+      "low": 0.5,
+      "high": 0.05,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Review and ranking move to the network: web-of-trust weighting, interoperable algorithm configs and label events let users curate what they see, so an app that hosts nothing moderates nothing of its own. What remains is illegal-content handling for any relay or media host the app runs, and app-store filter, report and block rules. Low keeps half, the same world as the content-law low case.",
+      "line": "moderation",
+      "group": "moderation",
+      "scenario_varies": true
+    },
+    "apple_rate_standard": {
+      "label": "Apple App Store commission, standard",
+      "unit": "ratio of in-app revenue",
+      "typical": 0.3,
+      "low": 0.26,
+      "high": 0.3,
+      "confidence": "high",
+      "source": {
+        "title": "Apple App Store Small Business Program",
+        "url": "https://developer.apple.com/app-store/small-business-program/",
+        "date": "2026"
+      },
+      "note": "30% worldwide; 26% under the EU terms effective 2026-10-01. Subscriptions drop to 15% after the first year, not modelled.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "apple_rate_small": {
+      "label": "Apple App Store commission, Small Business Program",
+      "unit": "ratio of in-app revenue",
+      "typical": 0.15,
+      "low": 0.15,
+      "high": 0.15,
+      "confidence": "high",
+      "source": {
+        "title": "Apple App Store Small Business Program",
+        "url": "https://developer.apple.com/app-store/small-business-program/",
+        "date": "2026"
+      },
+      "note": "Under 1M USD of prior-year proceeds.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "google_rate_standard": {
+      "label": "Google Play commission above 1M USD",
+      "unit": "ratio of in-app revenue",
+      "typical": 0.25,
+      "low": 0.2,
+      "high": 0.3,
+      "confidence": "high",
+      "source": {
+        "title": "Google Play service fees (US, UK and EEA from 2026-06-30; other markets)",
+        "url": "https://support.google.com/googleplay/android-developer/answer/112622",
+        "date": "2026-06"
+      },
+      "note": "US, UK and EEA from 2026-06-30: 20% new installs or 25% existing, plus 5% if Play Billing is used. Other markets 30%.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "google_rate_small": {
+      "label": "Google Play commission on the first 1M USD",
+      "unit": "ratio of in-app revenue",
+      "typical": 0.15,
+      "low": 0.1,
+      "high": 0.15,
+      "confidence": "high",
+      "source": {
+        "title": "Google Play service fees (US, UK and EEA from 2026-06-30; other markets)",
+        "url": "https://support.google.com/googleplay/android-developer/answer/112622",
+        "date": "2026-06"
+      },
+      "note": "10% service fee plus 5% billing fee in the US, UK and EEA; 15% elsewhere.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "store_small_threshold": {
+      "label": "Small-business threshold for store tiers",
+      "unit": "USD per year",
+      "typical": 1000000,
+      "low": 1000000,
+      "high": 1000000,
+      "confidence": "high",
+      "source": {
+        "title": "Apple App Store Small Business Program",
+        "url": "https://developer.apple.com/app-store/small-business-program/",
+        "date": "2026"
+      },
+      "note": "Both stores step at 1M USD a year.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "processor_rate": {
+      "label": "Card processor rate",
+      "unit": "ratio of web revenue",
+      "typical": 0.029,
+      "low": 0.015,
+      "high": 0.0349,
+      "confidence": "high",
+      "source": {
+        "title": "Stripe pricing (US)",
+        "url": "https://stripe.com/pricing",
+        "date": "2026"
+      },
+      "note": "Stripe US 2.9%; low is Stripe UK domestic cards 1.5%; high is PayPal Checkout 3.49%.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "processor_fixed": {
+      "label": "Card processor fixed fee",
+      "unit": "USD per transaction",
+      "typical": 0.3,
+      "low": 0.2,
+      "high": 0.49,
+      "confidence": "high",
+      "source": {
+        "title": "Stripe pricing (US)",
+        "url": "https://stripe.com/pricing",
+        "date": "2026"
+      },
+      "note": "Stripe 0.30; UK 20p; PayPal 0.49.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "reseller_rate": {
+      "label": "Merchant-of-record rate",
+      "unit": "ratio of reseller revenue",
+      "typical": 0.05,
+      "low": 0.05,
+      "high": 0.08,
+      "confidence": "medium",
+      "source": {
+        "title": "Paddle pricing (merchant of record)",
+        "url": "https://www.paddle.com/pricing",
+        "date": "2026"
+      },
+      "note": "Paddle and Lemon Squeezy list 5% plus a fixed fee; the reseller is the seller and carries sales tax and VAT.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "reseller_fixed": {
+      "label": "Merchant-of-record fixed fee",
+      "unit": "USD per transaction",
+      "typical": 0.5,
+      "low": 0.5,
+      "high": 0.5,
+      "confidence": "medium",
+      "source": {
+        "title": "Paddle pricing (merchant of record)",
+        "url": "https://www.paddle.com/pricing",
+        "date": "2026"
+      },
+      "note": "Per checkout.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "avg_ticket": {
+      "label": "Average transaction size",
+      "unit": "USD",
+      "typical": 10,
+      "low": 30,
+      "high": 5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Turns revenue into a transaction count for the fixed fee. A bigger ticket means fewer fees, so low is the larger ticket.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "lightning_rate": {
+      "label": "Lightning or on-chain processor rate",
+      "unit": "ratio of revenue",
+      "typical": 0.01,
+      "low": 0.01,
+      "high": 0,
+      "confidence": "high",
+      "source": {
+        "title": "OpenNode pricing and fees",
+        "url": "http://help.opennode.com/en/articles/3176293-pricing-and-fees",
+        "date": "2026"
+      },
+      "note": "OpenNode about 1%; BTCPay Server 0%. The at-scale saving is full conversion of the app's own revenue to peer-to-peer rails (bitcoin, stablecoins); store rails are unchanged on both sides. Apple's rules still restrict bypassing in-app purchase for digital goods inside the iOS app outside the EU, Japan and the US link-out ruling, and on-ramp costs are borne by users: they affect conversion, not the app's P&L.",
+      "line": "payments",
+      "group": "payments",
+      "scenario_varies": true
+    },
+    "mt_avoidance_year": {
+      "label": "Legal work to stay out of money-transmitter status",
+      "unit": "USD per year",
+      "typical": 10000,
+      "low": 2000,
+      "high": 50000,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Counsel and structuring for in-app balances or payouts. Charged only when the app holds user balances, credits or wallets.",
+      "line": "payments",
+      "group": "payments"
+    },
+    "mt_remains_share": {
+      "label": "Of that legal work, what remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.2,
+      "low": 0.5,
+      "high": 0.1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "An app that never holds funds has far less exposure.",
+      "line": "payments",
+      "group": "payments",
+      "scenario_varies": true
+    },
+    "growth_default": {
+      "label": "User growth over the next year, when not given",
+      "unit": "ratio of today's users",
+      "typical": 0,
+      "low": 0,
+      "high": 0,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Used only for a visitor who has not said. An app that gives no growth figure is held flat, so the projection claims nothing about its growth; the growth question on the form is the way to say otherwise.",
+      "line": "shared",
+      "group": "projection"
+    },
+    "growth_decay": {
+      "label": "Each year's growth rate as a share of the previous year's",
+      "unit": "ratio",
+      "typical": 0.75,
+      "low": 0.5,
+      "high": 1,
+      "confidence": "low",
+      "source": {
+        "title": "Equidam: benchmarks for startup revenue growth (15,000+ ventures)",
+        "url": "https://www.equidam.com/benchmarks-for-startup-revenue-growth",
+        "date": "2024"
+      },
+      "note": "Founders' own forecasts fall from 120% to 83% to 60% a year, about 0.7 each year. A doubling app is therefore about 9 times its size in year five, not 32.",
+      "line": "shared",
+      "group": "projection"
+    },
+    "posts_default": {
+      "label": "Posts or messages a user a month, when neither given nor implied by the kind of app",
+      "unit": "count per MAU per month",
+      "typical": 20,
+      "low": 5,
+      "high": 50,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "The media-feed figure, used when the form says nothing about content.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "mb_default": {
+      "label": "Storage a user, when neither given nor implied by the kind of app",
+      "unit": "MB per MAU",
+      "typical": 50,
+      "low": 10,
+      "high": 200,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "The media-feed figure, used when the form says nothing about content.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_messaging_posts": {
+      "label": "Messaging app: messages a user a month",
+      "unit": "count per MAU per month",
+      "typical": 200,
+      "low": 100,
+      "high": 400,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Chat is high volume and small.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_messaging_mb": {
+      "label": "Messaging app: storage a user",
+      "unit": "MB per MAU",
+      "typical": 5,
+      "low": 1,
+      "high": 20,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Text with the odd photo.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_messaging_egress_gb": {
+      "label": "Messaging app: GB served a user a month",
+      "unit": "GB per MAU per month",
+      "typical": 0.2,
+      "low": 0.05,
+      "high": 1,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Text and thumbnails. Replaces egress_gb_per_mau_month when the kind is given.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_messaging_compute": {
+      "label": "Messaging app: compute a user a year",
+      "unit": "USD per MAU per year",
+      "typical": 0.5,
+      "low": 0.25,
+      "high": 1.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Fan-out and presence, little ranking. Replaces compute_per_mau_year when the kind is given.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_feed_posts": {
+      "label": "Media feed: posts a user a month",
+      "unit": "count per MAU per month",
+      "typical": 20,
+      "low": 5,
+      "high": 50,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Most users read; a few post.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_feed_mb": {
+      "label": "Media feed: storage a user",
+      "unit": "MB per MAU",
+      "typical": 500,
+      "low": 100,
+      "high": 2000,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Images and short video, kept. The research puts an image-heavy feed well above the 50 MB generic default.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_feed_egress_gb": {
+      "label": "Media feed: GB served a user a month",
+      "unit": "GB per MAU per month",
+      "typical": 3,
+      "low": 1,
+      "high": 5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "The research's 1 to 5 GB a month for an image-heavy feed. Replaces egress_gb_per_mau_month when the kind is given.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_feed_compute": {
+      "label": "Media feed: compute a user a year",
+      "unit": "USD per MAU per year",
+      "typical": 2,
+      "low": 1,
+      "high": 5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Ranking, recommendation and transcoding. Replaces compute_per_mau_year when the kind is given.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_community_posts": {
+      "label": "Community or forum: posts a user a month",
+      "unit": "count per MAU per month",
+      "typical": 10,
+      "low": 3,
+      "high": 30,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Threads and replies.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_community_mb": {
+      "label": "Community or forum: storage a user",
+      "unit": "MB per MAU",
+      "typical": 20,
+      "low": 5,
+      "high": 80,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Mostly text, some attachments.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_community_egress_gb": {
+      "label": "Community or forum: GB served a user a month",
+      "unit": "GB per MAU per month",
+      "typical": 0.5,
+      "low": 0.1,
+      "high": 2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Threads with some images. Replaces egress_gb_per_mau_month when the kind is given.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_community_compute": {
+      "label": "Community or forum: compute a user a year",
+      "unit": "USD per MAU per year",
+      "typical": 0.7,
+      "low": 0.3,
+      "high": 2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Search and notifications more than ranking. Replaces compute_per_mau_year when the kind is given.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_marketplace_posts": {
+      "label": "Marketplace: listings and messages a user a month",
+      "unit": "count per MAU per month",
+      "typical": 5,
+      "low": 1,
+      "high": 15,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Few posts, each a listing.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_marketplace_mb": {
+      "label": "Marketplace: storage a user",
+      "unit": "MB per MAU",
+      "typical": 300,
+      "low": 50,
+      "high": 1000,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Listing photos add up.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_marketplace_egress_gb": {
+      "label": "Marketplace: GB served a user a month",
+      "unit": "GB per MAU per month",
+      "typical": 1,
+      "low": 0.3,
+      "high": 3,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Listing photos browsed. Replaces egress_gb_per_mau_month when the kind is given.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "kind_marketplace_compute": {
+      "label": "Marketplace: compute a user a year",
+      "unit": "USD per MAU per year",
+      "typical": 1,
+      "low": 0.5,
+      "high": 3,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Search, matching and payments plumbing. Replaces compute_per_mau_year when the kind is given.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "team_factor_one": {
+      "label": "Team of one: engineering hours as a share of the default bands",
+      "unit": "multiplier",
+      "typical": 0.2,
+      "low": 0.1,
+      "high": 0.5,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "A solo founder spends a fraction of the default hours on custody work. Applied to the default hours of every area the form leaves blank.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "team_factor_ten": {
+      "label": "Team of up to ten: engineering hours as a share of the default bands",
+      "unit": "multiplier",
+      "typical": 1,
+      "low": 0.5,
+      "high": 2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "The default bands were set with a small team in mind.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "team_factor_fifty": {
+      "label": "Team of up to fifty: engineering hours as a share of the default bands",
+      "unit": "multiplier",
+      "typical": 3,
+      "low": 1.5,
+      "high": 6,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Several people on each area.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "team_factor_more": {
+      "label": "Team of more than fifty: engineering hours as a share of the default bands",
+      "unit": "multiplier",
+      "typical": 8,
+      "low": 4,
+      "high": 16,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Whole teams on accounts, content and infrastructure.",
+      "line": "shared",
+      "group": "defaults"
+    },
+    "mod_heads_default": {
+      "label": "Reviewers, when the form names a team or a vendor but not how many",
+      "unit": "people",
+      "typical": 3,
+      "low": 1,
+      "high": 15,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "The 'up to 5' band's figure.",
+      "line": "moderation",
+      "group": "defaults"
+    },
+    "accounts_eng_remains_share": {
+      "label": "Accounts engineering that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.35,
+      "low": 0.5,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "At scale a Nostr app still builds and keeps signer login, the key hand-off and session handling. Zero remaining is not defensible.",
+      "line": "accounts",
+      "group": "thesis",
+      "scenario_varies": true
+    },
+    "infra_eng_remains_share": {
+      "label": "Infrastructure engineering that remains on Nostr",
+      "unit": "ratio",
+      "typical": 0.35,
+      "low": 0.5,
+      "high": 0.2,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "At scale, relay connection management, caching, media handling and the relay capacity the app rents still need engineering time.",
+      "line": "storage",
+      "group": "thesis",
+      "scenario_varies": true
+    },
+    "jur_weight_us": {
+      "label": "Weight of the US among the regions chosen",
+      "unit": "millions of social media users",
+      "typical": 254,
+      "low": 254,
+      "high": 254,
+      "confidence": "high",
+      "source": {
+        "title": "DataReportal Digital 2026: the United States of America (social media user identities, October 2025)",
+        "url": "https://datareportal.com/reports/digital-2026-united-states-of-america",
+        "date": "2026-02"
+      },
+      "note": "The form asks which regions an app has users in, not how many in each. Each chosen region is weighted by its social media users, so an app in the US and the UK is read as 82% US. Overridable until the form asks for the split.",
+      "line": "shared",
+      "group": "reach"
+    },
+    "jur_weight_uk": {
+      "label": "Weight of the UK among the regions chosen",
+      "unit": "millions of social media users",
+      "typical": 55.5,
+      "low": 55.5,
+      "high": 55.5,
+      "confidence": "high",
+      "source": {
+        "title": "DataReportal Digital 2026: the United Kingdom (social media user identities, October 2025)",
+        "url": "https://datareportal.com/reports/digital-2026-united-kingdom",
+        "date": "2026-02"
+      },
+      "note": "As above.",
+      "line": "shared",
+      "group": "reach"
+    },
+    "jur_weight_eu": {
+      "label": "Weight of the EU among the regions chosen",
+      "unit": "millions of social media users",
+      "typical": 230,
+      "low": 230,
+      "high": 230,
+      "confidence": "medium",
+      "source": {
+        "title": "Eurostat: digital economy and society statistics, households and individuals (67% of those aged 16 to 74 used social networks in 2025)",
+        "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Digital_economy_and_society_statistics_-_households_and_individuals",
+        "date": "2026"
+      },
+      "note": "Derived: about 340 million EU residents aged 16 to 74 (Eurostat, 1 January 2025) at 67% is about 230 million.",
+      "line": "shared",
+      "group": "reach"
+    },
+    "jur_weight_other": {
+      "label": "Weight of other regions among the regions chosen",
+      "unit": "millions of social media users",
+      "typical": 254,
+      "low": 254,
+      "high": 254,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Set equal to the US on purpose: an app that names other regions is assumed to have as many users there as in the US, since the rest of the world is too large to weight by its size. Overridable.",
+      "line": "shared",
+      "group": "reach"
+    },
+    "ca_share_of_us_users": {
+      "label": "Share of US users in California",
+      "unit": "ratio",
+      "typical": 0.115,
+      "low": 0.115,
+      "high": 0.115,
+      "confidence": "high",
+      "source": {
+        "title": "US Census Bureau QuickFacts: California and the United States, population estimates July 1, 2025",
+        "url": "https://www.census.gov/quickfacts/fact/table/CA,US/PST045225",
+        "date": "2026"
+      },
+      "note": "39.36 million of 341.8 million. The CCPA threshold counts California consumers, so it is compared against the app's US users times this share, not against total MAU.",
+      "line": "compliance",
+      "group": "programs"
+    },
+    "relay_per_mau_year": {
+      "label": "Relay capacity rented for a user, per active user",
+      "unit": "USD per MAU per year",
+      "typical": 0.14,
+      "low": 0.25,
+      "high": 0.05,
+      "confidence": "low",
+      "source": {
+        "title": "OpenSats: Advancements in Nostr Relays (relay.tools hosting at 12,000 sats a month; strfry on a small VPS)",
+        "url": "https://opensats.org/blog/advancements-in-nostr-relays",
+        "date": "2026-03"
+      },
+      "note": "No operator publishes cost per user. Typical is the sourced operator figure: a thousand active users per vCPU and 2 GB, about 12 USD a month on a European VPS, which is 0.14 a user a year. Low is the same capacity with backups and monitoring; high is the strfry-efficiency claim. Applied to the share of users the app sponsors (relay_sponsored_share), rented from a provider who carries the hosting duties.",
+      "line": "storage",
+      "group": "thesis",
+      "scenario_varies": true
+    },
+    "relay_sponsored_share": {
+      "label": "Share of users whose relay capacity the app sponsors, the rest bringing their own",
+      "unit": "ratio",
+      "typical": 0.5,
+      "low": 1,
+      "high": 0.25,
+      "confidence": "unsourced",
+      "source": null,
+      "note": "Users who bring their own relay cost the app nothing. The app sponsors capacity for the rest, rented from a provider who carries the hosting duties. What that sponsorship earns as a premium or sponsored add-on is not modelled.",
+      "line": "storage",
+      "group": "thesis",
+      "scenario_varies": true
+    },
+    "relay_floor_year": {
+      "label": "Relay capacity rented, the least an app pays",
+      "unit": "USD per year",
+      "typical": 600,
+      "low": 1200,
+      "high": 240,
+      "confidence": "low",
+      "source": {
+        "title": "OpenSats: Advancements in Nostr Relays",
+        "url": "https://opensats.org/blog/advancements-in-nostr-relays",
+        "date": "2026-03"
+      },
+      "note": "The least an app pays however few its users: one managed relay with backups, about 50 a month. The per-user rate takes over above about 4,300 sponsored users, about 8,600 active users at the typical sponsored share.",
+      "line": "storage",
+      "group": "thesis",
+      "scenario_varies": true
+    }
+  }
+}
