@@ -407,7 +407,7 @@ The encrypted form. Its copy is large and its own; see
 
 ### The calculator (used by `/calculator/`)
 
-**`calculator`** — the Cost of Custody Calculator; see
+**`calculator`** — the Non-Custodial Savings Calculator; see
 [The calculator](#the-calculator). Owns its layout: the form, the results and
 the assumptions panel all come from its section in `_data/pages/calculator.yml`.
 
@@ -657,20 +657,35 @@ required after any change — an unbuilt edit simply fails to load.
 
 `/calculator/` is the second page that runs JavaScript. Its words are in
 `_data/pages/calculator.yml`; its numbers are in `_data/assumptions/v<N>.json`
-(version 2 at the time of writing), served unchanged at
+(version 3 at the time of writing), served unchanged at
 `/calculator/assumptions.v<N>.json` and explained in
 `calculator/assumptions.v<N>.md`, written from the same file by
 `npm run build:assumptions` (`check:assumptions` fails CI when the latest is
 stale). Every assumption has a typical, low and high value, a source and a
 confidence grade; the page shows typical and the band, and lets the reader
 change any value. Only the assumptions marked `scenario_varies` (Nostr4's
-thesis: the time to scale, what remains at scale, the Nostr-native fees) move
-the band; the custodial side is held at typical in every case. Changing a
-number means a new version: a new JSON, a new explainer, and the template,
-tests and e2e pointed at it. Old versions stay published, and a results link
-made with one is recomputed under the current version with a note saying so.
-The model is one pure module, `assets/js/calculator/src/model.js`, tested by
-`npm run test:model`; research notes, dated, sit under `tools/calculator/`.
+thesis: where the network is today, the time to scale, what remains at scale,
+the Nostr-native fees, and the integration placeholders) move the band; the
+custodial side is held at typical in every case. Changing a number means a
+new version: a new JSON, a new explainer, and the template, tests and e2e
+pointed at it. Old versions stay published, and a results link made with one
+is recomputed under the current version with a note saying so (an override of
+a key the current version no longer has is dropped).
+
+Version 3 models the app's own integration apart from the network's ramp:
+the `integ_weeks_*` rows are person-weeks per piece (accounts, graph,
+storage, media, moderation, payments), scaled by what the app already has on
+Nostr and costed at the loaded hour, with `integ_engineers` setting the
+calendar and `integ_overlap_months` the time both stacks run. They are
+placeholders until the research group supplies member figures; the payback
+month and the net cumulative rest on them, the saving does not. The ramp
+starts at `scale_progress_today` and month 1 is January of `start_year`.
+Moderation has three states: unanswered bills the benchmark (so many
+reviewers per million users), a team or a vendor is priced by head, and an
+explicit Nobody bills nothing on either side and claims no saving, showing
+the benchmark instead. The model is one pure module,
+`assets/js/calculator/src/model.js`, tested by `npm run test:model`; research
+notes, dated, sit under `tools/calculator/`.
 
 Results are a link: the inputs and any changed assumptions as query
 parameters, never anything about the person. A calculation is also saved as
