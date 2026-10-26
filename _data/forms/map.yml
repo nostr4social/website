@@ -93,6 +93,12 @@ fields:
   test:
     id: XU5x6e
     options: { "yes": d5fQLL }
+  # Two more the page fills, pending in the builder (_data/forms/recipe.yml):
+  # the payback month and the typical integration weeks. The page already
+  # sends both; a key without an entry here is left out of the response.
+  # Once published and snapshotted, give them their ids:
+  # payback_month: { id: ...... }
+  # integ_weeks: { id: ...... }
 
   # ── Send & Share (the contact details) ────────────────────────────────────
   app_name: { id: t3pia5 }                 # App Name
