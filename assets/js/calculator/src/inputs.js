@@ -45,8 +45,8 @@ export const INPUTS = {
   mau: { type: 'integer', required: true, default: 50000, min: 1, max: 2e9 },
   growth: { ...band(GROWTH), start: '0.25' }, // users a year from now, as a share of today's; blank means the assumptions' default (flat); the form starts on Steady
 
-  // Content: the opener, then the two per-user numbers (blank means derived from the kind of app)
-  kind: band(KIND),
+  // Content: the opener (the form starts on Messaging, so the illustrative app is a messaging app; a link that says nothing means "an app"), then the two per-user numbers (blank means derived from the kind of app)
+  kind: { ...band(KIND), start: 'messaging' },
   posts_per_user: { type: 'number', required: false, default: null, min: 0, max: 1e6 },
   mb: { type: 'number', required: false, default: null, min: 0, max: 1e6 },
 
@@ -67,8 +67,8 @@ export const INPUTS = {
   rails: { type: 'multi', required: false, default: [], options: ['p2p', 'apple', 'google', 'processor', 'reseller'] },
   balances: { type: 'multi', required: false, default: [], options: ['yes'] },
 
-  // Reach: the opener, then distribution
-  jur: { type: 'multi', required: true, default: ['us'], options: ['eu', 'uk', 'us', 'other'] },
+  // Reach: the opener (the form starts on the EU and the US), then distribution
+  jur: { type: 'multi', required: true, default: ['eu', 'us'], options: ['eu', 'uk', 'us', 'other'] },
   distribution: { type: 'multi', required: false, default: [], options: ['apple', 'google', 'web'] },
 }
 

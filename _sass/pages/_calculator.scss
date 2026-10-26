@@ -7,13 +7,20 @@
 // de-emphasis grey, the Nostr figure in the protocol purple), a legend because
 // there are two series, and the full table so nothing is colour-alone.
 
+// The hero above is cut close: its band keeps a short top and a shorter
+// bottom, so the tab bar sits just under the lede and the chart's gold figure
+// stays above the fold on a desktop.
+.band:has(.hero--wide) {
+  padding-block: var(--s-5) var(--s-3);
+}
+
 // The section is flush: the tab bar sits a short step under the hero's lede,
 // and the small print at the foot sits close above the closing callout.
 .calc {
   display: flex;
   flex-direction: column;
-  gap: var(--s-7);
-  padding-block: var(--s-4) var(--s-4);
+  gap: var(--s-5);
+  padding-block: var(--s-2) var(--s-4);
 }
 
 // ── the tabs ─────────────────────────────────────────────────────────────────
@@ -61,7 +68,7 @@
   font-weight: var(--fw-ui);
   gap: var(--s-2);
   margin-bottom: -1px;
-  padding: var(--s-4) var(--s-1) calc(var(--s-4) - 2px);
+  padding: var(--s-3) var(--s-1) calc(var(--s-3) - 2px);
   position: relative;
   transition: border-color 120ms, color 120ms;
   white-space: nowrap;
@@ -116,7 +123,7 @@
 
 .tabbar .btn {
   align-self: center;
-  margin: var(--s-2) 0;
+  margin: var(--s-1) 0;
 }
 
 // The phone row: the active tab and a caret, on the same hairline. Hidden at
@@ -591,7 +598,7 @@
 .results {
   display: flex;
   flex-direction: column;
-  gap: var(--s-6);
+  gap: var(--s-5);
 }
 
 .results__head {

@@ -74,7 +74,8 @@ await withBrowser(async (api) => {
   check('a fresh page says whose estimate it shows, describes the app section by section, and invites the visitor in', first.whose.startsWith('Estimated for') && first.whose.includes('50,000') && first.whose.includes('the US') && first.whose.endsWith('.') && first.link === 'Customize App Details', `${first.whose} / ${first.link}`)
   const bar = await api.eval(`({ illustrative: document.getElementById('tabbar').classList.contains('is-illustrative'), ring: getComputedStyle(document.getElementById('tab-app')).boxShadow, gold: getComputedStyle(document.getElementById('tab-app')).color !== getComputedStyle(document.getElementById('tab-cost')).color, share: document.getElementById('save-open').className, sticky: getComputedStyle(document.getElementById('tabbar')).position, quiet: parseFloat(getComputedStyle(document.getElementById('tab-assumptions')).fontSize) < parseFloat(getComputedStyle(document.getElementById('tab-cost')).fontSize) })`)
   check('on a fresh page App Details is gold with no ring, Send & Share is outlined, the bar sticks, Assumptions is the quiet tab', bar.illustrative && bar.ring === 'none' && bar.gold && bar.share.includes('btn--secondary') && bar.sticky === 'sticky' && bar.quiet, JSON.stringify(bar))
-  check('the pieces the openers assumed are drawn quiet, the given ones bright (the team size and the payment volume among them), and the link is gold', (await api.eval(`document.querySelectorAll('#r-whose-text .whose__fact--assumed').length + ':' + document.querySelectorAll('#r-whose-text .whose__fact:not(.whose__fact--assumed)').length + ':' + getComputedStyle(document.getElementById('r-whose-link')).color`)) === `3:4:${await api.eval(`getComputedStyle(document.getElementById('tab-app')).color`)}`)
+  check('the pieces the openers assumed are drawn quiet, the given ones bright (the team size and the payment volume among them), and the link is gold', (await api.eval(`document.querySelectorAll('#r-whose-text .whose__fact--assumed').length + ':' + document.querySelectorAll('#r-whose-text .whose__fact:not(.whose__fact--assumed)').length + ':' + getComputedStyle(document.getElementById('r-whose-link')).color`)) === `2:5:${await api.eval(`getComputedStyle(document.getElementById('tab-app')).color`)}`)
+  check('for the bitcoiners: the illustrative app, a messaging app in the EU and the US, saves $210k a year at scale', first.hero === '$210k' && first.whose.startsWith('Estimated for a messaging app in the EU and the US'), `${first.hero} | ${first.whose}`)
   check('the illustrative app facilitates $5k a month, so the payments line shows a saving on a fresh page', first.whose.includes('facilitates $5k a month') && /^\$[\d,]+$/.test(await api.eval(`document.querySelector('.lt-row[data-line="payments"] .lt-saving').textContent`)) && (await api.eval(`document.querySelector('.lt-row[data-line="payments"] .lt-flag--none').hidden`)), first.whose)
   const headless = await api.eval(`({ next: document.querySelector('.results__head').nextElementSibling.className, text: document.getElementById('panel-cost').textContent })`)
   check('no headline: the results head is the title and the whose line, then the picture; the saving a year at scale is the gold watermark in the chart\'s gap, and nothing on the tab estimates integration cost or a payback', /^\$\d+(\.\d+)?[kM]$/.test(first.hero) && first.sub === '2030 Estimated Savings' && !first.heroCard && first.gold !== '1px' && headless.next === 'results__view' && !/payback|pays back|integrated today|person-weeks|overlap|typically/i.test(headless.text), `${first.hero} / ${first.sub} / rail ${first.gold} / ${headless.next}`)
@@ -148,7 +149,7 @@ await withBrowser(async (api) => {
   check('the required choices start with their defaults', await api.eval(`(() => {
     const on = [...document.querySelectorAll('#calc-form input:checked')].map(i => i.name + '=' + i.value).sort().join(' ')
     return on
-  })()`) === 'jur=us')
+  })()`) === 'jur=eu jur=us kind=messaging')
   check('every grid row, number and scale is a slider', (await api.eval(`document.querySelectorAll('input[type=range]').length`)) === 23)
   const openers = await api.eval(`(() => {
     const groups = [...document.querySelectorAll('#calc-form .group')]
@@ -189,7 +190,7 @@ await withBrowser(async (api) => {
   await api.eval(`document.getElementById('calc-reset').click()`)
   await sleep(300)
   const reset = await api.eval(`({ kind: document.querySelector('input[name=kind]:checked')?.value ?? null, mb: document.querySelector('input[name=mb]').dataset.values.split(',')[document.querySelector('input[name=mb]').value], suggested: document.querySelector('input[name=mb]').closest('.slider-row').classList.contains('is-suggested'), folded: [...document.querySelectorAll('#calc-form .group__more')].every(m => m.hidden), hero: document.querySelector('.chart__watermark').textContent, url: location.search, mau: document.querySelector('input[name=mau]').dataset.values.split(',')[document.querySelector('input[name=mau]').value], place: getComputedStyle(document.querySelector('.calc-form__submit')).justifyContent })`)
-  check('Reset Values clears the answers, folds the sections, restores the suggestions and the illustrative estimate', reset.kind === null && reset.mb === '50' && reset.suggested && reset.folded && reset.hero === heroBeforeKind && reset.url === '' && reset.mau === '50000' && reset.place === 'space-between', JSON.stringify(reset))
+  check('Reset Values clears the answers, folds the sections, restores the suggestions and the illustrative estimate', reset.kind === 'messaging' && reset.mb === '5' && reset.suggested && reset.folded && reset.hero === heroBeforeKind && reset.url === '' && reset.mau === '50000' && reset.place === 'space-between', JSON.stringify(reset))
   await api.eval(`{ const s = document.querySelector('input[name=nostr_now]'); s.value = '2'; s.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('tab-cost').click() }`)
   await sleep(200)
   const nostrSuggested = await api.eval(`({ n: document.querySelectorAll('.slider-row.is-suggested input[name^=n_]').length, raw: document.querySelector('input[name=n_raw_keys]').dataset.values.split(',')[document.querySelector('input[name=n_raw_keys]').value], keys: document.querySelector('input[name=n_keys]').dataset.values.split(',')[document.querySelector('input[name=n_keys]').value], url: location.search })`)
@@ -212,7 +213,7 @@ await withBrowser(async (api) => {
   check('number sliders start on their defaults', (await api.eval(`(() => {
     const v = (n) => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.values.split(',')[s.value] + '=' + s.closest('.slider-row').querySelector('output').textContent }
     return [v('mau'), v('posts_per_user'), v('mb'), v('rev'), v('legal_usd')].join(' ')
-  })()`)) === '50000=50k 20=20 50=50 MB 5000=$5k 0=0')
+  })()`)) === '50000=50k 200=200 5=5 MB 5000=$5k 0=0')
 
   // ── a tab named in the address ───────────────────────────────────────────
   for (const [anchor, tab] of [['results', 'cost'], ['app', 'app'], ['assumptions', 'assumptions']]) {
@@ -306,7 +307,7 @@ await withBrowser(async (api) => {
   check('there is no foot row, and the six lines add up to more than the cash figure in the chart: the fees and the risk are in them', r.footRows === 0 && r.subtitle.trim().length > 0 && r.sum > money(r.hero) * 1.005, `${r.sum} vs ${r.hero}`)
   check('the Post Integration column summarises what remains, in the page\'s words', (await api.eval(`document.querySelector('#r-table thead .lt-remains').textContent + ' | ' + document.querySelector('.lt-row[data-line="payments"] .lt-remains').textContent.replace(/\\s+/g, ' ').trim()`)).startsWith("Post Integration | Payments settle on users' own rails."))
   check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.includes('growth=0.5') && r.link.includes('team=ten') && r.link.endsWith('v=3'), r.link)
-  check('sliders standing on "not given" or on a suggestion stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('eng_legal=') && !r.link.includes('kind=') && r.link.includes('mod_who=team') && r.link.includes('mod_heads=3'), r.link)
+  check('sliders standing on "not given" or on a suggestion stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('eng_legal=') && r.link.includes('kind=messaging') && r.link.includes('mod_who=team') && r.link.includes('mod_heads=3'), r.link)
   check('the version is named', r.version.includes('3'), r.version)
   check('the results heading took focus', r.focused === 'results-title', r.focused)
   check('Calculate opened the Estimated Cost tab', (await api.eval(`document.getElementById('tab-cost').getAttribute('aria-selected') + ':' + document.getElementById('panel-cost').hidden + ':' + document.getElementById('panel-app').hidden`)) === 'true:false:true')
