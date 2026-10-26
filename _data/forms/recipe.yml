@@ -7,8 +7,9 @@
 # its id in the map. Labels are free to change; ids are what the build checks.
 #
 # Published 2026-10-26 for assumptions version 3 (30 questions): the title,
-# the two payment questions on in-app volume, and the three hidden Results
-# questions. One item is still pending in the builder, marked below.
+# the two payment questions on in-app volume, the Send & Share description
+# and the hidden Results questions. Two of those are to be removed from the
+# builder, marked below; the page sends neither.
 
 title: "Nostr4 : Non-Custodial Savings Calculator"
 description: calculator available online at https://nostr4.social/calculator
@@ -124,8 +125,6 @@ sections:
   # The section whose title names the Save & Share button; the page draws
   # its questions in the modal, with the consent line under the email.
   - title: Send & Share
-    # Pending in the builder: the published description still reads the
-    # earlier text ("Send your calculated results to us as a Nostr event…").
     description: >-
       Send us your results and we will follow up to schedule a free consult.
       If you already use Nostr, sign with your key to update or revisit these
@@ -170,9 +169,11 @@ sections:
       - key: fees_saved
         label: Fees saved (at scale)
         type: short text
-      - key: payback_month
-        label: Payback month
+      # To be removed from the builder: integration cost and payback are the
+      # consult's, never the page's. Unmapped until then.
+      - label: Payback month
         type: short text
-      - key: integ_weeks
-        label: Integration weeks (typical)
+        remove: true
+      - label: Integration weeks (typical)
         type: short text
+        remove: true

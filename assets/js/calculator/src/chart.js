@@ -15,11 +15,10 @@
 //                                   the ramp is the network's; users run
 //                                   along the bottom, first and last. The one
 //                                   the page lists.
-//   chart-cumulative-savings        the net cumulative saving by year, after
-//                                   integration and overlap, typical case as
-//                                   the line, low case dashed beneath it, the
-//                                   payback month marked; kept drawable,
-//                                   listed in the page's copy when wanted.
+//   chart-cumulative-savings        cumulative saving by year, typical case
+//                                   as the line, low case dashed beneath it;
+//                                   kept drawable, listed in the page's copy
+//                                   when wanted.
 //
 // Each is drawn at its figure's own pixel width so text stays readable at
 // every size, and redrawn when that width changes. The year-by-year table
@@ -54,15 +53,14 @@ function node(name, attrs = {}, children = []) {
 
 /**
  * Draw (or redraw) both charts for these projections:
- * { typical, low, start_year, marker, payback }, where `marker` is the gold
- * figure beside the rule at the marker year (the cash saving that year, as
- * the headline has it) and `payback` the month the cumulative first reaches
- * zero, or null.
+ * { typical, low, start_year, marker }, where `marker` is the gold figure
+ * beside the rule at the marker year (the cash saving that year, as the
+ * headline has it).
  */
 export function drawCharts(projections) {
   last = projections
   if (!projections) return
-  const { typical, low, start_year, marker, payback } = projections
+  const { typical, low, start_year, marker } = projections
   const label = (year) => yearLabel(start_year, year)
   draw(CUMULATIVE, {
     series: [
@@ -74,8 +72,6 @@ export function drawCharts(projections) {
       ...[MARKER_YEAR, YEARS].map((year) => ({ key: 'typical', year, cls: 'chart__label', dy: -12, text: fmt(t('chart.marker'), { amount: compact(typical[year].cumulative), n: label(year) }) })),
       { key: 'low', year: YEARS, cls: 'chart__lowcase-label', dy: -8, text: fmt(t('chart.low_case'), { amount: compact(low[YEARS].cumulative) }) },
     ],
-    // The payback month, as a rule at its place along the years.
-    payback: payback != null ? { at: payback / 12, text: fmt(t('payback'), { n: number(payback) }) } : null,
     title: fmt(t('chart.aria'), { end: compact(typical[YEARS].cumulative), low: compact(low[YEARS].cumulative) }),
     tip: (year) => {
       const p = typical[year]
@@ -83,7 +79,7 @@ export function drawCharts(projections) {
         fmt(t('chart.tip.users'), { n: number(p.users) }),
         fmt(t('chart.tip.custodial'), { amount: compact(p.custodial) }),
         fmt(t('chart.tip.noncustodial'), { amount: compact(p.nostr) }),
-        fmt(t('chart.tip.realised'), { amount: compact(p.net) }),
+        fmt(t('chart.tip.realised'), { amount: compact(p.realised) }),
         fmt(t('chart.tip.cumulative'), { amount: compact(p.cumulative) }),
       ]
     },
@@ -188,12 +184,6 @@ function draw(id, spec) {
     const py = at(l.key, l.year)
     const dy = l.above != null && py + l.dy > PAD.top + plotH - 2 ? l.above : l.dy
     marks.append(node('text', { class: l.cls, x: x(l.year) + (l.dx ?? -8), y: py + dy, 'text-anchor': l.anchor || 'end' }, [l.text]))
-  }
-
-  if (spec.payback) {
-    const px = x(Math.min(YEARS, spec.payback.at))
-    lines.append(node('line', { class: 'chart__payback', x1: px, x2: px, y1: PAD.top, y2: PAD.top + plotH }))
-    marks.append(node('text', { class: 'chart__payback-label', x: px + 6, y: PAD.top + 14, 'text-anchor': 'start' }, [spec.payback.text]))
   }
 
   if (spec.watermark) {

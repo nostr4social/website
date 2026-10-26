@@ -8,7 +8,7 @@ import { fmt, t } from '../../shared/src/config.js'
 import { compact, money, number, percent, perMau } from './format.js'
 import { LINES, MARKER_YEAR, YEARS, calendarYear } from './model.js'
 import { drawCharts, yearLabel } from './chart.js'
-import { explain, explainIntegration } from './explain.js'
+import { explain } from './explain.js'
 
 // The two bounds in reading order, whichever scenario gave which: low is the
 // smaller saving, so on the Nostr side it is the larger cost.
@@ -22,11 +22,6 @@ const rangeFull = (a, b, f = compact) => {
   return Math.abs(high - low) < 1e-9 ? '' : fmt(t('range'), { low: f(low), high: f(high) })
 }
 
-/** "Pays back in month 18", or the words for never within the projection. */
-export function paybackText(month) {
-  return month == null ? t('no_payback') : fmt(t('payback'), { n: number(month) })
-}
-
 export function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result
   const T = typical.totals
@@ -38,9 +33,8 @@ export function renderResults(result, { own = false } = {}) {
   if (link) link.textContent = t('whose.link')
 
   // The headline: the cash saving a year at scale as a range with typical
-  // inside it, for the marker year at that year's users; the risk saving
-  // apart; then, dimmer, what the network would deliver this year to an
-  // app already integrated, and the payback month beside it.
+  // inside it, for the marker year at that year's users; the fees and the
+  // risk savings apart on smaller lines.
   const [headLow, headHigh] = ordered(low.totals.at_scale_cash, high.totals.at_scale_cash)
   text('#r-head-figure', fmt(t('headline'), { low: compact(headLow), high: compact(headHigh), typical: compact(T.at_scale_cash) }))
   text('#r-head-sub', fmt(t('headline_sub'), { year, users: number(T.scale_users) }))
@@ -48,8 +42,6 @@ export function renderResults(result, { own = false } = {}) {
   show($('#r-head-fees'), T.at_scale_fees >= 1)
   text('#r-head-risk', fmt(t('headline_risk'), { risk: compact(T.at_scale_risk) }))
   show($('#r-head-risk'), T.at_scale_risk >= 1)
-  text('#r-today', fmt(t('today_if'), { amount: compact(T.today_if_integrated) }))
-  text('#r-payback', paybackText(T.payback_month))
 
   // The three facts under the chart, all for the year Nostr is at scale,
   // each label naming it: the custodial cost per user that year (that side
@@ -65,14 +57,14 @@ export function renderResults(result, { own = false } = {}) {
   text('#r-permau-nc-range', rangeFull(low.totals.scale_per_mau_nostr, high.totals.scale_per_mau_nostr, perMau))
   text('#r-scale-nostr', compact(T.scale_nostr))
   text('#r-scale-nostr-range', rangeFull(low.totals.scale_nostr, high.totals.scale_nostr))
-  // The net cumulative, after integration and overlap, sits on the year-by-year summary, where its table is.
+  // The five years of saving added up sit on the year-by-year summary, where their table is.
   text('#r-cumulative', fmt(t('cumulative_note'), { amount: compact(T.five_year) }))
   text('#r-version', fmt(t('version'), { version: result.version }))
 
-  // The chart's caption names the marker year and the integration's calendar.
+  // The chart's caption names the marker year.
   const caption = $('#caption-chart-custodial-cost-vs-nostr')
-  if (caption?.dataset.template) caption.textContent = fmt(caption.dataset.template, { year, months: number(typical.integration.months), overlap: number(typical.integration.overlap) })
-  drawCharts({ typical: typical.projection, low: low.projection, start_year: result.start_year, marker: compact(T.at_scale_cash), payback: T.payback_month })
+  if (caption?.dataset.template) caption.textContent = fmt(caption.dataset.template, { year })
+  drawCharts({ typical: typical.projection, low: low.projection, start_year: result.start_year, marker: compact(T.at_scale_cash) })
   renderYears(typical.projection, result.start_year)
 
   // Where the saving comes from: each line's saving a year at scale, and the
@@ -148,14 +140,7 @@ function renderYears(projection, startYear) {
   if (!head) return
   for (const extra of $$('th[data-year]', head)) extra.remove()
   for (let year = 0; year <= YEARS; year++) head.append(el('th', { scope: 'col', class: 'years-num', 'data-year': year, text: yearLabel(startYear, year) }))
-  const cell = {
-    users: (p) => number(p.users),
-    custodial: (p) => money(p.custodial),
-    nostr: (p) => money(p.nostr),
-    integration: (p) => money(p.integration + p.overlap),
-    net: (p) => money(p.net),
-    cumulative: (p) => money(p.cumulative),
-  }
+  const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), nostr: (p) => money(p.nostr), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) }
   for (const row of $$('#r-years tbody tr[data-row]')) {
     const value = cell[row.dataset.row]
     if (!value) continue
@@ -224,19 +209,6 @@ export function openHow(line, partId, result, data) {
     heads: [t('details.today'), t('details.on_nostr')],
     rows: [info.today, info.nostr],
     foot: info.at_scale,
-    assumptions: info.assumptions,
-  })
-}
-
-/** The same dialog for the integration behind the payback figure: weeks per piece, cost and time, the payback month. */
-export function openIntegration(result, data) {
-  const info = explainIntegration({ integration: result.typical.integration, values: result.typical.values, overrides: result.overrides, data, payback: result.typical.totals.payback_month })
-  fillHow({
-    label: info.label,
-    line: '',
-    heads: [t('how.integration.weeks_label'), t('how.integration.cost_label')],
-    rows: [info.weeks, info.cost],
-    foot: info.payback,
     assumptions: info.assumptions,
   })
 }

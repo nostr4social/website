@@ -175,24 +175,21 @@ sections:
     results:
       title: Estimated Savings
       # The pictures, in order, full width. The ids are the chart module's;
-      # it also draws chart-cumulative-savings (the net cumulative by year
-      # with the low case beneath it and the payback month marked) if listed
-      # here.
+      # it also draws chart-cumulative-savings (cumulative saving by year
+      # with the low case beneath it) if listed here.
       charts:
         - id: chart-custodial-cost-vs-nostr
           title: Projected Nostr Integration
           legend:
             custodial: Cost of Custody
             nostr: Cost of Nostr
-          # {year} is the year the network is at scale; {months} and
-          # {overlap} are the integration's calendar, filled by the script.
+          # {year} is the year the network is at scale, filled by the script.
           caption: >-
             The Cost of Nostr line is what an app on Nostr pays each year:
             lower today, and falling as the network's standards and
             infrastructure scale. The gap in {year} is the figure above.
-            Integration takes about {months} months and the two stacks
-            overlap for {overlap} more; that cost is in the payback figure,
-            not in the lines.
+            Integration cost is not estimated here; it varies from app to app
+            and is the subject of a consult.
       # The three facts under the chart, all for the year Nostr is at scale,
       # like the figure in the chart and the savings list: the two costs per
       # user that year, and the Nostr cost that year. The custodial figure has
@@ -206,7 +203,8 @@ sections:
         nostr_at_scale:
           label: "Nostr cost a year, {year}"
       # Measures down, years across from today; the script fills the year
-      # heads and the cells, and writes the net cumulative beside the summary.
+      # heads and the cells, and writes the five years of saving beside the
+      # summary.
       years:
         summary: Year by year
         columns:
@@ -215,9 +213,8 @@ sections:
           users: Active users
           custodial: Cost of Custody
           nostr: Cost of Nostr
-          integration: Integration and overlap
-          net: Saved (net)
-          cumulative: Cumulative
+          realised: Saved
+          cumulative: Cumulative Savings
       # Where the saving comes from: the six lines as the saving a year once
       # Nostr is at scale, which add up to the figure in the chart.
       table:
@@ -294,23 +291,23 @@ sections:
       partly: Partly on Nostr
       no_payments: No in-app payments
       # What integration involves: one sentence per piece, in the order the
-      # integration runs; {weeks} is that piece's typical weeks from the
-      # assumptions file, filled at build time. Then the doors.
+      # integration runs. No weeks and no cost: those are the consult's. Then
+      # the doors.
       integration:
         title: What integration involves
         lines:
           - id: accounts
-            text: "Accounts: signer login and the key hand-off, about {weeks} weeks."
+            text: "Accounts: signer login and the key hand-off."
           - id: graph
-            text: "Graph: profiles, follows and feeds as signed events, about {weeks} weeks."
+            text: "Graph: profiles, follows and feeds as signed events."
           - id: storage
-            text: "Storage: relay connections, the outbox model and caching, about {weeks} weeks."
+            text: "Storage: relay connections, the outbox model and caching."
           - id: media
-            text: "Media: user-chosen hosting, Blossom or similar, about {weeks} weeks."
+            text: "Media: user-chosen hosting, Blossom or similar."
           - id: moderation
-            text: "Moderation: labels, web of trust and a ranking provider, about {weeks} weeks."
+            text: "Moderation: labels, web of trust and a ranking provider."
           - id: payments
-            text: "Payments: in-app payments on the users' own rails, about {weeks} weeks."
+            text: "Payments: in-app payments on the users' own rails."
         actions:
           - label: See Services
             href: /services/
@@ -385,16 +382,11 @@ sections:
       headline_sub: "in {year}, at {users} active users"
       headline_fees: "plus {amount} a year less in fees across your in-app payments"
       headline_risk: "plus {risk} a year less breach exposure"
-      # Under it, dim: what the network would deliver this year to an app
-      # already integrated, and beside it the payback month.
-      today_if: "{amount} a year if you were integrated today"
-      payback: "Pays back in month {n}"
-      no_payback: Does not pay back within five years
       # Under the headline, in the body ink, counted from the file at build time.
       sourced_line: "{sourced} of {total} assumptions are sourced; every one is listed, graded and yours to change."
       sourced_link: See Assumptions
-      # Beside the year-by-year summary: the net cumulative, after integration.
-      cumulative_note: "{amount} net over five years, after integration"
+      # Beside the year-by-year summary: the five years of saving added up.
+      cumulative_note: "{amount} saved over five years"
       # The moderation line when the form says nobody moderates: the benchmark it would have billed.
       moderation_nobody: "No moderation today. Benchmarks put it at about {people} people, {cost} a year. On Nostr that work moves to the network; nothing is saved because nothing is spent."
       # "How this is calculated": the dialog a part opens. {a.key} is an
@@ -409,21 +401,8 @@ sections:
         at_scale: "At scale ({d.scale_year}, {d.scale_users} users): {p.custodial} of custody becomes {p.noncustodial} on Nostr. That is the figure in the savings list."
         showing: "Showing the {n} assumptions behind {part}."
         show_all: Show all
-        # The same dialog for the integration behind the payback figure. {w.key}
-        # is a figure of the integration: the weeks per piece, their total, the
-        # loaded hour, the cost, the engineers, the months, the overlap, and the
-        # first month the custodial stack is off.
-        integration:
-          title: Integration and overlap
-          weeks_label: Person-weeks
-          cost_label: Cost and time
-          weeks: "Accounts {w.accounts}, graph {w.graph}, storage {w.storage}, media {w.media}, moderation {w.moderation}, payments {w.payments}: {w.total} person-weeks, each piece scaled by what you already have on Nostr."
-          cost: "{w.total} person-weeks × 40 hours × {w.hourly} an hour, fully loaded = {w.cost}. With {w.engineers} engineers that is about {w.months} months, then {w.overlap} months with both stacks running and nothing saved yet; the custodial stack is off from month {w.live}."
-          none: "Nothing to integrate: your app is already on Nostr."
         # A unit's word beside a value in the dialog, singular and plural.
         units:
-          week: week
-          weeks: weeks
           month: month
           months: months
         # The CCPA test, shown with the programs and the access requests where the app has US users.
@@ -588,7 +567,7 @@ sections:
         today: Today
         marker: "{amount} by {n}"
         low_case: "low case {amount}"
-        aria: "Net cumulative saving, after integration, reaches {end} by year five; the low case reaches {low}."
+        aria: "Cumulative saving reaches {end} by year five; the low case reaches {low}."
         tip:
           users: "{n} active users"
           custodial: "Custody that year: {amount}"
@@ -602,7 +581,7 @@ sections:
           tip_custody: "Cost of Custody: {amount}"
           tip_nostr: "Cost of Nostr: {amount}"
           tip_cumulative: "Cumulative Savings: {amount}"
-          aria: "In {year}, when Nostr is at scale, custody costs {custodial} a year against {noncustodial} on Nostr, a saving of {saving} a year; the area between the lines, net of integration, is {total} over five years, with the low case below it."
+          aria: "In {year}, when Nostr is at scale, custody costs {custodial} a year against {noncustodial} on Nostr, a saving of {saving} a year; the area between the lines is {total} over five years, with the low case below it."
       version: "Assumptions version {version}"
       contact_subject: Cost of custody estimate
       # What the Save & Share modal says at runtime.
@@ -687,10 +666,7 @@ sections:
         subject: Cost of custody lead
         results: "Custodial {custodial} a year; on Nostr {noncustodial}."
         at_scale: "At scale: saves {at_scale} a year."
-        five_year: "Net over five years, after integration: {five_year}; {low} in the low case."
-        payback: "Payback: month {n}."
-        no_payback: "Payback: not within five years."
-        today: "Today if integrated: {amount} a year."
+        five_year: "Saved over five years: {five_year}; {low} in the low case."
         fees: "Fees saved at scale: {amount} a year."
         link: "Results: {link}"
         open: "Open in the calculator: {link}"

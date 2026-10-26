@@ -16,9 +16,9 @@ the thesis holding less well. The low and high beside the other rows are referen
 
 The projection runs on a calendar, not a stopwatch: month 1 is January 2027 for every app, and
 later versions of this file will shorten the time to scale as the network matures. The ramp starts from what
-the network delivers today (`scale_progress_today`) and an app's own integration time and cost are counted
-apart from it. Results links carry the version they were made with; earlier versions stay published beside
-this one.
+the network delivers today (`scale_progress_today`). An app's own integration, its time and its cost, is not
+estimated here: it is settled case by case, in a consult. Results links carry the version they were made with;
+earlier versions stay published beside this one.
 
 Confidence means:
 
@@ -27,29 +27,19 @@ Confidence means:
 - **low**: a vendor page, a self-reported salary site, or a primary figure relayed second-hand
 - **unsourced**: no public figure exists; a stated default, deliberately conservative
 
-23 high, 76 unsourced, 10 low, 7 medium of 116 in all, of which 31 are the thesis and move the band. The unsourced ones are the model's weakest points; an unsourced value says why in its note.
+23 high, 68 unsourced, 10 low, 7 medium of 108 in all, of which 23 are the thesis and move the band. The unsourced ones are the model's weakest points; an unsourced value says why in its note.
 
 ## At scale: Nostr4's thesis
 
 These are not estimates of the world as it is but of the world Nostr4 is building. No public price list
 exists for the Nostr-native services, including ours, and at scale there is no vendor to lock an app in, so
-their prices are what the market will bear. Treat the range, not the typical value, as the claim. The
-`integ_*` rows, the weeks and months an app spends integrating, are placeholders until the research group
-supplies member figures; they set the payback figure, not the saving.
+their prices are what the market will bear. Treat the range, not the typical value, as the claim.
 
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `scale_progress_today` | Share of the at-scale saving the network already delivers to an app integrated today | 30% | 15% | 45% | ratio | unsourced | none |
 | `p2p_store_fee_remains_share` | Share of the store commission that still applies to in-app payments once they are peer to peer on the network | 50% | 100% | 10% | ratio | unsourced | [CNBC: Jack Dorsey's Damus may be thwarted by Apple's strict payment rules (the precedent, not a figure)](https://www.cnbc.com/2023/06/13/jack-dorseys-damus-may-be-thwarted-by-apples-strict-payment-rules.html) (2023-06) |
 | `scale_months` | Months until Nostr is at scale: standards and infrastructure in place | 36 | 48 | 24 | months | unsourced | none |
-| `integ_weeks_accounts` | Engineering weeks to integrate signer login and the key hand-off | 4 | 8 | 2 | weeks | unsourced | none |
-| `integ_weeks_graph` | Engineering weeks to move the graph, profiles and feeds to signed events | 6 | 12 | 3 | weeks | unsourced | none |
-| `integ_weeks_storage` | Engineering weeks for relay connections, outbox model and caching | 4 | 8 | 2 | weeks | unsourced | none |
-| `integ_weeks_media` | Engineering weeks for user-chosen media hosting (Blossom or similar) | 3 | 6 | 1 | weeks | unsourced | none |
-| `integ_weeks_moderation` | Engineering weeks for labels, web of trust and a ranking provider | 3 | 6 | 1 | weeks | unsourced | none |
-| `integ_weeks_payments` | Engineering weeks to move in-app payments to peer-to-peer rails | 2 | 4 | 1 | weeks | unsourced | none |
-| `integ_overlap_months` | Months both stacks run before the custodial one is retired | 6 | 12 | 3 | months | unsourced | none |
-| `integ_engineers` | Engineers on the integration at once | 2 | 1 | 3 | people | unsourced | none |
 | `media_sponsor_share` | Media hosting an app still sponsors after moving to Nostr | 25% | 50% | 10% | ratio | unsourced | none |
 | `cache_per_mau_year` | A thin cache in front of relays | 0.05 | 0.2 | 0.02 | USD per MAU per year | unsourced | none |
 | `verify_remains_share` | Age checks that remain on Nostr | 10% | 50% | 0% | ratio | unsourced | none |
@@ -73,15 +63,7 @@ supplies member figures; they set the payback figure, not the saving.
 
 - `scale_progress_today`: What an app integrated today already gets: keys, signed events, relays and follows carry most of the custodial cost and work now. User-paid providers, a media market, label and ranking providers and payment conversion are the rest. The ramp runs from here.
 - `p2p_store_fee_remains_share`: On Nostr the app is not a party to the payment, so the store's in-app-purchase rule should not reach it. Apple has claimed otherwise: in June 2023 it told Damus that tips associated with receiving content from creators through a mechanism other than in-app purchase broke its payment guideline, and gave the app 14 days to comply (CNBC, June 2023). Precedent pending. The low case keeps the whole commission; the high case treats the precedent as settled.
-- `scale_months`: Nostr4's estimate of the time for the network to establish the standards and infrastructure that support Nostr at scale; user growth carries the rest. The ramp starts at scale_progress_today and is front-loaded: the share of the at-scale saving the network delivers in month m is p + (1 − p)(1 − (1 − m/M)²), because the standards already adopted (keys, signed events, relays, follows) carry the bulk of custodial cost (accounts, graph, storage) and deliver early, while the pieces still maturing (user-paid providers, a media market, label and ranking providers, payment conversion) are the tail. A calendar, not a stopwatch: month 1 is January of start_year for every app, and later versions of this file will shorten the time to scale as the network matures. An app's own integration time and cost are the integ_* rows, counted apart from this ramp.
-- `integ_weeks_accounts`: Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.
-- `integ_weeks_graph`: Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.
-- `integ_weeks_storage`: Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.
-- `integ_weeks_media`: Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.
-- `integ_weeks_moderation`: Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.
-- `integ_weeks_payments`: Placeholder pending member figures from the research group. Person-weeks at the loaded hour; the integration runs in the order accounts, graph, storage, media, moderation, payments.
-- `integ_overlap_months`: Placeholder pending member figures from the research group. While both stacks run the app pays its Nostr costs on top of custody and saves nothing yet; migrating users in stages is not modelled, these months stand in for it.
-- `integ_engineers`: Sets the calendar time, not the cost: the person-weeks are divided among them. Placeholder pending member figures from the research group; low is the slower integration and the later payback.
+- `scale_months`: Nostr4's estimate of the time for the network to establish the standards and infrastructure that support Nostr at scale; user growth carries the rest. The ramp starts at scale_progress_today and is front-loaded: the share of the at-scale saving the network delivers in month m is p + (1 − p)(1 − (1 − m/M)²), because the standards already adopted (keys, signed events, relays, follows) carry the bulk of custodial cost (accounts, graph, storage) and deliver early, while the pieces still maturing (user-paid providers, a media market, label and ranking providers, payment conversion) are the tail. A calendar, not a stopwatch: month 1 is January of start_year for every app, and later versions of this file will shorten the time to scale as the network matures. An app's own integration, its time and its cost, is not estimated here: it is settled case by case, in a consult.
 - `media_sponsor_share`: Blossom or similar: users can host their own media, apps often still pay for some of it.
 - `cache_per_mau_year`: A thin cache in front of relays, what a Nostr app still serves itself. What the market will bear: no public price list exists, including ours, and at scale there is no vendor to lock an app in.
 - `verify_remains_share`: Age assurance becomes an external layer the app reads rather than buys: the Texas and Utah laws put it at the app store, the EU is building a device-level age wallet under the DSA. The UK Online Safety Act is the residual: Ofcom's duty attaches to the service a child can use, wherever sign-up happened, so a client showing others' content may still have to check. Low keeps the UK duty in full; high is the ideal.

@@ -2,17 +2,18 @@
 The Non-Custodial Savings Calculator, in three tabs and a modal.
 
   Estimated Cost    the results: whose estimate it is, the headline (the cash
-                    saving a year at scale as a range, the risk saving apart,
-                    today's figure and the payback month under it), the
-                    sourced-assumptions line, the cost chart with the at-scale
+                    saving a year at scale as a range, the fees and the risk
+                    savings apart), the sourced-assumptions line, the cost
+                    chart with the at-scale
                     year as a gold dot on each line, a gold rule between them
                     and the saving a year beside it, three facts (the Nostr
                     cost a year at scale among them), the year-by-year table
-                    with the net cumulative on its summary, then the six lines
-                    as savings at scale, the parts, what integration involves
-                    with the doors to the services, and the link back to the
-                    form. The page's front: a fresh page shows the
-                    illustrative app's estimate.
+                    with the five-year cumulative on its summary, then the six
+                    lines as savings at scale, the parts, what integration
+                    involves with the doors to the services, and the link back
+                    to the form. Integration cost and payback are never
+                    estimated here: they are the consult's. The page's front:
+                    a fresh page shows the illustrative app's estimate.
   App Info          the form, rendered from the published form event
                     (_data/forms/calculator.yml) and nothing else: section
                     titles, questions, options, grid rows and columns are
@@ -45,7 +46,7 @@ simply stack.
 {%- assign map = site.data.forms.map -%}
 {%- assign shared = site.data.assets.shared -%}
 {%- assign a = site.data.assets.calculator -%}
-{%- assign filled = "result_custodial,result_noncustodial,fees_saved,payback_month,integ_weeks,link,overrides,version,test" | split: "," -%}
+{%- assign filled = "result_custodial,result_noncustodial,fees_saved,link,overrides,version,test" | split: "," -%}
 {%- comment -%} The Save & Share section: the one holding the email question. {%- endcomment -%}
 {%- assign email_id = map.fields.email.id -%}
 {%- assign share_section = nil -%}
@@ -231,21 +232,16 @@ simply stack.
 
     {%- comment -%}
       The headline: the cash saving a year at scale as a range with typical
-      inside it, the fees and the risk savings apart on smaller lines, then one dim
-      figure for today and the payback month beside it; the payback opens
-      the integration behind it in the how-dialog. The script fills every
-      slot. Under it, how many of the assumptions are sourced, counted here
-      from the file, with the door to the tab that lists them.
+      inside it, the fees and the risk savings apart on smaller lines. The
+      script fills every slot. Under it, how many of the assumptions are
+      sourced, counted here from the file, with the door to the tab that
+      lists them.
     {%- endcomment -%}
     <div class="headline" id="r-headline">
       <p class="headline__figure" id="r-head-figure"></p>
       <p class="headline__sub" id="r-head-sub"></p>
       <p class="headline__fees" id="r-head-fees"></p>
       <p class="headline__risk" id="r-head-risk"></p>
-      <p class="headline__row">
-        <span class="headline__today" id="r-today"></span>
-        <button type="button" class="linkbutton headline__payback" id="r-payback" aria-haspopup="dialog"></button>
-      </p>
     </div>
     {%- assign sourced = 0 -%}{%- assign total = 0 -%}
     {%- for entry in data.assumptions -%}{%- assign total = total | plus: 1 -%}{%- if entry[1].source -%}{%- assign sourced = sourced | plus: 1 -%}{%- endif -%}{%- endfor -%}
@@ -271,7 +267,7 @@ simply stack.
         <svg class="chart__svg" id="{{ chart.id }}" viewBox="0 0 640 300" role="img" aria-labelledby="{{ chart.id }}-title" tabindex="0"><title id="{{ chart.id }}-title"></title></svg>
         <div class="chart__tip" id="tip-{{ chart.id }}" role="status" hidden></div>
       </div>
-      {%- comment -%} The caption names the marker year and the integration's months; the script fills them. {%- endcomment -%}
+      {%- comment -%} The caption names the marker year; the script fills it. {%- endcomment -%}
       <figcaption class="chart__caption" id="caption-{{ chart.id }}" data-template="{{ chart.caption }}">{{ chart.caption }}</figcaption>
     </figure>
     {%- endfor -%}
@@ -354,18 +350,15 @@ simply stack.
 
     {%- comment -%}
       What integration involves: one sentence per piece, in the order the
-      integration runs, each with its typical weeks from the assumptions
-      file, and the doors to the services and a consult.
+      integration runs, and the doors to the services and a consult. No
+      weeks, no cost: those are the consult's.
     {%- endcomment -%}
     {%- if r.integration -%}
     <div class="integ" id="r-integ">
       <h3 class="integ__title">{{ r.integration.title }}</h3>
       <ol class="integ__list">
       {%- for item in r.integration.lines -%}
-        {%- assign wkey = "integ_weeks_" | append: item.id -%}
-        {%- assign weeks = data.assumptions[wkey].typical -%}
-        {%- assign item_text = item.text | replace: "{weeks}", weeks -%}
-        <li class="integ__item">{{ item_text }}</li>
+        <li class="integ__item">{{ item.text }}</li>
       {%- endfor -%}
       </ol>
       {% include lib/actions.html actions=r.integration.actions %}

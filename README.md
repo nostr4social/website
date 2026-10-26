@@ -664,22 +664,20 @@ required after any change — an unbuilt edit simply fails to load.
 stale). Every assumption has a typical, low and high value, a source and a
 confidence grade; the page shows typical and the band, and lets the reader
 change any value. Only the assumptions marked `scenario_varies` (Nostr4's
-thesis: where the network is today, the time to scale, what remains at scale,
-the Nostr-native fees, and the integration placeholders) move the band; the
+thesis: where the network is today, the time to scale, what remains at scale
+and the Nostr-native fees) move the band; the
 custodial side is held at typical in every case. Changing a number means a
 new version: a new JSON, a new explainer, and the template, tests and e2e
 pointed at it. Old versions stay published, and a results link made with one
 is recomputed under the current version with a note saying so (an override of
 a key the current version no longer has is dropped).
 
-Version 3 models the app's own integration apart from the network's ramp:
-the `integ_weeks_*` rows are person-weeks per piece (accounts, graph,
-storage, media, moderation, payments), scaled by what the app already has on
-Nostr and costed at the loaded hour, with `integ_engineers` setting the
-calendar and `integ_overlap_months` the time both stacks run. They are
-placeholders until the research group supplies member figures; the payback
-month and the net cumulative rest on them, the saving does not. The ramp
-starts at `scale_progress_today` and month 1 is January of `start_year`.
+Version 3's ramp starts at `scale_progress_today`, the share of the at-scale
+saving the network already delivers, and month 1 is January of `start_year`,
+so the Cost of Nostr line starts below custody today. An app's own
+integration, its time and its cost, is never estimated on the page: it is
+settled case by case, in a consult. The page lists what integration
+involves and nothing more.
 The payments line measures the fee stack custody puts on in-app payments:
 `rev` is the gross monthly volume the app facilitates (purchases,
 subscriptions, tips and sales between users), not the app's own revenue; on

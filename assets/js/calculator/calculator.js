@@ -1077,7 +1077,6 @@ var PART_ASSUMPTIONS = {
   "payments.p2p": ["lightning_rate"],
   "payments.money_transmitter": ["mt_avoidance_year", "mt_remains_share"]
 };
-var INTEGRATION_ASSUMPTIONS = [...PEOPLE, "integ_weeks_accounts", "integ_weeks_graph", "integ_weeks_storage", "integ_weeks_media", "integ_weeks_moderation", "integ_weeks_payments", "integ_engineers", "integ_overlap_months"];
 function evaluate(inputs, v) {
   const shares = nostrShares(inputs);
   const lines = {};
@@ -1123,9 +1122,6 @@ function evaluate(inputs, v) {
 }
 var YEARS = 5;
 var MARKER_YEAR = 3;
-var MONTHS = (YEARS + 1) * 12;
-var HOURS_PER_WEEK = 40;
-var WEEKS_PER_MONTH = 52 / 12;
 function calendarYear(startYear, year) {
   return startYear + year;
 }
@@ -1139,32 +1135,11 @@ function rampShare(year, p, M) {
   for (let m = year * 12 + 1; m <= year * 12 + 12; m++) s += networkShare(m, p, M);
   return s / 12;
 }
-function integration(inputs, v) {
-  const shares = nostrShares(inputs);
-  const g = (k) => num(inputs[k]) ?? 0;
-  const weeks = {
-    accounts: v.integ_weeks_accounts * (1 - shares.accounts),
-    graph: v.integ_weeks_graph * (1 - shares.graph),
-    storage: v.integ_weeks_storage * (1 - g("n_event_storage")),
-    media: v.integ_weeks_media * (1 - g("n_media_storage")),
-    moderation: v.integ_weeks_moderation * (1 - shares.moderation),
-    // The app's own revenue moves to a peer-to-peer rail only where it is collected on another one.
-    payments: inputs.rev > 0 && inputs.rails.some((r) => r !== "p2p") ? v.integ_weeks_payments * (1 - shares.payments) : 0
-  };
-  const weeksTotal = Object.values(weeks).reduce((a, b) => a + b, 0);
-  const hourly = loadedHourly(v);
-  const engineers = v.integ_engineers > 0 ? v.integ_engineers : 1;
-  const cost = weeksTotal * HOURS_PER_WEEK * hourly;
-  const months = weeksTotal > 0 ? Math.ceil(weeksTotal / engineers / WEEKS_PER_MONTH) : 0;
-  const overlap = months > 0 ? v.integ_overlap_months : 0;
-  return { weeks, weeksTotal, hourly, engineers, cost, months, overlap, liveMonth: months + overlap };
-}
 function project(inputs, v, today = evaluate(inputs, v)) {
   const given = num(inputs.growth);
   let rate = given != null ? given : v.growth_default;
   const p = v.scale_progress_today;
   const M = v.scale_months;
-  const integ = integration(inputs, v);
   const perLine = (r, share) => Object.fromEntries(
     LINES.map((name) => {
       const l = r.lines[name];
@@ -1175,53 +1150,25 @@ function project(inputs, v, today = evaluate(inputs, v)) {
       return [name, { custodial: l.custodial, noncustodial: l.noncustodial, gap: (l.custodial - l.noncustodial) * share, parts }];
     })
   );
-  const years = [{ year: 0, users: inputs.mau, rate: 0, r: today }];
+  const point = (year, users2, r) => {
+    const share = rampShare(year, p, M);
+    const T = r.totals;
+    return { year, users: users2, rate, custodial: T.custodial, noncustodial: T.noncustodial, nostr: T.custodial - T.saving * share, saving: T.saving, saving_cash: T.saving_cash, saving_fees: T.saving_fees, saving_risk: T.saving_risk, share, realised: T.saving * share, lines: perLine(r, share) };
+  };
+  const points = [point(0, inputs.mau, today)];
   let users = inputs.mau;
   for (let year = 1; year <= YEARS; year++) {
     if (year > 1) rate *= v.growth_decay;
     users = Math.max(1, Math.round(users * (1 + rate)));
     const scaled = { ...inputs, mau: users, rev: inputs.rev * users / inputs.mau };
-    years.push({ year, users, rate, r: evaluate(scaled, v) });
+    points.push(point(year, users, evaluate(scaled, v)));
   }
-  const monthly = [];
   let cumulative = 0;
-  let paybackMonth = null;
-  for (let m = 1; m <= MONTHS; m++) {
-    const T = years[Math.floor((m - 1) / 12)].r.totals;
-    const realised = m > integ.liveMonth ? T.saving / 12 * networkShare(m, p, M) : 0;
-    const overlap = m > integ.months && m <= integ.liveMonth ? T.noncustodial / 12 : 0;
-    const integrationCost = m <= integ.months ? integ.cost / integ.months : 0;
-    const net = realised - integrationCost - overlap;
-    cumulative += net;
-    if (paybackMonth == null && cumulative >= -1e-6) paybackMonth = m;
-    monthly.push({ month: m, realised, integration: integrationCost, overlap, net, cumulative });
+  for (const q of points) {
+    cumulative += q.realised;
+    q.cumulative = cumulative;
   }
-  const points = years.map(({ year, users: users2, rate: rate2, r }) => {
-    const share = rampShare(year, p, M);
-    const months = monthly.slice(year * 12, year * 12 + 12);
-    const total = (k) => months.reduce((acc, q) => acc + q[k], 0);
-    const T = r.totals;
-    return {
-      year,
-      users: users2,
-      rate: rate2,
-      custodial: T.custodial,
-      noncustodial: T.noncustodial,
-      nostr: T.custodial - T.saving * share,
-      saving: T.saving,
-      saving_cash: T.saving_cash,
-      saving_fees: T.saving_fees,
-      saving_risk: T.saving_risk,
-      share,
-      realised: total("realised"),
-      integration: total("integration"),
-      overlap: total("overlap"),
-      net: total("net"),
-      cumulative: months[months.length - 1].cumulative,
-      lines: perLine(r, share)
-    };
-  });
-  return { points, monthly, integration: { ...integ, paybackMonth } };
+  return points;
 }
 function calculate(rawInputs, data, rawOverrides = {}) {
   const inputs = normalizeInputs(rawInputs);
@@ -1236,22 +1183,14 @@ function calculate(rawInputs, data, rawOverrides = {}) {
     r.effective = eff;
     r.derived = eff.derived;
     r.values = v;
-    const { points, monthly, integration: integ } = project(eff, v, r);
-    r.projection = points;
-    r.monthly = monthly;
-    r.integration = integ;
-    const scale = points[MARKER_YEAR];
-    const today = points[0];
-    r.totals.five_year = points[YEARS].cumulative;
+    r.projection = project(eff, v, r);
+    const scale = r.projection[MARKER_YEAR];
+    r.totals.five_year = r.projection[YEARS].cumulative;
     r.totals.marker_year = scale.cumulative;
-    r.totals.payback_month = integ.paybackMonth;
     r.totals.at_scale = scale.custodial - scale.nostr;
     r.totals.at_scale_cash = scale.saving_cash * scale.share;
     r.totals.at_scale_fees = scale.saving_fees * scale.share;
     r.totals.at_scale_risk = scale.saving_risk * scale.share;
-    r.totals.today_if_integrated = today.saving_cash * today.share;
-    r.totals.today_if_integrated_fees = today.saving_fees * today.share;
-    r.totals.today_if_integrated_risk = today.saving_risk * today.share;
     r.totals.scale_custodial = scale.custodial;
     r.totals.scale_nostr = scale.nostr;
     r.totals.scale_users = scale.users;
@@ -1259,7 +1198,7 @@ function calculate(rawInputs, data, rawOverrides = {}) {
     r.totals.scale_per_mau_nostr = scale.nostr / scale.users;
     for (const name of LINES) {
       const line = r.lines[name];
-      line.five_year = points.reduce((acc, q) => acc + q.lines[name].gap, 0);
+      line.five_year = r.projection.reduce((acc, q) => acc + q.lines[name].gap, 0);
       const at = scale.lines[name];
       line.scale_custodial = at.custodial;
       line.scale_noncustodial = at.custodial - at.gap;
@@ -1331,7 +1270,7 @@ function node(name, attrs = {}, children = []) {
 function drawCharts(projections) {
   last = projections;
   if (!projections) return;
-  const { typical, low, start_year, marker, payback } = projections;
+  const { typical, low, start_year, marker } = projections;
   const label = (year) => yearLabel(start_year, year);
   draw(CUMULATIVE, {
     series: [
@@ -1343,8 +1282,6 @@ function drawCharts(projections) {
       ...[MARKER_YEAR, YEARS].map((year) => ({ key: "typical", year, cls: "chart__label", dy: -12, text: fmt(t("chart.marker"), { amount: compact(typical[year].cumulative), n: label(year) }) })),
       { key: "low", year: YEARS, cls: "chart__lowcase-label", dy: -8, text: fmt(t("chart.low_case"), { amount: compact(low[YEARS].cumulative) }) }
     ],
-    // The payback month, as a rule at its place along the years.
-    payback: payback != null ? { at: payback / 12, text: fmt(t("payback"), { n: number(payback) }) } : null,
     title: fmt(t("chart.aria"), { end: compact(typical[YEARS].cumulative), low: compact(low[YEARS].cumulative) }),
     tip: (year) => {
       const p = typical[year];
@@ -1352,7 +1289,7 @@ function drawCharts(projections) {
         fmt(t("chart.tip.users"), { n: number(p.users) }),
         fmt(t("chart.tip.custodial"), { amount: compact(p.custodial) }),
         fmt(t("chart.tip.noncustodial"), { amount: compact(p.nostr) }),
-        fmt(t("chart.tip.realised"), { amount: compact(p.net) }),
+        fmt(t("chart.tip.realised"), { amount: compact(p.realised) }),
         fmt(t("chart.tip.cumulative"), { amount: compact(p.cumulative) })
       ];
     }
@@ -1444,11 +1381,6 @@ function draw(id, spec) {
     const py = at(l.key, l.year);
     const dy = l.above != null && py + l.dy > PAD.top + plotH - 2 ? l.above : l.dy;
     marks.append(node("text", { class: l.cls, x: x(l.year) + (l.dx ?? -8), y: py + dy, "text-anchor": l.anchor || "end" }, [l.text]));
-  }
-  if (spec.payback) {
-    const px = x(Math.min(YEARS, spec.payback.at));
-    lines.append(node("line", { class: "chart__payback", x1: px, x2: px, y1: PAD.top, y2: PAD.top + plotH }));
-    marks.append(node("text", { class: "chart__payback-label", x: px + 6, y: PAD.top + 14, "text-anchor": "start" }, [spec.payback.text]));
   }
   if (spec.watermark) {
     const w = spec.watermark;
@@ -2488,8 +2420,6 @@ function composeLead({ inputs, result, link, contact, fieldLabels, open }) {
   lines.push(fmt(t("compose.results"), { custodial: result.custodial, noncustodial: result.noncustodial }));
   if (result.at_scale) lines.push(fmt(t("compose.at_scale"), { at_scale: result.at_scale }));
   if (result.five_year) lines.push(fmt(t("compose.five_year"), { five_year: result.five_year, low: result.low }));
-  if ("payback" in result) lines.push(result.payback != null ? fmt(t("compose.payback"), { n: result.payback }) : t("compose.no_payback"));
-  if (result.today) lines.push(fmt(t("compose.today"), { amount: result.today }));
   if (result.fees) lines.push(fmt(t("compose.fees"), { amount: result.fees }));
   lines.push(fmt(t("compose.link"), { link }));
   if (open) lines.push(fmt(t("compose.open"), { link: open }));
@@ -2524,7 +2454,6 @@ function formatValue(v, unit = "") {
   if (unit === "multiplier") return `${number(v)}\xD7`;
   if (/^USD/.test(unit)) return v < 100 ? perMau(v) : money(v);
   if (unit === "months") return `${number(v)} ${v === 1 ? t("how.units.month") : t("how.units.months")}`;
-  if (unit === "weeks") return `${number(v)} ${v === 1 ? t("how.units.week") : t("how.units.weeks")}`;
   return number(v);
 }
 function variant(line, part2) {
@@ -2635,32 +2564,6 @@ function explain(line, part2, { inputs, values, overrides = {}, data, scale = {}
     assumptions: describe(relevantKeys(line, part2, inputs), { values, overrides, data })
   };
 }
-function explainIntegration({ integration: integration2, values, overrides = {}, data, payback }) {
-  const i = integration2;
-  const vars = {};
-  for (const [key, weeks] of Object.entries(i.weeks)) vars[`w.${key}`] = number(weeks);
-  vars["w.total"] = number(i.weeksTotal);
-  vars["w.hourly"] = perMau(i.hourly);
-  vars["w.cost"] = money(i.cost);
-  vars["w.engineers"] = number(i.engineers);
-  vars["w.months"] = number(i.months);
-  vars["w.overlap"] = number(i.overlap);
-  vars["w.live"] = number(i.liveMonth + 1);
-  for (const [key, a] of Object.entries(data.assumptions)) vars[`a.${key}`] = formatValue(values[key], a.unit);
-  const none = i.weeksTotal <= 0;
-  const keys = INTEGRATION_ASSUMPTIONS.filter((key) => {
-    const m = key.match(/^integ_weeks_(\w+)$/);
-    if (m) return i.weeks[m[1]] > 0;
-    return !none;
-  });
-  return {
-    label: t("how.integration.title"),
-    weeks: fill(none ? t("how.integration.none") : t("how.integration.weeks"), vars),
-    cost: none ? "" : fill(t("how.integration.cost"), vars),
-    payback: payback == null ? t("no_payback") : fill(t("payback").replace("{n}", "{w.payback}"), { ...vars, "w.payback": number(payback) }),
-    assumptions: describe(keys, { values, overrides, data })
-  };
-}
 function programsList(part2) {
   if (part2.id !== "privacy_programs") return "";
   const items = [];
@@ -2681,9 +2584,6 @@ var rangeFull = (a, b, f = compact) => {
   const [low, high] = ordered(a, b);
   return Math.abs(high - low) < 1e-9 ? "" : fmt(t("range"), { low: f(low), high: f(high) });
 };
-function paybackText(month) {
-  return month == null ? t("no_payback") : fmt(t("payback"), { n: number(month) });
-}
 function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result;
   const T = typical.totals;
@@ -2698,8 +2598,6 @@ function renderResults(result, { own = false } = {}) {
   show($("#r-head-fees"), T.at_scale_fees >= 1);
   text("#r-head-risk", fmt(t("headline_risk"), { risk: compact(T.at_scale_risk) }));
   show($("#r-head-risk"), T.at_scale_risk >= 1);
-  text("#r-today", fmt(t("today_if"), { amount: compact(T.today_if_integrated) }));
-  text("#r-payback", paybackText(T.payback_month));
   for (const id of ["r-permau-c-label", "r-permau-nc-label", "r-scale-nostr-label"]) {
     const node2 = $(`#${id}`);
     if (node2?.dataset.template) node2.textContent = fmt(node2.dataset.template, { year });
@@ -2713,8 +2611,8 @@ function renderResults(result, { own = false } = {}) {
   text("#r-cumulative", fmt(t("cumulative_note"), { amount: compact(T.five_year) }));
   text("#r-version", fmt(t("version"), { version: result.version }));
   const caption = $("#caption-chart-custodial-cost-vs-nostr");
-  if (caption?.dataset.template) caption.textContent = fmt(caption.dataset.template, { year, months: number(typical.integration.months), overlap: number(typical.integration.overlap) });
-  drawCharts({ typical: typical.projection, low: low.projection, start_year: result.start_year, marker: compact(T.at_scale_cash), payback: T.payback_month });
+  if (caption?.dataset.template) caption.textContent = fmt(caption.dataset.template, { year });
+  drawCharts({ typical: typical.projection, low: low.projection, start_year: result.start_year, marker: compact(T.at_scale_cash) });
   renderYears(typical.projection, result.start_year);
   const cut = (c, nc) => c > 0 ? Math.min(1, Math.max(0, 1 - nc / c)) : 0;
   for (const name of LINES) {
@@ -2773,14 +2671,7 @@ function renderYears(projection, startYear) {
   if (!head) return;
   for (const extra of $$("th[data-year]", head)) extra.remove();
   for (let year = 0; year <= YEARS; year++) head.append(el("th", { scope: "col", class: "years-num", "data-year": year, text: yearLabel(startYear, year) }));
-  const cell = {
-    users: (p) => number(p.users),
-    custodial: (p) => money(p.custodial),
-    nostr: (p) => money(p.nostr),
-    integration: (p) => money(p.integration + p.overlap),
-    net: (p) => money(p.net),
-    cumulative: (p) => money(p.cumulative)
-  };
+  const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), nostr: (p) => money(p.nostr), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) };
   for (const row of $$("#r-years tbody tr[data-row]")) {
     const value = cell[row.dataset.row];
     if (!value) continue;
@@ -2838,17 +2729,6 @@ function openHow(line, partId, result, data) {
     heads: [t("details.today"), t("details.on_nostr")],
     rows: [info.today, info.nostr],
     foot: info.at_scale,
-    assumptions: info.assumptions
-  });
-}
-function openIntegration(result, data) {
-  const info = explainIntegration({ integration: result.typical.integration, values: result.typical.values, overrides: result.overrides, data, payback: result.typical.totals.payback_month });
-  fillHow({
-    label: info.label,
-    line: "",
-    heads: [t("how.integration.weeks_label"), t("how.integration.cost_label")],
-    rows: [info.weeks, info.cost],
-    foot: info.payback,
     assumptions: info.assumptions
   });
 }
@@ -3215,10 +3095,8 @@ function valuesFor(result, contact) {
     distribution: i.distribution,
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
-    // The fees saved at scale, the payback month and the typical integration weeks travel too (map.yml).
+    // The fees saved a year at scale travel too (map.yml).
     fees_saved: Math.round(T.at_scale_fees),
-    payback_month: T.payback_month ?? "",
-    integ_weeks: Math.round(result.typical.integration.weeksTotal * 10) / 10,
     link: result.link,
     overrides: Object.keys(result.overrides).length ? JSON.stringify(result.overrides) : "",
     version: String(result.version),
@@ -3334,8 +3212,6 @@ async function tell(signer, result, contact, open) {
       at_scale: compact(result.typical.totals.at_scale),
       five_year: compact(result.typical.totals.five_year),
       low: compact(result.low.totals.five_year),
-      payback: result.typical.totals.payback_month,
-      today: compact(result.typical.totals.today_if_integrated),
       fees: result.typical.totals.at_scale_fees >= 1 ? compact(result.typical.totals.at_scale_fees) : ""
     },
     link: result.link,
@@ -3462,9 +3338,6 @@ function wire() {
   $("#r-table")?.addEventListener("click", (e) => {
     const button = e.target.closest("button.part");
     if (button && current) openHow(button.dataset.line, button.dataset.part, current, assumptions);
-  });
-  $("#r-payback")?.addEventListener("click", () => {
-    if (current) openIntegration(current, assumptions);
   });
   $("#save-sign-open")?.addEventListener("click", openSign);
   $("#how-close")?.addEventListener("click", closeHow);

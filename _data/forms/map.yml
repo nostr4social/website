@@ -93,11 +93,10 @@ fields:
   test:
     id: XU5x6e
     options: { "yes": d5fQLL }
-  # Three more the page fills: the fees saved a year at scale, the payback
-  # month and the typical integration weeks.
+  # One more the page fills: the fees saved a year at scale. The form still
+  # carries "Payback month" and "Integration weeks (typical)", unmapped: the
+  # page estimates neither, and they are to be removed from the builder.
   fees_saved: { id: qoG7lg }
-  payback_month: { id: 3fzgOc }
-  integ_weeks: { id: AjdSdq }
 
   # ── Send & Share (the contact details) ────────────────────────────────────
   app_name: { id: t3pia5 }                 # App Name

@@ -510,8 +510,6 @@ export const PART_ASSUMPTIONS = {
   'payments.money_transmitter': ['mt_avoidance_year', 'mt_remains_share'],
 }
 
-// The one-time integration reads these; its own test records them.
-export const INTEGRATION_ASSUMPTIONS = [...PEOPLE, 'integ_weeks_accounts', 'integ_weeks_graph', 'integ_weeks_storage', 'integ_weeks_media', 'integ_weeks_moderation', 'integ_weeks_payments', 'integ_engineers', 'integ_overlap_months']
 
 /** Evaluate every line for one set of assumption values. */
 export function evaluate(inputs, v) {
@@ -561,12 +559,12 @@ export function evaluate(inputs, v) {
 
 // ── the projection ──────────────────────────────────────────────────────────
 //
-// Six years, year 0 through YEARS, month by month. Each year re-runs the six
-// lines at that year's user count, with revenue held per user (posts and
-// storage already are), so fixed program fees and tiers behave as they
-// would; hours, head counts and reported legal spend stay as given, which
-// errs conservative. Users compound at the growth given, or the default
-// (flat), with each year's rate a fraction of the previous (growth_decay).
+// Six years, year 0 through YEARS. Each year re-runs the six lines at that
+// year's user count, with payment volume held per user (posts and storage
+// already are), so fixed program fees and tiers behave as they would;
+// hours, head counts and reported legal spend stay as given, which errs
+// conservative. Users compound at the growth given, or the default (flat),
+// with each year's rate a fraction of the previous (growth_decay).
 //
 // The ramp is the network's, not the app's. Month 1 is January of
 // data.start_year for every app. The share of the at-scale saving the
@@ -580,20 +578,13 @@ export function evaluate(inputs, v) {
 //
 // Each point's `nostr` is what an app on Nostr pays that year: the custodial
 // figure less the saving the network delivers, so the two lines start apart
-// at year 0 and the gap between them is that year's saving. The app's own
-// integration is a separate, one-time cost: person-weeks per piece, scaled
-// down by what it already has on Nostr, at the loaded hour; then the months
-// both stacks run before the custodial one is retired, during which it pays
-// its Nostr costs on top and saves nothing yet. The cumulative nets the
-// saving realised against both, and the payback month is where it first
-// reaches zero. An app fully on Nostr has no integration and pays back in
-// month 1.
+// at year 0 and the gap between them is that year's saving, `realised`; the
+// cumulative is its running sum from today. An app's own integration, its
+// time and its cost, is not modelled: that is settled case by case, in a
+// consult, never estimated on the page.
 
 export const YEARS = 5
 export const MARKER_YEAR = 3 // Nostr at scale
-export const MONTHS = (YEARS + 1) * 12 // the projection month by month, year 0 through YEARS
-const HOURS_PER_WEEK = 40
-const WEEKS_PER_MONTH = 52 / 12
 
 /** The calendar year a projection year stands for, from the assumptions' start year. */
 export function calendarYear(startYear, year) {
@@ -615,47 +606,17 @@ export function rampShare(year, p, M) {
 }
 
 /**
- * The one-time integration, before any saving: weeks per piece, each scaled
- * by what the app does not yet have on Nostr; the cost at the loaded hour;
- * the calendar months with integ_engineers on it; then the overlap months,
- * both stacks running. liveMonth is the first month the custodial stack is
- * off. Nothing here for an app already on Nostr.
- */
-export function integration(inputs, v) {
-  const shares = nostrShares(inputs)
-  const g = (k) => num(inputs[k]) ?? 0
-  const weeks = {
-    accounts: v.integ_weeks_accounts * (1 - shares.accounts),
-    graph: v.integ_weeks_graph * (1 - shares.graph),
-    storage: v.integ_weeks_storage * (1 - g('n_event_storage')),
-    media: v.integ_weeks_media * (1 - g('n_media_storage')),
-    moderation: v.integ_weeks_moderation * (1 - shares.moderation),
-    // The app's own revenue moves to a peer-to-peer rail only where it is collected on another one.
-    payments: inputs.rev > 0 && inputs.rails.some((r) => r !== 'p2p') ? v.integ_weeks_payments * (1 - shares.payments) : 0,
-  }
-  const weeksTotal = Object.values(weeks).reduce((a, b) => a + b, 0)
-  const hourly = loadedHourly(v)
-  const engineers = v.integ_engineers > 0 ? v.integ_engineers : 1
-  const cost = weeksTotal * HOURS_PER_WEEK * hourly
-  const months = weeksTotal > 0 ? Math.ceil(weeksTotal / engineers / WEEKS_PER_MONTH) : 0
-  const overlap = months > 0 ? v.integ_overlap_months : 0
-  return { weeks, weeksTotal, hourly, engineers, cost, months, overlap, liveMonth: months + overlap }
-}
-
-/**
- * Year 0 (today) through YEARS, for one scenario's assumption values:
- * { points, monthly, integration }. Each point carries the year's two costs,
- * the Nostr cost, the saving and its cash and risk parts, the network's
- * share, and the year's realised, integration, overlap, net and cumulative
- * figures summed from the months; and `lines`, each line and part at that
- * year's users with its gap, so the savings list can show the marker year.
+ * Year 0 (today) through YEARS, for one scenario's assumption values. Each
+ * point carries the year's two costs, the Nostr cost, the saving and its
+ * cash, fees and risk parts, the network's share, the saving realised that
+ * year and the cumulative; and `lines`, each line and part at that year's
+ * users with its gap, so the savings list can show the marker year.
  */
 export function project(inputs, v, today = evaluate(inputs, v)) {
   const given = num(inputs.growth)
   let rate = given != null ? given : v.growth_default
   const p = v.scale_progress_today
   const M = v.scale_months
-  const integ = integration(inputs, v)
   // Each year's lines and their parts; a part's custodial figure is moved
   // toward its Nostr one by the line's "already on Nostr" share, as the line's
   // own is, so the parts always add up to the line. `gap` is the saving the
@@ -671,56 +632,25 @@ export function project(inputs, v, today = evaluate(inputs, v)) {
         return [name, { custodial: l.custodial, noncustodial: l.noncustodial, gap: (l.custodial - l.noncustodial) * share, parts }]
       }),
     )
-  const years = [{ year: 0, users: inputs.mau, rate: 0, r: today }]
+  const point = (year, users, r) => {
+    const share = rampShare(year, p, M)
+    const T = r.totals
+    return { year, users, rate, custodial: T.custodial, noncustodial: T.noncustodial, nostr: T.custodial - T.saving * share, saving: T.saving, saving_cash: T.saving_cash, saving_fees: T.saving_fees, saving_risk: T.saving_risk, share, realised: T.saving * share, lines: perLine(r, share) }
+  }
+  const points = [point(0, inputs.mau, today)]
   let users = inputs.mau
   for (let year = 1; year <= YEARS; year++) {
     if (year > 1) rate *= v.growth_decay
     users = Math.max(1, Math.round(users * (1 + rate)))
     const scaled = { ...inputs, mau: users, rev: (inputs.rev * users) / inputs.mau }
-    years.push({ year, users, rate, r: evaluate(scaled, v) })
+    points.push(point(year, users, evaluate(scaled, v)))
   }
-  // Month by month: the saving once the custodial stack is off, the Nostr
-  // costs paid on top while both stacks run, the integration spread over its
-  // months, and the running net.
-  const monthly = []
   let cumulative = 0
-  let paybackMonth = null
-  for (let m = 1; m <= MONTHS; m++) {
-    const T = years[Math.floor((m - 1) / 12)].r.totals
-    const realised = m > integ.liveMonth ? (T.saving / 12) * networkShare(m, p, M) : 0
-    const overlap = m > integ.months && m <= integ.liveMonth ? T.noncustodial / 12 : 0
-    const integrationCost = m <= integ.months ? integ.cost / integ.months : 0
-    const net = realised - integrationCost - overlap
-    cumulative += net
-    if (paybackMonth == null && cumulative >= -1e-6) paybackMonth = m
-    monthly.push({ month: m, realised, integration: integrationCost, overlap, net, cumulative })
+  for (const q of points) {
+    cumulative += q.realised
+    q.cumulative = cumulative
   }
-  const points = years.map(({ year, users, rate, r }) => {
-    const share = rampShare(year, p, M)
-    const months = monthly.slice(year * 12, year * 12 + 12)
-    const total = (k) => months.reduce((acc, q) => acc + q[k], 0)
-    const T = r.totals
-    return {
-      year,
-      users,
-      rate,
-      custodial: T.custodial,
-      noncustodial: T.noncustodial,
-      nostr: T.custodial - T.saving * share,
-      saving: T.saving,
-      saving_cash: T.saving_cash,
-      saving_fees: T.saving_fees,
-      saving_risk: T.saving_risk,
-      share,
-      realised: total('realised'),
-      integration: total('integration'),
-      overlap: total('overlap'),
-      net: total('net'),
-      cumulative: months[months.length - 1].cumulative,
-      lines: perLine(r, share),
-    }
-  })
-  return { points, monthly, integration: { ...integ, paybackMonth } }
+  return points
 }
 
 /**
@@ -728,13 +658,11 @@ export function project(inputs, v, today = evaluate(inputs, v)) {
  * with its projection, the clean inputs the page should echo back, and the
  * overrides that applied. "At scale" is the marker year's column of the
  * projection: what the app pays under custody that year, what an app on
- * Nostr pays, and the saving between the two, cash, fees and risk apart. Every
- * line and part carries its figures for that year, and the lines add up to
- * the total's own, so the chart, the savings list and the facts all show
- * one set of numbers. The five-year figure is the net cumulative, after
- * integration and overlap; the payback month is where it first reaches
- * zero; today_if_integrated is the cash saving the network would deliver
- * this year to an app already integrated.
+ * Nostr pays, and the saving between the two, cash, fees and risk apart.
+ * Every line and part carries its figures for that year, and the lines add
+ * up to the total's own, so the chart, the savings list and the facts all
+ * show one set of numbers. The five-year figure is the cumulative saving
+ * over the years shown.
  */
 export function calculate(rawInputs, data, rawOverrides = {}) {
   const inputs = normalizeInputs(rawInputs)
@@ -749,22 +677,14 @@ export function calculate(rawInputs, data, rawOverrides = {}) {
     r.effective = eff
     r.derived = eff.derived
     r.values = v
-    const { points, monthly, integration: integ } = project(eff, v, r)
-    r.projection = points
-    r.monthly = monthly
-    r.integration = integ
-    const scale = points[MARKER_YEAR]
-    const today = points[0]
-    r.totals.five_year = points[YEARS].cumulative
+    r.projection = project(eff, v, r)
+    const scale = r.projection[MARKER_YEAR]
+    r.totals.five_year = r.projection[YEARS].cumulative
     r.totals.marker_year = scale.cumulative
-    r.totals.payback_month = integ.paybackMonth
     r.totals.at_scale = scale.custodial - scale.nostr
     r.totals.at_scale_cash = scale.saving_cash * scale.share
     r.totals.at_scale_fees = scale.saving_fees * scale.share
     r.totals.at_scale_risk = scale.saving_risk * scale.share
-    r.totals.today_if_integrated = today.saving_cash * today.share
-    r.totals.today_if_integrated_fees = today.saving_fees * today.share
-    r.totals.today_if_integrated_risk = today.saving_risk * today.share
     r.totals.scale_custodial = scale.custodial
     r.totals.scale_nostr = scale.nostr
     r.totals.scale_users = scale.users
@@ -772,7 +692,7 @@ export function calculate(rawInputs, data, rawOverrides = {}) {
     r.totals.scale_per_mau_nostr = scale.nostr / scale.users
     for (const name of LINES) {
       const line = r.lines[name]
-      line.five_year = points.reduce((acc, q) => acc + q.lines[name].gap, 0)
+      line.five_year = r.projection.reduce((acc, q) => acc + q.lines[name].gap, 0)
       // At scale: what the line costs under custody and on Nostr in the marker year, at that year's users.
       const at = scale.lines[name]
       line.scale_custodial = at.custodial

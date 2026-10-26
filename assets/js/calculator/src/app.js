@@ -35,7 +35,6 @@ import {
   focusAssumptions,
   markChanged,
   openHow,
-  openIntegration,
   readOverrides,
   renderResults,
   setError,
@@ -274,10 +273,8 @@ function valuesFor(result, contact) {
     distribution: i.distribution,
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
-    // The fees saved at scale, the payback month and the typical integration weeks travel too (map.yml).
+    // The fees saved a year at scale travel too (map.yml).
     fees_saved: Math.round(T.at_scale_fees),
-    payback_month: T.payback_month ?? '',
-    integ_weeks: Math.round(result.typical.integration.weeksTotal * 10) / 10,
     link: result.link,
     overrides: Object.keys(result.overrides).length ? JSON.stringify(result.overrides) : '',
     version: String(result.version),
@@ -407,8 +404,6 @@ async function tell(signer, result, contact, open) {
       at_scale: compact(result.typical.totals.at_scale),
       five_year: compact(result.typical.totals.five_year),
       low: compact(result.low.totals.five_year),
-      payback: result.typical.totals.payback_month,
-      today: compact(result.typical.totals.today_if_integrated),
       fees: result.typical.totals.at_scale_fees >= 1 ? compact(result.typical.totals.at_scale_fees) : '',
     },
     link: result.link,
@@ -537,10 +532,6 @@ function wire() {
   $('#r-table')?.addEventListener('click', (e) => {
     const button = e.target.closest('button.part')
     if (button && current) openHow(button.dataset.line, button.dataset.part, current, assumptions)
-  })
-  // The payback figure explains the integration behind it, in the same dialog.
-  $('#r-payback')?.addEventListener('click', () => {
-    if (current) openIntegration(current, assumptions)
   })
   $('#save-sign-open')?.addEventListener('click', openSign)
   $('#how-close')?.addEventListener('click', closeHow)

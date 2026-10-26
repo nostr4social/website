@@ -73,9 +73,9 @@ lines.push('the thesis holding less well. The low and high beside the other rows
 lines.push('')
 lines.push(`The projection runs on a calendar, not a stopwatch: month 1 is January ${data.start_year} for every app, and`)
 lines.push('later versions of this file will shorten the time to scale as the network matures. The ramp starts from what')
-lines.push('the network delivers today (`scale_progress_today`) and an app\'s own integration time and cost are counted')
-lines.push('apart from it. Results links carry the version they were made with; earlier versions stay published beside')
-lines.push('this one.')
+lines.push('the network delivers today (`scale_progress_today`). An app\'s own integration, its time and its cost, is not')
+lines.push('estimated here: it is settled case by case, in a consult. Results links carry the version they were made with;')
+lines.push('earlier versions stay published beside this one.')
 lines.push('')
 lines.push('Confidence means:')
 lines.push('')
@@ -105,9 +105,7 @@ for (const [line, title] of Object.entries(LINES)) {
   if (line === 'thesis') {
     lines.push('These are not estimates of the world as it is but of the world Nostr4 is building. No public price list')
     lines.push('exists for the Nostr-native services, including ours, and at scale there is no vendor to lock an app in, so')
-    lines.push('their prices are what the market will bear. Treat the range, not the typical value, as the claim. The')
-    lines.push('`integ_*` rows, the weeks and months an app spends integrating, are placeholders until the research group')
-    lines.push('supplies member figures; they set the payback figure, not the saving.')
+    lines.push('their prices are what the market will bear. Treat the range, not the typical value, as the claim.')
     lines.push('')
   }
   lines.push('| Key | What | Typical | Low | High | Unit | Confidence | Source |')

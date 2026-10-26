@@ -635,7 +635,7 @@
 
 // ── the headline ─────────────────────────────────────────────────────────────
 // The cash saving a year at scale as a range, typical inside it; the risk
-// saving on a smaller line; then, dim, today's figure and the payback month.
+// and the fees savings on smaller lines.
 .headline {
   display: flex;
   flex-direction: column;
@@ -669,27 +669,6 @@
 .headline__fees[hidden],
 .headline__risk[hidden] {
   display: none;
-}
-
-.headline__row {
-  align-items: baseline;
-  color: var(--ink-3);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: var(--fs-s);
-  gap: var(--s-2) var(--s-5);
-  line-height: var(--lh-card);
-  margin: var(--s-1) 0 0;
-}
-
-.headline__payback {
-  color: var(--gold);
-  font-size: inherit;
-}
-
-.headline__payback:hover {
-  color: var(--gold);
-  text-decoration: underline;
 }
 
 // How many assumptions are sourced, in the body ink, with the door to them.
@@ -804,17 +783,6 @@
   stroke-width: 1;
 }
 
-// The payback month on the cumulative picture: a thin gold rule.
-.chart__payback {
-  stroke: var(--gold);
-  stroke-dasharray: 2 3;
-  stroke-width: 1;
-}
-
-.chart__payback-label {
-  fill: var(--gold);
-  font-size: 12px;
-}
 
 .chart__line {
   fill: none;

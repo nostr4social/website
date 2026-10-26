@@ -52,7 +52,7 @@ sections:
     questions: [ePAdxW, 4F44bp]
   - id: JJGD6dnD
     title: "Send & Share"
-    description: "Send your calculated results to us as a Nostr event, encrypted with your private key and visible only to Nostr4. We will follow up to schedule a free consult call and discuss your cost saving opportunities. Sign with your existing Nostr key to follow up with these results later."
+    description: "Send us your results and we will follow up to schedule a free consult. If you already use Nostr, sign with your key to update or revisit these results later."
     questions: [PgP68U, BBZoy9, 5UFMyH, t3pia5]
   - id: TEXS3eNF
     title: "Results"

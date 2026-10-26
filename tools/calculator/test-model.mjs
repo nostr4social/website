@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const data = JSON.parse(await readFile(resolve(root, '_data/assumptions/v3.json'), 'utf8'))
-const { calculate, evaluate, resolveAssumptions, varyingKeys, jurShares, ccpaApplies, caConsumers, calendarYear, project, rampShare, networkShare, integration, deriveInputs, applyKind, LINE_FUNCTIONS, PART_ASSUMPTIONS, INTEGRATION_ASSUMPTIONS, LINES, SCENARIOS, JURISDICTIONS, YEARS, MONTHS, MARKER_YEAR, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
+const { calculate, evaluate, resolveAssumptions, varyingKeys, jurShares, ccpaApplies, caConsumers, calendarYear, project, rampShare, networkShare, deriveInputs, applyKind, LINE_FUNCTIONS, PART_ASSUMPTIONS, LINES, SCENARIOS, JURISDICTIONS, YEARS, MARKER_YEAR, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
 const { encode, decode } = await import(resolve(root, 'assets/js/calculator/src/codec.js'))
 const { INPUTS, InputError } = await import(resolve(root, 'assets/js/calculator/src/inputs.js'))
 const { compact, compactNumber } = await import(resolve(root, 'assets/js/calculator/src/format.js'))
@@ -47,6 +47,8 @@ await test('every assumption the model reads exists in the file, and every one i
   for (const key of Object.keys(data.assumptions)) assert.ok(used.has(key), `assumption ${key} is in the file but never read`)
   assert.equal(data.version, 3)
   assert.ok(!('key_support_per_mau_year' in data.assumptions), 'key support is replaced by the hand-off derivation')
+  assert.ok(!Object.keys(data.assumptions).some((k) => k.startsWith('integ_')), 'integration is never estimated: no rows for it')
+  assert.ok(!/integration\(|payback/i.test(text), 'and nothing in the model computes it')
 })
 
 await test('the baseline evaluates to finite, non-negative numbers', () => finite(calculate(base, data)))
@@ -63,13 +65,12 @@ await test('low is the smaller saving: the custodial column is the same in every
   assert.ok(Math.abs(r.low.totals.custodial - r.typical.totals.custodial) < 1e-6 && Math.abs(r.high.totals.custodial - r.typical.totals.custodial) < 1e-6)
   assert.ok(r.low.totals.saving <= r.typical.totals.saving && r.typical.totals.saving <= r.high.totals.saving)
   assert.ok(r.low.totals.at_scale <= r.typical.totals.at_scale && r.typical.totals.at_scale <= r.high.totals.at_scale)
-  assert.ok(r.low.totals.today_if_integrated <= r.typical.totals.today_if_integrated && r.typical.totals.today_if_integrated <= r.high.totals.today_if_integrated)
 })
 
-await test('only the thesis varies across scenarios: no custodial-side assumption moves, and every varying one is at-scale, Nostr-native or the integration', () => {
+await test('only the thesis varies across scenarios: no custodial-side assumption moves, and every varying one is at-scale or Nostr-native', () => {
   const vary = varyingKeys(data)
-  assert.equal(vary.length, 31, `${vary.length} varying keys`)
-  const thesis = /^(scale_months|scale_progress_today|integ_weeks_\w+|integ_overlap_months|integ_engineers|.*_remains_share|media_sponsor_share|retained_data_share|.*_per_mau_year|relay_floor_year|relay_sponsored_share|key_handoff_live_share|lightning_rate)$/
+  assert.equal(vary.length, 23, `${vary.length} varying keys`)
+  const thesis = /^(scale_months|scale_progress_today|.*_remains_share|media_sponsor_share|retained_data_share|.*_per_mau_year|relay_floor_year|relay_sponsored_share|key_handoff_live_share|lightning_rate)$/
   for (const key of vary) assert.ok(thesis.test(key), `${key} varies but is not a thesis key`)
   // The custodial side's own rates never vary, whatever the file says in its low and high columns.
   for (const key of ['eng_base_salary', 'egress_gb', 'blob_gb_month', 'dsar_cost', 'dsar_rate_per_mau_year', 'breach_prob_year', 'verify_share_us', 'gdpr_program_year', 'apple_rate_standard', 'growth_default', 'growth_decay', 'compute_per_mau_year', 'auth_per_mau_month', 'annual_users_per_mau', 'support_self_service_contact', 'support_live_contact', 'reset_rate_per_mau_year']) {
@@ -86,13 +87,13 @@ await test('only the thesis varies across scenarios: no custodial-side assumptio
     assert.equal(resolved.high[key], data.assumptions[key].high, `${key} high`)
   }
   // Every varying key runs one way from low to high through typical: a larger remains share, a larger fee, a slower ramp,
-  // more weeks, or, where more is better (today's progress, engineers on the job), the smaller value in the low case.
+  // or, where more is better (today's progress), the smaller value in the low case.
   for (const key of vary) {
     const a = data.assumptions[key]
     const down = a.low >= a.typical && a.typical >= a.high
     const up = a.low <= a.typical && a.typical <= a.high
     assert.ok(down || up, `${key}: low ${a.low}, typical ${a.typical}, high ${a.high} are not in order`)
-    assert.equal(up && !down, ['scale_progress_today', 'integ_engineers'].includes(key), `${key} runs the wrong way`)
+    assert.equal(up && !down, key === 'scale_progress_today', `${key} runs the wrong way`)
   }
   // The thesis section opens with where the network is today, then the contested store commission, then how long to scale.
   assert.deepEqual(vary.slice(0, 3), ['scale_progress_today', 'p2p_store_fee_remains_share', 'scale_months'])
@@ -506,119 +507,10 @@ await test('the Nostr line is what an app on Nostr pays that year: year 0 is bel
       assert.ok(Math.abs(p[YEARS].nostr - p[YEARS].noncustodial) < 1e-6, 'at scale, the Nostr line is the non-custodial cost')
       if (s !== 'low') assert.ok(Math.abs(p[MARKER_YEAR].nostr - p[MARKER_YEAR].noncustodial) < 1e-6, 'the marker year is the first full year at scale under 36 months or fewer')
       assert.equal('path' in p[0], false, 'no path: the lines start apart')
+      for (const q of p) assert.ok(!('integration' in q) && !('overlap' in q) && !('net' in q), 'nothing about integration on a point')
     }
     assert.ok(r.low.projection[0].nostr >= r.typical.projection[0].nostr && r.typical.projection[0].nostr >= r.high.projection[0].nostr, 'the low case is the higher Nostr cost today')
   }
-})
-
-await test('the integration: person-weeks per piece scaled by what is not yet on Nostr, at the loaded hour; months with the engineers on it; then the overlap', () => {
-  const v = typicalV()
-  const eff = deriveInputs(normalizeInputs(base), v)
-  const i = integration(eff, v)
-  assert.deepEqual(i.weeks, { accounts: 4, graph: 6, storage: 4, media: 3, moderation: 3, payments: 2 })
-  assert.equal(i.weeksTotal, 22)
-  assert.ok(Math.abs(i.cost - 22 * 40 * ((v.eng_base_salary * v.loaded_multiplier * v.overhead_multiplier) / 2000)) < 1e-6, 'person-weeks at the loaded hour already in the model')
-  assert.equal(i.months, Math.ceil(22 / 2 / (52 / 12)))
-  assert.equal(i.months, 3)
-  assert.equal(i.overlap, 6)
-  assert.equal(i.liveMonth, 9)
-  assert.equal(i.engineers, 2)
-  // No revenue, or revenue already peer to peer: nothing to move.
-  assert.equal(integration(deriveInputs(normalizeInputs({ ...base, rev: 0, rails: [] }), v), v).weeks.payments, 0)
-  assert.equal(integration(deriveInputs(normalizeInputs({ ...base, rails: ['p2p'] }), v), v).weeks.payments, 0)
-  assert.equal(integration(deriveInputs(normalizeInputs({ ...base, rails: ['p2p', 'apple'] }), v), v).weeks.payments, 2, 'a store rail beside it still has revenue to move')
-  // What the app already has on Nostr comes off the weeks, row by row.
-  const half = integration(deriveInputs(normalizeInputs({ ...base, n_keys: '0.5', n_media_storage: '1', n_event_storage: '0.5' }), v), v)
-  assert.equal(half.weeks.accounts, 2)
-  assert.equal(half.weeks.media, 0)
-  assert.equal(half.weeks.storage, 2)
-  assert.equal(half.weeks.graph, 6)
-  // Raw keys cancel the accounts credit, as they do for the line.
-  assert.equal(integration(deriveInputs(normalizeInputs({ ...base, n_keys: '1', n_raw_keys: '1' }), v), v).weeks.accounts, 4)
-  // More engineers shorten the calendar, not the bill; the scenarios run from slow and expensive to quick and cheap.
-  const three = integration(eff, typicalV({ integ_engineers: 3 }))
-  assert.equal(three.cost, i.cost)
-  assert.ok(three.months < i.months)
-  const r = calculate(base, data)
-  assert.ok(r.low.integration.weeksTotal > r.typical.integration.weeksTotal && r.typical.integration.weeksTotal > r.high.integration.weeksTotal)
-  assert.ok(r.low.integration.liveMonth > r.typical.integration.liveMonth && r.typical.integration.liveMonth > r.high.integration.liveMonth)
-  assert.deepEqual(Object.keys(r.typical.integration).sort(), ['cost', 'engineers', 'hourly', 'liveMonth', 'months', 'overlap', 'paybackMonth', 'weeks', 'weeksTotal'])
-  // The integration reads exactly the assumptions it lists.
-  const read = new Set()
-  const recorder = new Proxy(v, { get: (target, key) => { if (typeof key === 'string') read.add(key); return target[key] } })
-  integration(eff, recorder)
-  assert.deepEqual([...read].sort(), [...INTEGRATION_ASSUMPTIONS].sort())
-  for (const key of INTEGRATION_ASSUMPTIONS) assert.ok(key in data.assumptions, `${key} is not in the file`)
-})
-
-await test('a fully Nostr app has no integration, no overlap, and pays back in month 1', () => {
-  const r = calculate({ ...base, nostr_now: '1' }, data)
-  for (const s of SCENARIOS) {
-    const i = r[s].integration
-    assert.equal(i.weeksTotal, 0)
-    assert.equal(i.cost, 0)
-    assert.equal(i.months, 0)
-    assert.equal(i.overlap, 0, 'no custodial stack to retire')
-    assert.equal(i.liveMonth, 0)
-    assert.equal(i.paybackMonth, 1)
-    assert.equal(r[s].totals.payback_month, 1)
-    for (const p of r[s].projection) assert.ok(p.integration === 0 && p.overlap === 0)
-  }
-})
-
-await test('the months net the saving realised against the integration and the overlap; the cumulative is their running sum; payback is where it first reaches zero', () => {
-  const r = calculate({ ...base, growth: '0.25' }, data)
-  for (const s of SCENARIOS) {
-    const { projection: p, monthly, integration: i } = r[s]
-    assert.equal(monthly.length, MONTHS)
-    assert.equal(MONTHS, 72)
-    let running = 0
-    for (const q of monthly) {
-      // Nothing is realised before the custodial stack is off; both stacks cost during the overlap; the integration is spread over its months.
-      assert.equal(q.realised > 0, q.month > i.liveMonth, `${s} month ${q.month} realised`)
-      assert.equal(q.overlap > 0, q.month > i.months && q.month <= i.liveMonth, `${s} month ${q.month} overlap`)
-      assert.equal(q.integration > 0, q.month <= i.months, `${s} month ${q.month} integration`)
-      assert.ok(Math.abs(q.net - (q.realised - q.integration - q.overlap)) < 1e-6)
-      running += q.net
-      assert.ok(Math.abs(q.cumulative - running) < 1e-6)
-    }
-    assert.ok(Math.abs(monthly.slice(0, i.months).reduce((a, q) => a + q.integration, 0) - i.cost) < 1e-6, 'the integration adds up to its cost')
-    const overlapMonths = monthly.filter((q) => q.overlap > 0)
-    assert.equal(overlapMonths.length, i.overlap)
-    for (const q of overlapMonths) assert.ok(Math.abs(q.overlap - p[Math.floor((q.month - 1) / 12)].noncustodial / 12) < 1e-6, 'the Nostr costs, paid on top')
-    const live = monthly.find((q) => q.month === i.liveMonth + 1)
-    assert.ok(Math.abs(live.realised - (p[Math.floor(i.liveMonth / 12)].saving / 12) * networkShare(live.month, r[s].values.scale_progress_today, r[s].values.scale_months)) < 1e-6)
-    // Year totals are the sums of their months; the year's cumulative is its last month's.
-    for (const q of p) {
-      const months = monthly.slice(q.year * 12, q.year * 12 + 12)
-      for (const k of ['realised', 'integration', 'overlap', 'net']) assert.ok(Math.abs(q[k] - months.reduce((a, x) => a + x[k], 0)) < 1e-6, `${s} year ${q.year} ${k}`)
-      assert.ok(Math.abs(q.cumulative - months[11].cumulative) < 1e-6)
-      assert.ok(Math.abs(q.net - (q.realised - q.integration - q.overlap)) < 1e-6)
-    }
-    assert.equal(r[s].totals.five_year, p[YEARS].cumulative, 'the five-year figure is the net cumulative')
-    assert.equal(r[s].totals.marker_year, p[MARKER_YEAR].cumulative)
-    assert.ok(monthly[0].cumulative < 0, 'month 1 is in the red: the integration comes first')
-    const first = monthly.find((q) => q.cumulative >= -1e-6)
-    assert.equal(i.paybackMonth, first.month)
-    assert.equal(r[s].totals.payback_month, first.month)
-    assert.ok(monthly[i.paybackMonth - 2].cumulative < 0, 'the month before is still negative')
-  }
-  assert.ok(r.low.totals.five_year <= r.typical.totals.five_year && r.typical.totals.five_year <= r.high.totals.five_year)
-  assert.ok(r.low.totals.five_year > 0, 'even the low case comes out ahead')
-})
-
-await test('the default app pays back in year 1 under typical; low is later, high earlier; a slow or costly integration can push it out of the window', () => {
-  const r = calculate(illustrative, data)
-  const year = (m) => Math.floor((m - 1) / 12)
-  assert.ok(year(r.typical.totals.payback_month) >= 1 && year(r.typical.totals.payback_month) <= 2, `typical pays back in month ${r.typical.totals.payback_month}`)
-  assert.ok(r.low.totals.payback_month > r.typical.totals.payback_month, `low ${r.low.totals.payback_month} later than typical ${r.typical.totals.payback_month}`)
-  assert.ok(r.high.totals.payback_month < r.typical.totals.payback_month, `high ${r.high.totals.payback_month} earlier than typical ${r.typical.totals.payback_month}`)
-  assert.equal(r.typical.totals.payback_month, r.typical.integration.paybackMonth)
-  // A thousand weeks of integration never pays back within the projection: null, which the page words.
-  const never = calculate(illustrative, data, { integ_weeks_graph: 1000 })
-  assert.equal(never.typical.totals.payback_month, null)
-  assert.ok(never.typical.totals.five_year < 0)
-  assert.ok(never.typical.projection.every((p) => p.cumulative < 0))
 })
 
 await test('three savings: cash from the bills, fees from the payments line, risk from the expected loss; they add up to the saving today and at scale', () => {
@@ -645,11 +537,6 @@ await test('three savings: cash from the bills, fees from the payments line, ris
       assert.ok(Math.abs(T.at_scale_cash - at.saving_cash * at.share) < 1e-6)
       assert.ok(Math.abs(T.at_scale_fees - at.saving_fees * at.share) < 1e-6)
       assert.ok(Math.abs(T.at_scale_risk - at.saving_risk * at.share) < 1e-6)
-      // Today if integrated: the cash saving the network delivers in year 0, with its fees and risk parts beside it.
-      const today = r[s].projection[0]
-      assert.ok(Math.abs(T.today_if_integrated - today.saving_cash * today.share) < 1e-6)
-      assert.ok(Math.abs(T.today_if_integrated + T.today_if_integrated_fees + T.today_if_integrated_risk - (today.custodial - today.nostr)) < 1e-6)
-      assert.ok(T.today_if_integrated < T.at_scale_cash, 'less than at scale')
     }
   }
 })
@@ -693,25 +580,45 @@ await test('relay capacity is rented for the users who don\'t bring their own, n
 
 await test('growth compounds and decays; users are whole', () => {
   const inputs = normalizeInputs({ ...base, growth: '1' })
-  const { points: p } = project(inputs, typicalV({ growth_decay: 0.5 }))
+  const p = project(inputs, typicalV({ growth_decay: 0.5 }))
   assert.equal(p[1].users, 100000)
   assert.equal(p[2].users, 150000)
   assert.equal(p[3].users, 187500)
   for (const q of p) assert.ok(Number.isInteger(q.users))
 })
 
-await test('a flat app saves the same each year once the network is at scale and the integration is behind it', () => {
+await test('a flat app saves the same each year once the network is at scale, so its curve bends only at the start', () => {
   const inputs = deriveInputs(normalizeInputs({ ...base, growth: '0' }), typicalV())
-  const { points: p } = project(inputs, typicalV({ scale_months: 12 }))
-  assert.ok(p[0].realised < p[1].realised - 1, 'year 0 carries the integration and the overlap')
-  for (let y = 2; y <= YEARS; y++) assert.ok(Math.abs(p[y].realised - p[1].realised) < 1e-6, `year ${y}`)
-  const slow = project(inputs, typicalV()).points
+  const p = project(inputs, typicalV({ scale_months: 12 }))
+  assert.ok(p[0].realised < p[1].realised - 1, 'year 0 is still ramping')
+  for (let y = 1; y <= YEARS; y++) assert.ok(Math.abs(p[y].realised - p[1].realised) < 1e-6, `year ${y}`)
+  const slow = project(inputs, typicalV())
   assert.ok(slow[0].realised < slow[1].realised && slow[1].realised < slow[2].realised && slow[2].realised < slow[3].realised - 1)
   assert.ok(Math.abs(slow[4].realised - slow[3].realised) < 1e-6 && Math.abs(slow[5].realised - slow[4].realised) < 1e-6, 'at scale from the marker year on')
-  // With nothing to integrate and no ramp, the saving cumulates in a straight line from month 1.
-  const straight = project({ ...inputs, nostr_now: '1', n_keys: '1', n_raw_keys: '0', n_signed_events: '1', n_event_storage: '1', n_media_storage: '1', n_labels: '1', n_feeds: '1', n_algos: '1', n_p2p: '1', n_nips: '1' }, typicalV({ scale_months: 0 }))
-  assert.equal(straight.integration.weeksTotal, 0)
-  for (let y = 0; y <= YEARS; y++) assert.ok(Math.abs(straight.points[y].cumulative - straight.points[0].saving * (y + 1)) < 1e-6, `year ${y}`)
+  // With no ramp, the saving cumulates in a straight line from today.
+  const straight = project(inputs, typicalV({ scale_months: 0 }))
+  for (let y = 0; y <= YEARS; y++) assert.ok(Math.abs(straight[y].cumulative - straight[0].saving * (y + 1)) < 1e-6, `year ${y}`)
+})
+
+await test('the cumulative is the running sum of the gaps from today, low ≤ typical ≤ high, and it is what the five-year figure reports', () => {
+  const r = calculate({ ...base, growth: '0.25' }, data)
+  for (const s of SCENARIOS) {
+    const p = r[s].projection
+    assert.equal(p.length, YEARS + 1)
+    let sum = 0
+    for (const q of p) {
+      assert.ok(Math.abs(q.realised - (q.custodial - q.nostr)) < 1e-6, `${s} year ${q.year}: realised is the gap`)
+      sum += q.realised
+      assert.ok(Math.abs(q.cumulative - sum) < 1e-6)
+      assert.ok(q.realised > 0 && q.cumulative > 0, 'never in the red: there is no cost to recover')
+    }
+    assert.equal(r[s].totals.five_year, p[YEARS].cumulative)
+    assert.equal(r[s].totals.marker_year, p[MARKER_YEAR].cumulative)
+    assert.equal('payback_month' in r[s].totals, false)
+    assert.equal('today_if_integrated' in r[s].totals, false)
+    assert.equal('integration' in r[s], false)
+  }
+  assert.ok(r.low.totals.five_year <= r.typical.totals.five_year && r.typical.totals.five_year <= r.high.totals.five_year)
 })
 
 await test('the calendar: month 1 is January 2027, the first yearly mark after today is 2028 and Nostr is at scale in 2030', () => {
@@ -767,24 +674,18 @@ await test('fixed program fees do not scale with users; per-user costs do', () =
 })
 
 await test('the growth default applies only when growth is not given', () => {
-  const given = project(normalizeInputs({ ...base, growth: '0.5' }), typicalV({ growth_default: 0 })).points
-  const blank = project(normalizeInputs(base), typicalV({ growth_default: 0 })).points
+  const given = project(normalizeInputs({ ...base, growth: '0.5' }), typicalV({ growth_default: 0 }))
+  const blank = project(normalizeInputs(base), typicalV({ growth_default: 0 }))
   assert.ok(given[1].users > blank[1].users)
   assert.equal(blank[1].users, base.mau)
 })
 
-await test('the lines\' gaps over the projection add up to the gaps between the lines, and the net is that less the integration and the overlap', () => {
+await test('the lines\' five-year savings add up to the five-year total, in every scenario', () => {
   const r = calculate({ ...base, growth: '0.25' }, data)
   for (const s of SCENARIOS) {
-    const p = r[s].projection
-    const gaps = p.reduce((acc, q) => acc + q.custodial - q.nostr, 0)
     const sum = LINES.reduce((acc, l) => acc + r[s].lines[l].five_year, 0)
-    assert.ok(Math.abs(sum - gaps) < 1e-6, `${s}: ${sum} vs ${gaps}`)
+    assert.ok(Math.abs(sum - r[s].totals.five_year) < 1e-6, `${s}: ${sum} vs ${r[s].totals.five_year}`)
     for (const l of LINES) assert.ok(r[s].lines[l].five_year >= -1e-6, `${l} never negative`)
-    const realised = p.reduce((acc, q) => acc + q.realised, 0)
-    const spent = p.reduce((acc, q) => acc + q.integration + q.overlap, 0)
-    assert.ok(realised <= gaps + 1e-6, 'what is realised is at most what the network delivers')
-    assert.ok(Math.abs(r[s].totals.five_year - (realised - spent)) < 1e-6)
   }
 })
 
@@ -896,8 +797,7 @@ await test('a baseline printout, for the eye', () => {
   const f = (n) => Math.round(n).toLocaleString('en-US').padStart(12)
   for (const l of LINES) console.log(`     ${l.padEnd(11)} ${f(r.lines[l].custodial)} ${f(r.lines[l].noncustodial)}`)
   console.log(`     ${'total'.padEnd(11)} ${f(r.totals.custodial)} ${f(r.totals.noncustodial)}   per MAU ${r.totals.per_mau_custodial.toFixed(2)} → ${r.totals.per_mau_noncustodial.toFixed(2)}   cash ${f(r.totals.saving_cash)} fees ${f(r.totals.saving_fees)} risk ${f(r.totals.saving_risk)}`)
-  console.log(`     integration ${r.integration.weeksTotal} weeks, ${r.integration.months} months, ${f(r.integration.cost)}; overlap ${r.integration.overlap} months; payback month ${r.integration.paybackMonth}`)
-  for (const p of r.projection) console.log(`     year ${p.year}  ${String(p.users).padStart(9)} users  custody ${f(p.custodial)}  nostr ${f(p.nostr)}  net ${f(p.net)}  so far ${f(p.cumulative)}`)
+  for (const p of r.projection) console.log(`     year ${p.year}  ${String(p.users).padStart(9)} users  custody ${f(p.custodial)}  nostr ${f(p.nostr)}  saved ${f(p.realised)}  so far ${f(p.cumulative)}`)
 })
 
 console.log(failures ? `\n${failures} failed` : '\nall passed')

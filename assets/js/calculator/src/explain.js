@@ -1,15 +1,13 @@
 // "How this is calculated": the arithmetic behind one part of one line, with
-// the visitor's numbers in it, and the assumptions it rests on; and the same
-// for the one-time integration behind the payback figure. The words are
-// templates in the page's copy (strings.how.formulas, strings.how.integration);
-// the numbers come from the result, the inputs and the assumption values in
-// use. Pure: no DOM.
+// the visitor's numbers in it, and the assumptions it rests on. The words are
+// templates in the page's copy (strings.how.formulas); the numbers come from
+// the result, the inputs and the assumption values in use. Pure: no DOM.
 
 import { t } from '../../shared/src/config.js'
 import { compact, money, number, percent, perMau } from './format.js'
-import { INTEGRATION_ASSUMPTIONS, PART_ASSUMPTIONS, RETENTION_MONTHS, WEEKS_PER_YEAR, calendarYear, derivedAssumptions } from './model.js'
+import { PART_ASSUMPTIONS, RETENTION_MONTHS, WEEKS_PER_YEAR, calendarYear, derivedAssumptions } from './model.js'
 
-/** Fill {a.key}, {i.key}, {p.key}, {d.key} and {w.key} from a flat map; anything unknown stays visible. */
+/** Fill {a.key}, {i.key}, {p.key} and {d.key} from a flat map; anything unknown stays visible. */
 export function fill(template, vars) {
   return String(template).replace(/\{([a-z]\.[a-z_0-9]+)\}/g, (m, key) => (vars[key] == null ? m : String(vars[key])))
 }
@@ -20,7 +18,6 @@ export function formatValue(v, unit = '') {
   if (unit === 'multiplier') return `${number(v)}×`
   if (/^USD/.test(unit)) return v < 100 ? perMau(v) : money(v)
   if (unit === 'months') return `${number(v)} ${v === 1 ? t('how.units.month') : t('how.units.months')}`
-  if (unit === 'weeks') return `${number(v)} ${v === 1 ? t('how.units.week') : t('how.units.weeks')}`
   return number(v)
 }
 
@@ -149,39 +146,6 @@ export function explain(line, part, { inputs, values, overrides = {}, data, scal
     // What the savings list shows: the same part in the year the network is at scale, at that year's users.
     at_scale: part.scale_custodial != null ? fill(t('how.at_scale'), { ...vars, 'p.custodial': money(part.scale_custodial), 'p.noncustodial': money(part.scale_noncustodial) }) : '',
     assumptions: describe(relevantKeys(line, part, inputs), { values, overrides, data }),
-  }
-}
-
-/**
- * The explanation for the integration behind the payback figure: the weeks
- * per piece, the cost at the loaded hour, the months and the overlap, and
- * the payback month; with the assumptions it rests on, the pieces that
- * needed no work left out.
- */
-export function explainIntegration({ integration, values, overrides = {}, data, payback }) {
-  const i = integration
-  const vars = {}
-  for (const [key, weeks] of Object.entries(i.weeks)) vars[`w.${key}`] = number(weeks)
-  vars['w.total'] = number(i.weeksTotal)
-  vars['w.hourly'] = perMau(i.hourly)
-  vars['w.cost'] = money(i.cost)
-  vars['w.engineers'] = number(i.engineers)
-  vars['w.months'] = number(i.months)
-  vars['w.overlap'] = number(i.overlap)
-  vars['w.live'] = number(i.liveMonth + 1)
-  for (const [key, a] of Object.entries(data.assumptions)) vars[`a.${key}`] = formatValue(values[key], a.unit)
-  const none = i.weeksTotal <= 0
-  const keys = INTEGRATION_ASSUMPTIONS.filter((key) => {
-    const m = key.match(/^integ_weeks_(\w+)$/)
-    if (m) return i.weeks[m[1]] > 0
-    return !none
-  })
-  return {
-    label: t('how.integration.title'),
-    weeks: fill(none ? t('how.integration.none') : t('how.integration.weeks'), vars),
-    cost: none ? '' : fill(t('how.integration.cost'), vars),
-    payback: payback == null ? t('no_payback') : fill(t('payback').replace('{n}', '{w.payback}'), { ...vars, 'w.payback': number(payback) }),
-    assumptions: describe(keys, { values, overrides, data }),
   }
 }
 
