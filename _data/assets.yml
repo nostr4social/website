@@ -19,4 +19,4 @@ contact:
 calculator:
   app:
     path: /assets/js/calculator/calculator.js
-    integrity: "sha384-7gP35gMYUphWKyr9JgFskNfJ79aN0FLhCsjT0009mN6pv60LO7W+yiQ7u077LLxs"
+    integrity: "sha384-gu0VkhT44GMJ1trayyVVWtc0u/0XT0fU06o5gfXISfqQd4s4XYmCtnDkFmHabgF0"

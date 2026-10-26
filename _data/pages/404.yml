@@ -25,7 +25,7 @@ sections:
       - title: Nostr 4 Social Apps
         href: /nostr/
         body: The business case for the protocol, and what custody costs.
-      - title: Cost of Custody Calculator
+      - title: Non-Custodial Savings Calculator
         href: /calculator/
         body: What holding your users costs you a year, line by line.
       - title: TrustR

@@ -236,7 +236,7 @@ supplies member figures; they set the payback figure, not the saving.
 | `default_hours_legal` | Engineering hours a week on legal and compliance work, where the sliders start | 2 | 0 | 5 | hours per week | unsourced | none |
 | `gdpr_program_year` | GDPR program for a small app (EU or UK) | 30,000 | 10,000 | 50,000 | USD per year | low | [Legiscope: GDPR compliance cost ranges for SMEs (vendor estimate)](https://legiscope.com/blog/gdpr-compliance-cost) (2026) |
 | `uk_osa_year` | UK Online Safety Act, small or micro service | 11,000 | 3,000 | 65,000 | USD per year | medium | [DSIT Online Safety Act enactment impact assessment, tables 49 to 52](https://assets.publishing.service.gov.uk/media/6716222b9242eecc6c849b09/Online_Safety_act_enactment_impact_assessment.pdf) (2024-10) |
-| `dsa_year` | EU Digital Services Act, non-VLOP platform | 5,000 | 1,500 | 20,000 | USD per year | unsourced | [ACT position paper citing the Commission's DSA notice-and-action setup floor](https://www.acte.be/) (2021) |
+| `dsa_year` | EU Digital Services Act, non-VLOP platform | 5,000 | 1,500 | 20,000 | USD per year | unsourced | [ACT position paper citing the Commission's DSA notice-and-action setup cost](https://www.acte.be/) (2021) |
 | `us_privacy_year_small` | US privacy program, below the CCPA threshold | 3,000 | 1,000 | 10,000 | USD per year | unsourced | none |
 | `us_privacy_year_large` | US privacy program, at or above the CCPA threshold | 15,000 | 5,000 | 50,000 | USD per year | unsourced | none |
 | `ccpa_consumer_threshold` | CCPA consumer threshold | 100,000 | 100,000 | 100,000 | consumers | high | [California Attorney General: CCPA thresholds](https://oag.ca.gov/privacy/ccpa) (2026) |
@@ -252,7 +252,7 @@ supplies member figures; they set the payback figure, not the saving.
 - `default_hours_legal`: Deletion flows, export tooling, retention jobs. Same bands as above.
 - `gdpr_program_year`: Vendor ranges: micro 5k to 15k EUR, small 15k to 50k. Outsourced DPO alone runs 1,500 to 8,000 per month.
 - `uk_osa_year`: Impact assessment, 2019 prices: ongoing 6,040 GBP with moderation and risk assessment, plus 7,460 GBP transition spread over three years; low is the 87 GBP basic case; high is a small high-risk service at 50,800 GBP. Converted at 1.30 USD per GBP.
-- `dsa_year`: Point of contact, legal representative outside the EU, notice-and-action, statements of reasons. The only published floor is the Commission's 1,500 EUR setup estimate.
+- `dsa_year`: Point of contact, legal representative outside the EU, notice-and-action, statements of reasons. The only published figure is the Commission's 1,500 EUR setup estimate.
 - `us_privacy_year_small`: Policy, COPPA posture, basic counsel.
 - `us_privacy_year_large`: Counsel, opt-out mechanisms, state-law tracking.
 - `ccpa_consumer_threshold`: The law applies above 25M USD revenue, or 100k California consumers or households, or 50% of revenue from selling personal information. Compared against US users × the California share.

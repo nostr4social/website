@@ -1,4 +1,4 @@
-// /calculator/ — the Cost of Custody Calculator.
+// /calculator/ — the Non-Custodial Savings Calculator.
 //
 // Read top to bottom: this file is the whole flow. Inputs come from the form
 // or from a results link; the model (model.js) turns them into six lines in
@@ -35,6 +35,7 @@ import {
   focusAssumptions,
   markChanged,
   openHow,
+  openIntegration,
   readOverrides,
   renderResults,
   setError,
@@ -273,6 +274,9 @@ function valuesFor(result, contact) {
     distribution: i.distribution,
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
+    // The payback month and the typical integration weeks travel too, once the form has questions for them (map.yml).
+    payback_month: T.payback_month ?? '',
+    integ_weeks: Math.round(result.typical.integration.weeksTotal * 10) / 10,
     link: result.link,
     overrides: Object.keys(result.overrides).length ? JSON.stringify(result.overrides) : '',
     version: String(result.version),
@@ -354,13 +358,19 @@ async function save(signer) {
 
   $('#save-submit').disabled = true
   status.textContent = t('status.saving')
+  const mining = $('#save-mining')
   try {
     const { event, ok, relays } = await submitResponse(form, {
       signer,
       values: valuesFor(result, contact),
       pow,
-      onProgress: ({ tries }) => (status.textContent = fmt(t('status.mining'), { hashes: tries })),
+      // The visible line stays quiet; the hash count goes to the live region for anyone who wants it.
+      onProgress: ({ tries }) => {
+        status.textContent = t('status.mining')
+        if (mining) mining.textContent = fmt(t('status.mining_count'), { hashes: tries })
+      },
     })
+    if (mining) mining.textContent = ''
     sends.push(Date.now())
     status.textContent = ok ? fmt(t('modal.saved'), { ok, total: relays.length, id: event.id.slice(0, 12) }) : t('status.failed')
     setStatus(status.textContent)
@@ -395,7 +405,9 @@ async function tell(signer, result, contact, open) {
       noncustodial: compact(result.typical.totals.noncustodial),
       at_scale: compact(result.typical.totals.at_scale),
       five_year: compact(result.typical.totals.five_year),
-      floor: compact(result.low.totals.five_year),
+      low: compact(result.low.totals.five_year),
+      payback: result.typical.totals.payback_month,
+      today: compact(result.typical.totals.today_if_integrated),
     },
     link: result.link,
     contact,
@@ -491,6 +503,7 @@ function wire() {
   $('#r-edit')?.addEventListener('click', onEdit)
   $('#calc-reset')?.addEventListener('click', onResetForm)
   $('#r-whose-link')?.addEventListener('click', onEdit)
+  $('#r-sourced-link')?.addEventListener('click', () => activateTab('assumptions', { focus: true }))
   wireCharts()
   $('#a-reset')?.addEventListener('click', onReset)
   $('#a-recalc')?.addEventListener('click', onRecalculate)
@@ -523,6 +536,11 @@ function wire() {
     const button = e.target.closest('button.part')
     if (button && current) openHow(button.dataset.line, button.dataset.part, current, assumptions)
   })
+  // The payback figure explains the integration behind it, in the same dialog.
+  $('#r-payback')?.addEventListener('click', () => {
+    if (current) openIntegration(current, assumptions)
+  })
+  $('#save-sign-open')?.addEventListener('click', openSign)
   $('#how-close')?.addEventListener('click', closeHow)
   $('#how-adjust')?.addEventListener('click', () => {
     closeHow()

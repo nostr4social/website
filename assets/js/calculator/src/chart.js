@@ -15,10 +15,11 @@
 //                                   the ramp is the network's; users run
 //                                   along the bottom, first and last. The one
 //                                   the page lists.
-//   chart-cumulative-savings        cumulative saving by year, typical case
-//                                   as the line, low case as the floor; kept
-//                                   drawable, listed in the page's copy when
-//                                   wanted.
+//   chart-cumulative-savings        the net cumulative saving by year, after
+//                                   integration and overlap, typical case as
+//                                   the line, low case dashed beneath it, the
+//                                   payback month marked; kept drawable,
+//                                   listed in the page's copy when wanted.
 //
 // Each is drawn at its figure's own pixel width so text stays readable at
 // every size, and redrawn when that width changes. The year-by-year table
@@ -51,34 +52,40 @@ function node(name, attrs = {}, children = []) {
   return n
 }
 
-/** Draw (or redraw) both charts for these projections: { typical, low, start_year }. */
+/**
+ * Draw (or redraw) both charts for these projections:
+ * { typical, low, start_year, marker, payback }, where `marker` is the gold
+ * figure beside the rule at the marker year (the cash saving that year, as
+ * the headline has it) and `payback` the month the cumulative first reaches
+ * zero, or null.
+ */
 export function drawCharts(projections) {
   last = projections
   if (!projections) return
-  const { typical, low, start_year } = projections
+  const { typical, low, start_year, marker, payback } = projections
   const label = (year) => yearLabel(start_year, year)
   draw(CUMULATIVE, {
     series: [
-      { key: 'low', cls: 'chart__floor', points: low.map((p) => p.cumulative) },
+      { key: 'low', cls: 'chart__lowcase', points: low.map((p) => p.cumulative) },
       { key: 'typical', cls: 'chart__line', points: typical.map((p) => p.cumulative), markers: [MARKER_YEAR, YEARS] },
     ],
     band: ['typical', 'low'],
     labels: [
       ...[MARKER_YEAR, YEARS].map((year) => ({ key: 'typical', year, cls: 'chart__label', dy: -12, text: fmt(t('chart.marker'), { amount: compact(typical[year].cumulative), n: label(year) }) })),
-      { key: 'low', year: YEARS, cls: 'chart__floor-label', dy: -8, text: fmt(t('chart.floor'), { amount: compact(low[YEARS].cumulative) }) },
+      { key: 'low', year: YEARS, cls: 'chart__lowcase-label', dy: -8, text: fmt(t('chart.low_case'), { amount: compact(low[YEARS].cumulative) }) },
     ],
+    // The payback month, as a rule at its place along the years.
+    payback: payback != null ? { at: payback / 12, text: fmt(t('payback'), { n: number(payback) }) } : null,
     title: fmt(t('chart.aria'), { end: compact(typical[YEARS].cumulative), low: compact(low[YEARS].cumulative) }),
     tip: (year) => {
       const p = typical[year]
-      return year === 0
-        ? [fmt(t('chart.tip.users'), { n: number(p.users) }), fmt(t('chart.tip.custodial'), { amount: compact(p.custodial) })]
-        : [
-            fmt(t('chart.tip.users'), { n: number(p.users) }),
-            fmt(t('chart.tip.custodial'), { amount: compact(p.custodial) }),
-            fmt(t('chart.tip.noncustodial'), { amount: compact(p.noncustodial) }),
-            fmt(t('chart.tip.realised'), { amount: compact(p.realised) }),
-            fmt(t('chart.tip.cumulative'), { amount: compact(p.cumulative) }),
-          ]
+      return [
+        fmt(t('chart.tip.users'), { n: number(p.users) }),
+        fmt(t('chart.tip.custodial'), { amount: compact(p.custodial) }),
+        fmt(t('chart.tip.noncustodial'), { amount: compact(p.nostr) }),
+        fmt(t('chart.tip.realised'), { amount: compact(p.net) }),
+        fmt(t('chart.tip.cumulative'), { amount: compact(p.cumulative) }),
+      ]
     },
   })
   const end = typical[YEARS]
@@ -94,7 +101,8 @@ export function drawCharts(projections) {
     labels: [],
     // A gold rule from dot to dot, and beside it, hero-sized and gold, its
     // length: what the app saves a year from the year the network is at scale.
-    watermark: { year: MARKER_YEAR, between: ['custodial', 'nostr'], text: compact(scale.custodial - scale.nostr), sub: t('chart.versus.band_sub') },
+    // The figure is the cash saving that year, as the headline has it; the rule is the whole gap.
+    watermark: { year: MARKER_YEAR, between: ['custodial', 'nostr'], text: marker || compact(scale.custodial - scale.nostr), sub: t('chart.versus.band_sub') },
     title: fmt(t('chart.versus.aria'), { year: label(MARKER_YEAR), custodial: compact(scale.custodial), noncustodial: compact(scale.nostr), saving: compact(scale.custodial - scale.nostr), total: compact(end.cumulative) }),
     // Two horizontal axes: the calendar along the top, from the start, since
     // the ramp is the network's; projected users along the bottom, first and
@@ -124,23 +132,27 @@ function draw(id, spec) {
   svg.setAttribute('height', String(height))
   while (svg.lastChild && svg.lastChild.tagName !== 'title') svg.removeChild(svg.lastChild)
 
-  const top = Math.max(1, ...spec.series.flatMap((s) => s.points))
+  // The scale runs from zero, or below it where a cumulative starts in the red.
+  const all = spec.series.flatMap((s) => s.points)
+  const top = Math.max(1, ...all)
+  const bottom = Math.min(0, ...all)
   const right = PAD.right
   const plotW = width - PAD.left - right
   const plotH = height - PAD.top - PAD.bottom
   const x = (year) => PAD.left + (plotW * year) / YEARS
-  const y = (value) => PAD.top + plotH - (plotH * Math.max(0, value)) / top
+  const y = (value) => PAD.top + plotH - (plotH * (value - bottom)) / (top - bottom)
   const by = Object.fromEntries(spec.series.map((s) => [s.key, s.points]))
   const at = (key, year) => (key === 'gap' ? (y(by[spec.band[0]][year]) + y(by[spec.band[1]][year])) / 2 : y(by[key][year]))
 
-  // The grid: three quiet lines and the baseline, labelled in compact money.
+  // The grid: three quiet lines and the baseline, labelled in compact money; a zero line where the scale dips below it.
   const grid = node('g', { class: 'chart__grid' })
   const axis = node('g', { class: 'chart__axis' })
   for (let i = 0; i <= 3; i++) {
-    const value = (top * i) / 3
+    const value = bottom + ((top - bottom) * i) / 3
     grid.append(node('line', { x1: PAD.left, x2: width - right, y1: y(value), y2: y(value), class: i === 0 ? 'chart__baseline' : null }))
     if (i > 0) axis.append(node('text', { x: PAD.left - 8, y: y(value) + 4, 'text-anchor': 'end' }, [compact(value)]))
   }
+  if (bottom < 0) grid.append(node('line', { x1: PAD.left, x2: width - right, y1: y(0), y2: y(0), class: 'chart__baseline' }))
   // Every year at full width; on a phone the start, the year at scale and
   // the end. A row marked `ends` shows only its first and last value, with
   // the axis named between them.
@@ -170,12 +182,18 @@ function draw(id, spec) {
   }
   // Labels sit above-left (or below-left) of their point so they clear the
   // rising lines; one inside the band is left out when the band is too thin.
-  // A label set below its point moves above it when the point sits on the floor.
+  // A label set below its point moves above it when the point sits on the baseline.
   for (const l of spec.labels) {
     if (l.minGap && Math.abs(y(by[spec.band[0]][l.year]) - y(by[spec.band[1]][l.year])) < l.minGap) continue
     const py = at(l.key, l.year)
     const dy = l.above != null && py + l.dy > PAD.top + plotH - 2 ? l.above : l.dy
     marks.append(node('text', { class: l.cls, x: x(l.year) + (l.dx ?? -8), y: py + dy, 'text-anchor': l.anchor || 'end' }, [l.text]))
+  }
+
+  if (spec.payback) {
+    const px = x(Math.min(YEARS, spec.payback.at))
+    lines.append(node('line', { class: 'chart__payback', x1: px, x2: px, y1: PAD.top, y2: PAD.top + plotH }))
+    marks.append(node('text', { class: 'chart__payback-label', x: px + 6, y: PAD.top + 14, 'text-anchor': 'start' }, [spec.payback.text]))
   }
 
   if (spec.watermark) {

@@ -22,14 +22,13 @@ sections:
     # The lede runs the full width here: the page is a tool, not an essay.
     wide: true
     head:
-      eyebrow: Nostr Integration - Justified
+      eyebrow: Nostr integration, justified
       eyebrow_tone: gold
       title: Non-Custodial Savings Calculator
-      lede: >-
-        User custody is a cost center that is often overlooked, and for good reason. Most social apps have no choice but to hold custody of user accounts and their content. Selling access to these is one means of recouping the cost. But what if non-custody itself was actually ... a more profitable option? 
-        
-        >
-        This calculator exposes the misunderstood cost center of holding custody, and the savings to be had by releasing custody, of user accounts and data in social apps.
+      lede: |-
+        Holding custody of user accounts and content is a cost most social apps carry without choosing to. It pays for authentication, storage, serving, moderation, compliance and the engineering behind all of it. Nostr lets an app release that custody to its users and to the network, and keep the brand, the product and the business.
+
+        This calculator puts a number on it: what custody costs your app today, what the same app pays on Nostr, and the savings between the two.
 
   - type: calculator
     id: calculator
@@ -143,17 +142,24 @@ sections:
       app: App Details
       assumptions: Assumptions
       # What the cost tab shows before anything has been calculated.
-      empty: Fill in App Info and press Calculate.
+      empty: Fill in App Details and press Calculate.
 
     # ── the Save & Share modal ───────────────────────────────────────────────
     # Its title, description and questions come from the form's own section;
     # this is the chrome around them. Brief on purpose.
     modal:
       consent: You may email me about these results.
-      save: Send Results to Nostr4
+      save: Book a free consult with these results
       copy: Copy URL for Sharing
       close: Close
       switch: Switch
+      # The disclosure under the button: closed by default, for visitors with a key of their own.
+      sign_summary: Already on Nostr? Sign with your key
+      sign_note: >-
+        Sign with your browser extension or remote signer and the submission
+        is yours to update or revisit later from any Nostr client. Otherwise a
+        one-time key made in this tab signs it.
+      sign_open: Choose how to sign
       # The dialog Save to Nostr opens: how the response is signed.
       sign:
         title: Sign the response
@@ -169,23 +175,24 @@ sections:
     results:
       title: Estimated Savings
       # The pictures, in order, full width. The ids are the chart module's;
-      # it also draws chart-cumulative-savings (cumulative saving by year
-      # with the low case as a floor) if listed here.
+      # it also draws chart-cumulative-savings (the net cumulative by year
+      # with the low case beneath it and the payback month marked) if listed
+      # here.
       charts:
         - id: chart-custodial-cost-vs-nostr
           title: Projected Nostr Integration
           legend:
             custodial: Cost of Custody
             nostr: Cost of Nostr
+          # {year} is the year the network is at scale; {months} and
+          # {overlap} are the integration's calendar, filled by the script.
           caption: >-
-            Your annual costs start where you are today 
-            and fall as Nostr infrastructure and standards scale out. 
-            Over the next three years, we predict the network's 
-            ability to support non-custody will increase, 
-            supporting cost savings for every integrated app. 
-            The gold line marks this prediction, and the golden number
-            is your savings every year from then on. Integration
-            cost is not estimated here, and varries from app to app.
+            The Cost of Nostr line is what an app on Nostr pays each year:
+            lower today, and falling as the network's standards and
+            infrastructure scale. The gap in {year} is the figure above.
+            Integration takes about {months} months and the two stacks
+            overlap for {overlap} more; that cost is in the payback figure,
+            not in the lines.
       # The three facts under the chart, all for the year Nostr is at scale,
       # like the figure in the chart and the savings list: the two costs per
       # user that year, and the Nostr cost that year. The custodial figure has
@@ -193,14 +200,13 @@ sections:
       # in every case.
       stats:
         custodial_per_mau:
-          label: >-
-            Custodial Cost per User
+          label: "Custodial cost per user, {year}"
         nostr_per_mau:
-          label: Nostr Cost per User
+          label: "Nostr cost per user, {year}"
         nostr_at_scale:
-          label: Nostr Cost per Year
-      # Measures down, years across; the script fills the year heads and the
-      # cells, and writes the five years of saving beside the summary.
+          label: "Nostr cost a year, {year}"
+      # Measures down, years across from today; the script fills the year
+      # heads and the cells, and writes the net cumulative beside the summary.
       years:
         summary: Year by year
         columns:
@@ -209,8 +215,9 @@ sections:
           users: Active users
           custodial: Cost of Custody
           nostr: Cost of Nostr
-          realised: Saved
-          cumulative: Cumulative Savings
+          integration: Integration and overlap
+          net: Saved (net)
+          cumulative: Cumulative
       # Where the saving comes from: the six lines as the saving a year once
       # Nostr is at scale, which add up to the figure in the chart.
       table:
@@ -226,20 +233,29 @@ sections:
           title: Accounts & personal data
           remains: >-
             An age signal from the store or wallet where the law still asks
-            for one, the signer and passkey login you still build, and
-            support for users who manage their own keys.
+            for one, the signer login you still build, and a hand-off for
+            users who need a key-management service.
         - id: graph
           icon: hub
           title: Social graph & feeds
           remains: >-
             A client that assembles feeds from relays, and a ranking or
             discovery provider you run or choose.
+          goes: >-
+            Feeds assemble on the client, and ranking is a service your users
+            choose or you choose for them. Their follows, mutes and feed
+            settings travel with them across apps.
         - id: storage
           icon: storage
           title: Compute & storage
           remains: >-
-            Relays of your own that grow with your users, media you choose
-            to host, a thin cache, and the engineering to run them.
+            Relay capacity for users who don't bring their own, rented from a
+            provider who carries the hosting duties; media you choose to host;
+            a thin cache; and the engineering to run them.
+          goes: >-
+            Users keep their events on relays and their media with hosts they
+            choose, and both travel with them. You pay for the users who bring
+            neither, as a sponsored or premium add-on.
         - id: compliance
           icon: doc
           title: Compliance & liability
@@ -252,8 +268,14 @@ sections:
           title: Moderation
           remains: >-
             Illegal-content handling for any relay you run, app-store filter
-            and report rules, and a label or web-of-trust provider. Review and
-            ranking move to the network.
+            and report rules, and a label or web-of-trust provider. An app
+            that rents relay capacity hosts nothing itself; the provider
+            handles illegal content on its relays. Review and ranking move to
+            the network.
+          goes: >-
+            Labels, trust scores and ranking are services on the network,
+            shared across apps. A user's mutes and filters work in every
+            client they use.
         - id: payments
           icon: card
           title: Payments
@@ -263,11 +285,40 @@ sections:
             in-app purchase for digital goods. Your own revenue can move to
             peer-to-peer rails, bitcoin or stablecoins, at about 1% instead
             of 3% plus 15 to 30%. On-ramp costs fall on your users and
-            affect conversion, not your P&L.
+            affect conversion, not your P&L. For a marketplace: transaction
+            revenue is not a cost line. On an open market, listings and
+            settlement are peer to peer and the app is not a party to the
+            sale, so there is no commission to save or to collect. See Conduit
+            (conduit.market) and the Open Markets specification
+            (openmarkets.pub).
       # Quiet notes under a line's name, where one applies.
       already: Already on Nostr
       partly: Partly on Nostr
       no_payments: No in-app payments
+      # What integration involves: one sentence per piece, in the order the
+      # integration runs; {weeks} is that piece's typical weeks from the
+      # assumptions file, filled at build time. Then the doors.
+      integration:
+        title: What integration involves
+        lines:
+          - id: accounts
+            text: "Accounts: signer login and the key hand-off, about {weeks} weeks."
+          - id: graph
+            text: "Graph: profiles, follows and feeds as signed events, about {weeks} weeks."
+          - id: storage
+            text: "Storage: relay connections, the outbox model and caching, about {weeks} weeks."
+          - id: media
+            text: "Media: user-chosen hosting, Blossom or similar, about {weeks} weeks."
+          - id: moderation
+            text: "Moderation: labels, web of trust and a ranking provider, about {weeks} weeks."
+          - id: payments
+            text: "Payments: your own revenue on a peer-to-peer rail, about {weeks} weeks."
+        actions:
+          - label: See Services
+            href: /services/
+            style: primary
+          - label: Book a Free Consult
+            href: /contact/?subject=Free+consult
       actions:
         edit:
           label: Customize App Details
@@ -317,10 +368,10 @@ sections:
       reset: Reset to typical
       files_label: The files behind this
       files:
-        - label: assumptions.v2.json
-          href: /calculator/assumptions.v2.json
-        - label: assumptions.v2.md
-          href: /calculator/assumptions.v2.md
+        - label: assumptions.v3.json
+          href: /calculator/assumptions.v3.json
+        - label: assumptions.v3.md
+          href: /calculator/assumptions.v3.md
       noscript: >-
         The calculator needs JavaScript to run. The assumptions it uses are
         listed here, with sources; for an estimate by hand, contact us.
@@ -330,8 +381,23 @@ sections:
       range: "Range {low} to {high}"
       range_short: "{low} to {high}"
       per_mau_pair: "{custodial} today, {noncustodial} on Nostr"
-      # Beside the year-by-year summary: the five years of saving added up.
-      cumulative_note: "{amount} saved over five years"
+      # The headline: the cash saving a year at scale, a range with typical
+      # inside it; the risk saving on its own smaller line.
+      headline: "{low} to {high} a year, typically {typical}"
+      headline_sub: "in {year}, at {users} active users"
+      headline_risk: "plus {risk} a year less breach exposure"
+      # Under it, dim: what the network would deliver this year to an app
+      # already integrated, and beside it the payback month.
+      today_if: "{amount} a year if you were integrated today"
+      payback: "Pays back in month {n}"
+      no_payback: Does not pay back within five years
+      # Under the headline, in the body ink, counted from the file at build time.
+      sourced_line: "{sourced} of {total} assumptions are sourced; every one is listed, graded and yours to change."
+      sourced_link: See Assumptions
+      # Beside the year-by-year summary: the net cumulative, after integration.
+      cumulative_note: "{amount} net over five years, after integration"
+      # The moderation line when the form says nobody moderates: the benchmark it would have billed.
+      moderation_nobody: "No moderation today. Benchmarks put it at about {people} people, {cost} a year. On Nostr that work moves to the network; nothing is saved because nothing is spent."
       # "How this is calculated": the dialog a part opens. {a.key} is an
       # assumption's value in use, {i.key} an input, {p.key} the part's own
       # number, {d.key} a derived one. Each formula has a today and a Nostr line.
@@ -344,6 +410,25 @@ sections:
         at_scale: "At scale ({d.scale_year}, {d.scale_users} users): {p.custodial} of custody becomes {p.noncustodial} on Nostr. That is the figure in the savings list."
         showing: "Showing the {n} assumptions behind {part}."
         show_all: Show all
+        # The same dialog for the integration behind the payback figure. {w.key}
+        # is a figure of the integration: the weeks per piece, their total, the
+        # loaded hour, the cost, the engineers, the months, the overlap, and the
+        # first month the custodial stack is off.
+        integration:
+          title: Integration and overlap
+          weeks_label: Person-weeks
+          cost_label: Cost and time
+          weeks: "Accounts {w.accounts}, graph {w.graph}, storage {w.storage}, media {w.media}, moderation {w.moderation}, payments {w.payments}: {w.total} person-weeks, each piece scaled by what you already have on Nostr."
+          cost: "{w.total} person-weeks × 40 hours × {w.hourly} an hour, fully loaded = {w.cost}. With {w.engineers} engineers that is about {w.months} months, then {w.overlap} months with both stacks running and nothing saved yet; the custodial stack is off from month {w.live}."
+          none: "Nothing to integrate: your app is already on Nostr."
+        # A unit's word beside a value in the dialog, singular and plural.
+        units:
+          week: week
+          weeks: weeks
+          month: month
+          months: months
+        # The CCPA test, shown with the programs and the access requests where the app has US users.
+        ccpa: "The CCPA counts consumers a year: {i.mau} users × {a.annual_users_per_mau} × {p.us_share} in the US × {a.ca_share_of_us_users} in California = {p.ca_consumers}, against a threshold of {a.ccpa_consumer_threshold}."
         confidence:
           high: sourced
           medium: derived
@@ -362,16 +447,16 @@ sections:
             nostr: "Nothing. Keys replace accounts, so there is no authentication service to pay for."
           resets:
             today: "{i.mau} users × {a.reset_rate_per_mau_year} resets a year × {a.reset_cost} a reset = {p.custodial}"
-            nostr: "Nothing. There are no passwords to reset."
+            nostr: "Nothing. Keys cannot be reset, so there is no reset to support."
           verify:
             today: "{i.mau} users × {p.rate} checked a year (each region's share of users at that region's rate) × {a.verify_price} a check = {p.custodial}"
-            nostr: "{a.verify_remains_share} of checks remain, where the law still reaches the client: {p.noncustodial}"
+            nostr: "{a.verify_remains_share} of checks remain at scale, where the law still reaches the client: {p.noncustodial}"
           engineering_accounts:
             today: "{p.hours} hours a week × {d.weeks} weeks × {p.hourly} an hour, fully loaded = {p.custodial}"
-            nostr: "{a.accounts_eng_remains_share} remains, for signer and passkey login, recovery and sessions: {p.noncustodial}"
-          key_support:
+            nostr: "{a.accounts_eng_remains_share} remains at scale, for signer login, recovery hand-off and sessions: {p.noncustodial}"
+          key_handoff:
             today: "Nothing today."
-            nostr: "{i.mau} users × {a.key_support_per_mau_year} a year for onboarding, recovery guidance and signer support = {p.noncustodial}"
+            nostr: "{i.mau} users × {a.reset_rate_per_mau_year} key hand-offs a year × ({a.support_self_service_contact} self-service + {a.key_handoff_live_share} of them live at {a.support_live_contact}) = {p.noncustodial}"
           database:
             today: "{p.gb} GB ({i.mau} users × {a.db_mb_per_mau} MB, plus {p.posts} posts a month kept {d.retention} months at {a.db_kb_per_post} KB) × {a.db_gb_month} a GB-month × 12 = {p.custodial}"
             nostr: "Nothing. The graph lives on relays."
@@ -380,58 +465,61 @@ sections:
             nostr: "Nothing. Feeds assemble on the client."
           engineering_graph:
             today: "{p.hours} hours a week × {d.weeks} weeks × {p.hourly} an hour, fully loaded = {p.custodial}"
-            nostr: "{a.graph_eng_remains_share} remains, for the client's own feed logic: {p.noncustodial}"
+            nostr: "{a.graph_eng_remains_share} remains at scale, for the client's own feed logic: {p.noncustodial}"
           ranking:
             today: "Nothing today."
             nostr: "{i.mau} users × {a.ranking_fee_per_mau_year} a year for a ranking or discovery provider = {p.noncustodial}"
           blob:
             today: "{i.mau} users × {i.mb} MB = {p.gb} GB × {a.blob_gb_month} a GB-month × 12 = {p.custodial}"
-            nostr: "{a.media_sponsor_share} remains, for media you still choose to host: {p.noncustodial}"
+            nostr: "{a.media_sponsor_share} remains at scale, for media you still choose to host: {p.noncustodial}"
           egress:
             today: "{i.mau} users × {a.egress_gb_per_mau_month} GB a month × 12 = {p.gb} GB × {a.egress_gb} a GB = {p.custodial}"
-            nostr: "{a.media_sponsor_share} remains, for the media you still host: {p.noncustodial}"
+            nostr: "{a.media_sponsor_share} remains at scale, for the media you still host: {p.noncustodial}"
           serving:
             today: "{i.mau} users × {a.compute_per_mau_year} a year × {p.share} of it on serving = {p.custodial}"
             nostr: "{i.mau} users × {a.cache_per_mau_year} a year for a thin cache = {p.noncustodial}"
           engineering_storage:
             today: "{p.hours} hours a week × {d.weeks} weeks × {p.hourly} an hour, fully loaded = {p.custodial}"
-            nostr: "{a.infra_eng_remains_share} remains, for relay connections, caching and media handling: {p.noncustodial}"
+            nostr: "{a.infra_eng_remains_share} remains at scale, for relay connections, caching and media handling: {p.noncustodial}"
           relay:
             today: "Nothing today."
-            nostr: "Relays of your own: the greater of {a.relay_floor_year} a year and {i.mau} users × {a.relay_per_mau_year} a year = {p.noncustodial}"
+            nostr: "Capacity for the {a.relay_sponsored_share} of users who don't bring their own: the greater of {a.relay_floor_year} a year and {i.mau} × {a.relay_sponsored_share} × {a.relay_per_mau_year} = {p.noncustodial}"
           privacy_programs:
-            today: "{d.programs} = {p.custodial}"
-            nostr: "{a.content_law_remains_share} of the content-law programs remain, for whatever you still host, and {a.privacy_remains_share} of the privacy programs, for whatever you still retain: {p.noncustodial}"
+            today: "{d.programs} = {p.custodial}. {d.ccpa}"
+            nostr: "{a.content_law_remains_share} of the content-law programs remain at scale, for whatever you still host, and {a.privacy_remains_share} of the privacy programs, for whatever you still retain: {p.noncustodial}"
           privacy_programs_reported:
             today: "Your reported legal, privacy and compliance spend, {p.custodial}, replaces the estimate."
-            nostr: "Of that, the content-law part ({p.content_law}) remains at {a.content_law_remains_share} and the rest at {a.privacy_remains_share}: {p.noncustodial}"
+            nostr: "Of that, at scale, the content-law part ({p.content_law}) remains at {a.content_law_remains_share} and the rest at {a.privacy_remains_share}: {p.noncustodial}"
           legal_labour:
             today: "{p.hours} hours a week × {d.weeks} weeks × {p.hourly} an hour, fully loaded = {p.custodial}"
-            nostr: "{a.privacy_remains_share} remains, for whatever you still retain: {p.noncustodial}"
+            nostr: "{a.privacy_remains_share} remains at scale, for whatever you still retain: {p.noncustodial}"
           dsar:
-            today: "{p.users} users under a privacy law (the EU and the UK always, the US once the CCPA applies) × {a.dsar_rate_per_mau_year} access requests a year × {a.dsar_cost} each, automated = {p.custodial}"
-            nostr: "The same rate on the {a.retained_data_share} of personal data still held: {p.noncustodial}"
+            today: "{p.users} users under a privacy law (the EU and the UK always, the US once the CCPA applies, counted as consumers a year) × {a.dsar_rate_per_mau_year} access requests a year × {a.dsar_cost} each, automated = {p.custodial}"
+            nostr: "The same rate on the {a.retained_data_share} of personal data still held at scale: {p.noncustodial}"
           insurance:
             today: "A small company's cyber policy: {a.cyber_insurance_year} a year."
-            nostr: "{a.insurance_remains_share} remains: {p.noncustodial}"
+            nostr: "{a.insurance_remains_share} remains at scale: {p.noncustodial}"
           breach:
             today: "An expected loss, not a bill: {a.breach_prob_year} chance a year × the lesser of {a.breach_cost_cap} and {i.mau} users × {a.breach_cost_per_user} = {p.custodial}"
-            nostr: "The same chance, on the {a.retained_data_share} of personal data still held: {p.noncustodial}"
+            nostr: "The same chance, on the {a.retained_data_share} of personal data still held at scale: {p.noncustodial}"
           labour_implied:
             today: "No reviewers were given, so {a.mods_per_million_mau} per million users gives {p.people} people × {p.loaded} a year, fully loaded = {p.custodial}"
-            nostr: "{a.moderation_remains_share} remains, for whatever you host yourself: {p.noncustodial}"
+            nostr: "{a.moderation_remains_share} remains at scale, for whatever you host yourself: {p.noncustodial}"
           labour_team:
             today: "{p.people} on your team × {p.loaded} a year, fully loaded = {p.custodial}"
-            nostr: "{a.moderation_remains_share} remains, for whatever you host yourself: {p.noncustodial}"
+            nostr: "{a.moderation_remains_share} remains at scale, for whatever you host yourself: {p.noncustodial}"
           labour_vendor:
             today: "{p.people} vendor seats × {a.moderator_seat_outsourced} a year, all-in = {p.custodial}"
-            nostr: "{a.moderation_remains_share} remains, for whatever you host yourself: {p.noncustodial}"
+            nostr: "{a.moderation_remains_share} remains at scale, for whatever you host yourself: {p.noncustodial}"
+          labour_nobody:
+            today: "Nobody moderates today: nothing is spent."
+            nostr: "Nothing is saved. Benchmarks would put this at {p.benchmark_people} people, {p.benchmark_cost} a year."
           appeals:
             today: "{a.appeals_share} of review labour, for appeals and escalation = {p.custodial}"
-            nostr: "{a.moderation_remains_share} remains: {p.noncustodial}"
+            nostr: "{a.moderation_remains_share} remains at scale: {p.noncustodial}"
           tooling:
             today: "{i.mau} users × {a.ts_tooling_per_mau_year} a year for classifiers, queues and hash matching = {p.custodial}"
-            nostr: "{a.tooling_remains_share} remains, for hash matching on what you host: {p.noncustodial}"
+            nostr: "{a.tooling_remains_share} remains at scale, for hash matching on what you host: {p.noncustodial}"
           labels:
             today: "Nothing today."
             nostr: "{i.mau} users × {a.label_provider_per_mau_year} a year for a label or web-of-trust provider = {p.noncustodial}"
@@ -452,7 +540,7 @@ sections:
             nostr: "The same: {p.noncustodial}"
           money_transmitter_holds:
             today: "Holding balances means staying out of money-transmitter rules: {a.mt_avoidance_year} a year."
-            nostr: "{a.mt_remains_share} remains: {p.noncustodial}"
+            nostr: "{a.mt_remains_share} remains at scale: {p.noncustodial}"
           money_transmitter:
             today: "Nothing. No balances are held."
             nostr: "Nothing."
@@ -463,7 +551,7 @@ sections:
       whose:
         illustrative: Estimated
         yours: Your estimate
-        frame: "{lead} for {kind} {reach} that is {nostr} and has {mau} active users, with a team of {team}, {moderation}, and processes {payments} in-app payments."
+        frame: "{lead} for {kind} {reach} that is {nostr} and has {mau} active users, with {team}, {moderation}, and processes {payments} in-app payments."
         kind:
           none: an app
           messaging: a messaging app
@@ -472,10 +560,11 @@ sections:
           marketplace: a marketplace
         team:
           one: one founder
-          ten: up to 10 rockstars
-          fifty: up to 50 winners
-          more: more than 50 employees
+          ten: a team of up to 10
+          fifty: a team of up to 50
+          more: a team of more than 50
         moderation:
+          benchmark: moderation at benchmark levels
           nobody: no moderation
           team: in-house moderation
           vendor: third-party moderation
@@ -499,16 +588,14 @@ sections:
       chart:
         today: Today
         marker: "{amount} by {n}"
-        floor: "at least {amount}"
-        aria: "Cumulative saving rises to {end} by year five; the low case gives at least {low}."
+        low_case: "low case {amount}"
+        aria: "Net cumulative saving, after integration, reaches {end} by year five; the low case reaches {low}."
         tip:
           users: "{n} active users"
           custodial: "Custody that year: {amount}"
           noncustodial: "On Nostr: {amount}"
           realised: "Saved that year: {amount}"
           cumulative: "Saved so far: {amount}"
-          path: "On the way to Nostr: {amount}"
-          gap: "Saved that year: {amount}"
         versus:
           band_sub: savings per year
           start: Today
@@ -516,7 +603,7 @@ sections:
           tip_custody: "Cost of Custody: {amount}"
           tip_nostr: "Cost of Nostr: {amount}"
           tip_cumulative: "Cumulative Savings: {amount}"
-          aria: "In {year}, when Nostr is at scale, custody costs {custodial} a year against {noncustodial} on Nostr, a saving of {saving} a year; the area between the lines is {total} over five years."
+          aria: "In {year}, when Nostr is at scale, custody costs {custodial} a year against {noncustodial} on Nostr, a saving of {saving} a year; the area between the lines, net of integration, is {total} over five years, with the low case below it."
       version: "Assumptions version {version}"
       contact_subject: Cost of custody estimate
       # What the Save & Share modal says at runtime.
@@ -583,7 +670,8 @@ sections:
         money_transmitter: Money-transmitter avoidance
       status:
         saving: Saving your inputs as a Nostr form response
-        mining: "Proving work on the response · {hashes} hashes"
+        mining: "Preparing your submission…"
+        mining_count: "{hashes} hashes"
         saved: "Saved as a Nostr form response · {ok} of {total} relays"
         failed: Could not reach a relay to save your inputs. Your results are unaffected.
         shared: Opened from a results link. Nothing was submitted.
@@ -599,7 +687,10 @@ sections:
         subject: Cost of custody lead
         results: "Custodial {custodial} a year; on Nostr {noncustodial}."
         at_scale: "At scale: saves {at_scale} a year."
-        five_year: "Saved over five years: {five_year}, at least {floor}."
+        five_year: "Net over five years, after integration: {five_year}; {low} in the low case."
+        payback: "Payback: month {n}."
+        no_payback: "Payback: not within five years."
+        today: "Today if integrated: {amount} a year."
         link: "Results: {link}"
         open: "Open in the calculator: {link}"
       errors:
@@ -645,7 +736,12 @@ sections:
     head:
       title: Nostr at Scale
       lede: >-
-        Nostr4 exists to grow the network of independent social apps. We are activly developing infrastructure and standards along with our onboarding services. We predict that in three years, non-custody will be fully supported and proffitable on the Nostr network. This milestone will be the tipping point from which Nostr scales.
+        Nostr4 exists to grow the network of independent social apps. We are
+        actively developing the infrastructure and standards, and the
+        onboarding services, that let an app release custody without losing
+        its users. We expect non-custody to be fully supported and profitable
+        on Nostr within three years. That is the tipping point from which
+        Nostr scales.
     actions:
       - label: Read More about Nostr
         href: /nostr/

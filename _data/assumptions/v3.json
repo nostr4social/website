@@ -674,11 +674,11 @@
       "high": 20000,
       "confidence": "unsourced",
       "source": {
-        "title": "ACT position paper citing the Commission's DSA notice-and-action setup floor",
+        "title": "ACT position paper citing the Commission's DSA notice-and-action setup cost",
         "url": "https://www.acte.be/",
         "date": "2021"
       },
-      "note": "Point of contact, legal representative outside the EU, notice-and-action, statements of reasons. The only published floor is the Commission's 1,500 EUR setup estimate.",
+      "note": "Point of contact, legal representative outside the EU, notice-and-action, statements of reasons. The only published figure is the Commission's 1,500 EUR setup estimate.",
       "line": "compliance",
       "group": "compliance"
     },
@@ -751,7 +751,7 @@
       "label": "Data subject access requests per user",
       "unit": "requests per MAU per year",
       "typical": 0.0002,
-      "low": 0.00005,
+      "low": 5e-05,
       "high": 0.001,
       "confidence": "low",
       "source": {

@@ -6,9 +6,9 @@
 import { $, $$, clear, el, show } from '../../shared/src/dom.js'
 import { fmt, t } from '../../shared/src/config.js'
 import { compact, money, number, percent, perMau } from './format.js'
-import { LINES, MARKER_YEAR, YEARS } from './model.js'
+import { LINES, MARKER_YEAR, YEARS, calendarYear } from './model.js'
 import { drawCharts, yearLabel } from './chart.js'
-import { explain } from './explain.js'
+import { explain, explainIntegration } from './explain.js'
 
 // The two bounds in reading order, whichever scenario gave which: low is the
 // smaller saving, so on the Nostr side it is the larger cost.
@@ -22,31 +22,55 @@ const rangeFull = (a, b, f = compact) => {
   return Math.abs(high - low) < 1e-9 ? '' : fmt(t('range'), { low: f(low), high: f(high) })
 }
 
+/** "Pays back in month 18", or the words for never within the projection. */
+export function paybackText(month) {
+  return month == null ? t('no_payback') : fmt(t('payback'), { n: number(month) })
+}
+
 export function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result
   const T = typical.totals
+  const year = calendarYear(result.start_year, MARKER_YEAR)
 
   // Whose estimate this is, and the app it describes, one piece per section.
-  // The saving a year at scale is in the chart, between the two gold dots.
   renderWhose(result, own)
   const link = $('#r-whose-link')
   if (link) link.textContent = t('whose.link')
 
-  // The three facts under the chart, all for the year Nostr is at scale:
-  // the custodial cost per user that year (that side does not vary, so it
-  // has no range), the Nostr cost per user that year, and the Nostr cost
-  // that year, the lower gold dot, each with its range. The five years of
-  // saving added up sit on the year-by-year summary, where their table is.
+  // The headline: the cash saving a year at scale as a range with typical
+  // inside it, for the marker year at that year's users; the risk saving
+  // apart; then, dimmer, what the network would deliver this year to an
+  // app already integrated, and the payback month beside it.
+  const [headLow, headHigh] = ordered(low.totals.at_scale_cash, high.totals.at_scale_cash)
+  text('#r-head-figure', fmt(t('headline'), { low: compact(headLow), high: compact(headHigh), typical: compact(T.at_scale_cash) }))
+  text('#r-head-sub', fmt(t('headline_sub'), { year, users: number(T.scale_users) }))
+  text('#r-head-risk', fmt(t('headline_risk'), { risk: compact(T.at_scale_risk) }))
+  show($('#r-head-risk'), T.at_scale_risk >= 1)
+  text('#r-today', fmt(t('today_if'), { amount: compact(T.today_if_integrated) }))
+  text('#r-payback', paybackText(T.payback_month))
+
+  // The three facts under the chart, all for the year Nostr is at scale,
+  // each label naming it: the custodial cost per user that year (that side
+  // does not vary, so it has no range), the Nostr cost per user that year,
+  // and the Nostr cost that year, the lower gold dot, each with its range.
+  for (const id of ['r-permau-c-label', 'r-permau-nc-label', 'r-scale-nostr-label']) {
+    const node = $(`#${id}`)
+    if (node?.dataset.template) node.textContent = fmt(node.dataset.template, { year })
+  }
   text('#r-permau-c', perMau(T.scale_per_mau_custodial))
   text('#r-permau-c-range', rangeFull(low.totals.scale_per_mau_custodial, high.totals.scale_per_mau_custodial, perMau))
   text('#r-permau-nc', perMau(T.scale_per_mau_nostr))
   text('#r-permau-nc-range', rangeFull(low.totals.scale_per_mau_nostr, high.totals.scale_per_mau_nostr, perMau))
   text('#r-scale-nostr', compact(T.scale_nostr))
   text('#r-scale-nostr-range', rangeFull(low.totals.scale_nostr, high.totals.scale_nostr))
+  // The net cumulative, after integration and overlap, sits on the year-by-year summary, where its table is.
   text('#r-cumulative', fmt(t('cumulative_note'), { amount: compact(T.five_year) }))
   text('#r-version', fmt(t('version'), { version: result.version }))
 
-  drawCharts({ typical: typical.projection, low: low.projection, start_year: result.start_year })
+  // The chart's caption names the marker year and the integration's calendar.
+  const caption = $('#caption-chart-custodial-cost-vs-nostr')
+  if (caption?.dataset.template) caption.textContent = fmt(caption.dataset.template, { year, months: number(typical.integration.months), overlap: number(typical.integration.overlap) })
+  drawCharts({ typical: typical.projection, low: low.projection, start_year: result.start_year, marker: compact(T.at_scale_cash), payback: T.payback_month })
   renderYears(typical.projection, result.start_year)
 
   // Where the saving comes from: each line's saving a year at scale, and the
@@ -63,6 +87,16 @@ export function renderResults(result, { own = false } = {}) {
     show($('.lt-flag--already', row), Boolean(line.already))
     show($('.lt-flag--partly', row), Boolean(line.partly))
     show($('.lt-flag--none', row), Boolean(line.none))
+
+    // A line nobody moderates shows zero to zero and says what the benchmark would have been; no saving is claimed.
+    const nobody = Boolean(line.nobody)
+    row.classList.toggle('is-nobody', nobody)
+    const nobodyNote = $('.lt-flag--nobody', row)
+    if (nobodyNote) {
+      const benchmark = line.parts.find((p) => p.id === 'labour')?.benchmark
+      nobodyNote.textContent = nobody && benchmark ? fmt(t('moderation_nobody'), { people: number(benchmark.people), cost: compact(benchmark.cost) }) : ''
+      show(nobodyNote, nobody && Boolean(benchmark))
+    }
 
     const saving = $('.lt-saving', row)
     const rangeNode = $('.lt-saving-range', row)
@@ -94,7 +128,7 @@ function renderWhose(result, own) {
     kind: piece(t(`whose.kind.${inputs.kind || 'none'}`), inputs.kind != null),
     mau: piece(number(inputs.mau), true),
     team: piece(t(`whose.team.${eff.team}`), inputs.team != null),
-    moderation: piece(t(`whose.moderation.${inputs.mod_who || 'nobody'}`), inputs.mod_who != null),
+    moderation: piece(t(`whose.moderation.${inputs.mod_who || 'benchmark'}`), inputs.mod_who != null),
     payments: piece(inputs.rev > 0 ? fmt(t('whose.payments.some'), { rev: compact(inputs.rev) }) : t('whose.payments.none'), inputs.rev > 0),
     reach: piece(fmt(t('whose.reach.in'), { list: regions.join(t('whose.reach.join')) }), true),
     nostr: piece(t(`whose.nostr.${eff.nostr_now}`), inputs.nostr_now != null),
@@ -106,18 +140,25 @@ function renderWhose(result, own) {
   }
 }
 
-/** The year-by-year table under the chart: the picture as numbers, measures down and calendar years across. */
+/** The year-by-year table under the chart: the picture as numbers, measures down and calendar years across, from today. */
 function renderYears(projection, startYear) {
   const head = $('#r-years-head')
   if (!head) return
   for (const extra of $$('th[data-year]', head)) extra.remove()
-  for (let year = 1; year <= YEARS; year++) head.append(el('th', { scope: 'col', class: 'years-num', 'data-year': year, text: yearLabel(startYear, year) }))
-  const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), nostr: (p) => money(p.nostr), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) }
+  for (let year = 0; year <= YEARS; year++) head.append(el('th', { scope: 'col', class: 'years-num', 'data-year': year, text: yearLabel(startYear, year) }))
+  const cell = {
+    users: (p) => number(p.users),
+    custodial: (p) => money(p.custodial),
+    nostr: (p) => money(p.nostr),
+    integration: (p) => money(p.integration + p.overlap),
+    net: (p) => money(p.net),
+    cumulative: (p) => money(p.cumulative),
+  }
   for (const row of $$('#r-years tbody tr[data-row]')) {
     const value = cell[row.dataset.row]
     if (!value) continue
     for (const old of $$('td', row)) old.remove()
-    for (let year = 1; year <= YEARS; year++) row.append(el('td', { class: 'years-num', text: value(projection[year]) }))
+    for (let year = 0; year <= YEARS; year++) row.append(el('td', { class: 'years-num', text: value(projection[year]) }))
   }
 }
 
@@ -169,20 +210,47 @@ let howLabel = ''
 
 /** Fill and open the dialog for one part of one line. */
 export function openHow(line, partId, result, data) {
-  const dialog = $('#how-modal')
   const part = result.typical.lines[line]?.parts.find((p) => p.id === partId)
-  if (!dialog || !part) return
+  if (!part) return
   const info = explain(line, part, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, scale: { year: MARKER_YEAR, users: result.typical.totals.scale_users } })
-  howKeys = info.assumptions.map((a) => a.key)
-  howLabel = info.label
-  text('#how-part', info.label)
-  text('#how-line', $(`.lt-row[data-line="${line}"] .lt-title`)?.textContent.trim() || line)
-  text('#how-today', info.today)
-  text('#how-nostr', info.nostr)
-  text('#how-scale', info.at_scale)
+  fillHow({
+    label: info.label,
+    line: $(`.lt-row[data-line="${line}"] .lt-title`)?.textContent.trim() || line,
+    heads: [t('details.today'), t('details.on_nostr')],
+    rows: [info.today, info.nostr],
+    foot: info.at_scale,
+    assumptions: info.assumptions,
+  })
+}
+
+/** The same dialog for the integration behind the payback figure: weeks per piece, cost and time, the payback month. */
+export function openIntegration(result, data) {
+  const info = explainIntegration({ integration: result.typical.integration, values: result.typical.values, overrides: result.overrides, data, payback: result.typical.totals.payback_month })
+  fillHow({
+    label: info.label,
+    line: '',
+    heads: [t('how.integration.weeks_label'), t('how.integration.cost_label')],
+    rows: [info.weeks, info.cost],
+    foot: info.payback,
+    assumptions: info.assumptions,
+  })
+}
+
+function fillHow({ label, line, heads, rows, foot, assumptions }) {
+  const dialog = $('#how-modal')
+  if (!dialog) return
+  howKeys = assumptions.map((a) => a.key)
+  howLabel = label
+  text('#how-part', label)
+  text('#how-line', line)
+  text('#how-dt-today', heads[0])
+  text('#how-dt-nostr', heads[1])
+  text('#how-today', rows[0])
+  text('#how-nostr', rows[1])
+  text('#how-scale', foot)
   const list = $('#how-list')
   clear(list)
-  for (const a of info.assumptions) {
+  for (const a of assumptions) {
     list.append(
       el('li', { class: 'how__item' }, [
         el('span', { class: 'how__label' }, [a.label, a.changed ? el('span', { class: 'how__changed', text: t('how.changed') }) : null]),
@@ -193,7 +261,7 @@ export function openHow(line, partId, result, data) {
       ]),
     )
   }
-  show($('#how-adjust'), info.assumptions.length > 0)
+  show($('#how-adjust'), assumptions.length > 0)
   if (!dialog.open) dialog.showModal()
 }
 
@@ -232,6 +300,7 @@ function partMeta(p, inputs) {
   if (p.id === 'processor') return fmt(t('details.rate'), { rate: percent(p.rate) })
   if (p.id === 'verify' && p.rate != null) return fmt(t('details.checked'), { rate: percent(p.rate) })
   if (p.id === 'privacy_programs') return p.reported ? t('details.reported') : p.us_tier ? t(`details.us_${p.us_tier}`) : ''
+  if (p.id === 'labour' && p.nobody) return ''
   if (p.id === 'labour' && p.people != null) {
     if (p.implied) return fmt(t('details.people_implied'), { n: number(p.people) })
     const which = p.who === 'vendor' ? 'seats' : 'people'

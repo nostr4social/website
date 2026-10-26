@@ -1,13 +1,15 @@
 // "How this is calculated": the arithmetic behind one part of one line, with
-// the visitor's numbers in it, and the assumptions it rests on. The words are
-// templates in the page's copy (strings.how.formulas); the numbers come from
-// the result, the inputs and the assumption values in use. Pure: no DOM.
+// the visitor's numbers in it, and the assumptions it rests on; and the same
+// for the one-time integration behind the payback figure. The words are
+// templates in the page's copy (strings.how.formulas, strings.how.integration);
+// the numbers come from the result, the inputs and the assumption values in
+// use. Pure: no DOM.
 
 import { t } from '../../shared/src/config.js'
 import { compact, money, number, percent, perMau } from './format.js'
-import { PART_ASSUMPTIONS, RETENTION_MONTHS, WEEKS_PER_YEAR, calendarYear, derivedAssumptions } from './model.js'
+import { INTEGRATION_ASSUMPTIONS, PART_ASSUMPTIONS, RETENTION_MONTHS, WEEKS_PER_YEAR, calendarYear, derivedAssumptions } from './model.js'
 
-/** Fill {a.key}, {i.key}, {p.key} and {d.key} from a flat map; anything unknown stays visible. */
+/** Fill {a.key}, {i.key}, {p.key}, {d.key} and {w.key} from a flat map; anything unknown stays visible. */
 export function fill(template, vars) {
   return String(template).replace(/\{([a-z]\.[a-z_0-9]+)\}/g, (m, key) => (vars[key] == null ? m : String(vars[key])))
 }
@@ -17,22 +19,23 @@ export function formatValue(v, unit = '') {
   if (/^ratio/.test(unit)) return percent(v)
   if (unit === 'multiplier') return `${number(v)}×`
   if (/^USD/.test(unit)) return v < 100 ? perMau(v) : money(v)
-  if (unit === 'months') return `${number(v)} months`
+  if (unit === 'months') return `${number(v)} ${v === 1 ? t('how.units.month') : t('how.units.months')}`
+  if (unit === 'weeks') return `${number(v)} ${v === 1 ? t('how.units.week') : t('how.units.weeks')}`
   return number(v)
 }
 
 /** Which template a part uses: most have one, a few branch on what applied. */
 function variant(line, part) {
   if (part.id === 'engineering') return `engineering_${line}`
-  if (part.id === 'labour') return part.implied ? 'labour_implied' : `labour_${part.who}`
+  if (part.id === 'labour') return part.nobody ? 'labour_nobody' : part.implied ? 'labour_implied' : `labour_${part.who}`
   if (part.id === 'privacy_programs') return part.reported ? 'privacy_programs_reported' : 'privacy_programs'
   if (part.id === 'money_transmitter') return part.holds ? 'money_transmitter_holds' : 'money_transmitter'
   return part.id
 }
 
 const MONEY = new Set(['custodial', 'noncustodial', 'revenue', 'loaded', 'gdpr', 'osa', 'dsa', 'usp', 'content_law'])
-const PERCENT = new Set(['rate', 'share'])
-const CENTS = new Set(['hourly', 'fixed'])
+const PERCENT = new Set(['rate', 'share', 'us_share', 'sponsored'])
+const CENTS = new Set(['hourly', 'fixed', 'contact'])
 
 /** The part's own numbers, formatted by what they are. */
 function partVars(part) {
@@ -40,6 +43,12 @@ function partVars(part) {
   for (const [k, v] of Object.entries(part)) {
     if (typeof v !== 'number') continue
     out[`p.${k}`] = MONEY.has(k) ? money(v) : PERCENT.has(k) ? percent(v) : CENTS.has(k) ? perMau(v) : number(v)
+  }
+  // The benchmark a line nobody moderates carries: what it would have billed.
+  if (part.benchmark) {
+    out['p.benchmark_people'] = number(part.benchmark.people)
+    out['p.benchmark_loaded'] = money(part.benchmark.loaded)
+    out['p.benchmark_cost'] = money(part.benchmark.cost)
   }
   return out
 }
@@ -65,7 +74,7 @@ export function relevantKeys(line, part, inputs) {
     // A region's weight matters only when there is more than one region to weigh.
     const w = key.match(/^jur_weight_(\w+)$/)
     if (w) return jur.length > 1 && jur.includes(w[1])
-    if (key === 'ca_share_of_us_users') return jur.includes('us')
+    if (key === 'ca_share_of_us_users' || key === 'annual_users_per_mau') return jur.includes('us')
     if (key === 'retained_data_share' && part.id === 'dsar') return part.custodial > 0
     if (key === 'gdpr_program_year') return jur.includes('eu') || jur.includes('uk')
     if (key === 'uk_osa_year') return jur.includes('uk')
@@ -79,10 +88,29 @@ export function relevantKeys(line, part, inputs) {
     if (/_rate_standard$/.test(key)) return part.tier === 'standard'
     if (key === 'ts_base_salary') return part.who === 'team'
     if (key === 'moderator_seat_outsourced') return part.who === 'vendor'
+    // A line nobody moderates rests on the benchmark it names, and on nothing else.
+    if (part.nobody) return key === 'moderator_base_salary' || key === 'mods_per_million_mau' || key === 'loaded_multiplier' || key === 'overhead_multiplier'
     if (key === 'moderator_base_salary' || key === 'mods_per_million_mau') return Boolean(part.implied)
     if (part.id === 'labour' && (key === 'loaded_multiplier' || key === 'overhead_multiplier')) return part.who !== 'vendor'
     if (key === 'mt_avoidance_year' || key === 'mt_remains_share') return Boolean(part.holds)
     return true
+  })
+}
+
+/** The assumptions behind a figure, with their values, ranges and whether one was changed. */
+function describe(keys, { values, overrides = {}, data }) {
+  return keys.map((key) => {
+    const a = data.assumptions[key]
+    return {
+      key,
+      label: a.label,
+      unit: a.unit,
+      value: formatValue(values[key], a.unit),
+      low: formatValue(a.low, a.unit),
+      high: formatValue(a.high, a.unit),
+      confidence: a.confidence,
+      changed: key in overrides,
+    }
   })
 }
 
@@ -109,29 +137,51 @@ export function explain(line, part, { inputs, values, overrides = {}, data, scal
     'd.programs': programsList(part),
   }
   for (const [key, a] of Object.entries(data.assumptions)) vars[`a.${key}`] = formatValue(v[key], a.unit)
+  // The CCPA test, where the app has US users: shown with the programs and the access requests.
+  vars['d.ccpa'] = (inputs.jur || []).includes('us') && part.ca_consumers != null ? fill(t('how.ccpa'), vars) : ''
 
   const which = variant(line, part)
   const f = t(`how.formulas.${which}`) || t(`how.formulas.${part.id}`) || {}
-  const assumptions = relevantKeys(line, part, inputs).map((key) => {
-    const a = data.assumptions[key]
-    return {
-      key,
-      label: a.label,
-      unit: a.unit,
-      value: formatValue(v[key], a.unit),
-      low: formatValue(a.low, a.unit),
-      high: formatValue(a.high, a.unit),
-      confidence: a.confidence,
-      changed: key in overrides,
-    }
-  })
   return {
     label: t(`parts.${part.id}`, part.id),
     today: fill(f.today || '', vars),
     nostr: fill(f.nostr || '', vars),
     // What the savings list shows: the same part in the year the network is at scale, at that year's users.
     at_scale: part.scale_custodial != null ? fill(t('how.at_scale'), { ...vars, 'p.custodial': money(part.scale_custodial), 'p.noncustodial': money(part.scale_noncustodial) }) : '',
-    assumptions,
+    assumptions: describe(relevantKeys(line, part, inputs), { values, overrides, data }),
+  }
+}
+
+/**
+ * The explanation for the integration behind the payback figure: the weeks
+ * per piece, the cost at the loaded hour, the months and the overlap, and
+ * the payback month; with the assumptions it rests on, the pieces that
+ * needed no work left out.
+ */
+export function explainIntegration({ integration, values, overrides = {}, data, payback }) {
+  const i = integration
+  const vars = {}
+  for (const [key, weeks] of Object.entries(i.weeks)) vars[`w.${key}`] = number(weeks)
+  vars['w.total'] = number(i.weeksTotal)
+  vars['w.hourly'] = perMau(i.hourly)
+  vars['w.cost'] = money(i.cost)
+  vars['w.engineers'] = number(i.engineers)
+  vars['w.months'] = number(i.months)
+  vars['w.overlap'] = number(i.overlap)
+  vars['w.live'] = number(i.liveMonth + 1)
+  for (const [key, a] of Object.entries(data.assumptions)) vars[`a.${key}`] = formatValue(values[key], a.unit)
+  const none = i.weeksTotal <= 0
+  const keys = INTEGRATION_ASSUMPTIONS.filter((key) => {
+    const m = key.match(/^integ_weeks_(\w+)$/)
+    if (m) return i.weeks[m[1]] > 0
+    return !none
+  })
+  return {
+    label: t('how.integration.title'),
+    weeks: fill(none ? t('how.integration.none') : t('how.integration.weeks'), vars),
+    cost: none ? '' : fill(t('how.integration.cost'), vars),
+    payback: payback == null ? t('no_payback') : fill(t('payback').replace('{n}', '{w.payback}'), { ...vars, 'w.payback': number(payback) }),
+    assumptions: describe(keys, { values, overrides, data }),
   }
 }
 

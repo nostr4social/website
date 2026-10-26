@@ -50,7 +50,7 @@ try {
 
   // ── the page's submit module, bundled for node ────────────────────────────
   const dir = await mkdtemp(join(tmpdir(), 'nostr4-form-e2e-'))
-  const strings = { compose: { header: 'via test:', subject: 'lead', results: '{custodial} / {noncustodial}', five_year: 'five years {five_year}, floor {floor}', link: 'link {link}', open: 'open {link}' } }
+  const strings = { compose: { header: 'via test:', subject: 'lead', results: '{custodial} / {noncustodial}', five_year: 'five years {five_year}, low {low}', payback: 'payback {n}', no_payback: 'no payback', today: 'today {amount}', link: 'link {link}', open: 'open {link}' } }
   const config = { relays: { fallback_dm: [RELAY], discovery: [RELAY] }, timeouts: { publish: 4000, discovery: 2000 }, pow: { response: 12 } }
   const shim = join(dir, 'shim.mjs')
   await writeFile(shim, `
@@ -128,8 +128,10 @@ try {
   check('a stranger cannot decrypt it', (() => { try { decrypt(got.content, getConversationKey(generateSecretKey(), got.pubkey)); return false } catch { return true } })())
 
   // ── the lead message ──────────────────────────────────────────────────────
-  const text = m.composeLead({ inputs: { mau: 50000, jur: ['eu', 'us'] }, result: { custodial: '$968k', noncustodial: '$266k', five_year: '$3.1M', floor: '$400k' }, link: 'https://x', contact: { email: 'founder@example.com' }, fieldLabels: { mau: { label: 'Monthly active users' } } })
-  check('the lead text names the source, the inputs, the figures, the link and the contact', text.startsWith('via test:') && text.includes('Monthly active users: 50000') && text.includes('jur: eu, us') && text.includes('$968k / $266k') && text.includes('five years $3.1M, floor $400k') && text.includes('link https://x') && text.endsWith('email: founder@example.com'), text)
+  const text = m.composeLead({ inputs: { mau: 50000, jur: ['eu', 'us'] }, result: { custodial: '$968k', noncustodial: '$266k', five_year: '$3.1M', low: '$400k', payback: 14, today: '$93k' }, link: 'https://x', contact: { email: 'founder@example.com' }, fieldLabels: { mau: { label: 'Monthly active users' } } })
+  check('the lead text names the source, the inputs, the figures, the payback, today\'s figure, the link and the contact', text.startsWith('via test:') && text.includes('Monthly active users: 50000') && text.includes('jur: eu, us') && text.includes('$968k / $266k') && text.includes('five years $3.1M, low $400k') && text.includes('payback 14') && text.includes('today $93k') && text.includes('link https://x') && text.endsWith('email: founder@example.com'), text)
+  const never = m.composeLead({ inputs: {}, result: { custodial: '$1', noncustodial: '$1', payback: null }, link: 'https://x', contact: {}, fieldLabels: {} })
+  check('a lead that never pays back says so', never.includes('no payback'), never)
 
   // ── reading a response back ───────────────────────────────────────────────
   const back = m.readResponses(map, answers)
