@@ -58,22 +58,17 @@ export function renderResults(result, { own = false } = {}) {
     const line = typical.lines[name]
     const row = $(`.lt-row[data-line="${name}"]`)
     if (!row) continue
-    const nudged = Boolean(line.nudge) && line.at_scale < 1
     row.classList.toggle('is-already', Boolean(line.already))
     row.classList.toggle('is-none', Boolean(line.none))
-    row.classList.toggle('is-nudged', nudged)
     show($('.lt-flag--already', row), Boolean(line.already))
     show($('.lt-flag--partly', row), Boolean(line.partly))
     show($('.lt-flag--none', row), Boolean(line.none))
 
     const saving = $('.lt-saving', row)
     const rangeNode = $('.lt-saving-range', row)
-    const nudgeNode = $('.lt-nudge', row)
     saving.textContent = line.none ? '' : money(line.at_scale)
-    rangeNode.textContent = line.none || nudged ? '' : range(low.lines[name].at_scale, high.lines[name].at_scale)
-    nudgeNode.textContent = nudged ? fmt(t(`nudges.${line.nudge.id}`), { amount: compact(line.nudge.amount) }) : ''
-    show(saving, !nudged && !line.none)
-    show(nudgeNode, nudged)
+    rangeNode.textContent = line.none ? '' : range(low.lines[name].at_scale, high.lines[name].at_scale)
+    show(saving, !line.none)
     const share = line.none ? 0 : cut(line.custodial, line.noncustodial)
     $('.share', row).style.setProperty('--w', `${100 * share}%`)
     text(`.lt-row[data-line="${name}"] .share__pct`, line.none ? '' : percent(share))
@@ -117,7 +112,7 @@ function renderYears(projection, startYear) {
   if (!head) return
   for (const extra of $$('th[data-year]', head)) extra.remove()
   for (let year = 1; year <= YEARS; year++) head.append(el('th', { scope: 'col', class: 'years-num', 'data-year': year, text: yearLabel(startYear, year) }))
-  const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), path: (p) => money(p.path), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) }
+  const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), nostr: (p) => money(p.nostr), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) }
   for (const row of $$('#r-years tbody tr[data-row]')) {
     const value = cell[row.dataset.row]
     if (!value) continue
@@ -247,7 +242,7 @@ function partMeta(p, inputs) {
   if ((p.id === 'reseller' || p.id === 'p2p') && p.rate != null) return fmt(t('details.rate'), { rate: percent(p.rate) })
   if (p.id === 'database' && p.gb != null) return fmt(t('details.gb'), { gb: number(p.gb) })
   if (p.id === 'breach') return t('details.expected_loss')
-  if (p.id === 'relay' && p.floor) return t('details.floor')
+  if (p.id === 'relay' && p.minimum) return t('details.relay_minimum')
   if (p.id === 'dsar' && p.users != null && p.custodial > 0 && p.users < inputs.mau - 0.5) return fmt(t('details.dsar_users'), { n: number(Math.round(p.users)) })
   return ''
 }

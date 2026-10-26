@@ -208,7 +208,7 @@ sections:
         rows:
           users: Active users
           custodial: Cost of Custody
-          path: Cost of Nostr
+          nostr: Cost of Nostr
           realised: Saved
           cumulative: Cumulative Savings
       # Where the saving comes from: the six lines as the saving a year once
@@ -332,9 +332,6 @@ sections:
       per_mau_pair: "{custodial} today, {noncustodial} on Nostr"
       # Beside the year-by-year summary: the five years of saving added up.
       cumulative_note: "{amount} saved over five years"
-      # In place of a zero, where a line could save but does not yet.
-      nudges:
-        p2p: "Adds about {amount} a year with a peer-to-peer rail."
       # "How this is calculated": the dialog a part opens. {a.key} is an
       # assumption's value in use, {i.key} an input, {p.key} the part's own
       # number, {d.key} a derived one. Each formula has a today and a Nostr line.
@@ -551,7 +548,7 @@ sections:
         reported: as reported
         holds: holds balances
         expected_loss: expected loss, not a bill
-        floor: at the floor
+        relay_minimum: one managed relay
         dsar_users: "{n} users under a privacy law"
         # An expected loss sits apart from the bills, each group with its own sub-total.
         cash: Cash costs
@@ -561,7 +558,7 @@ sections:
         resets: Password resets
         verify: Identity and age checks
         engineering: Engineering time
-        key_support: Supporting self-managed keys
+        key_handoff: Key management hand-off
         database: Graph and metadata database
         feed_compute: Feed and recommendation compute
         ranking: Ranking provider

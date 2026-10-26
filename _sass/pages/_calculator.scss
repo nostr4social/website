@@ -1185,15 +1185,6 @@
   width: 3.4em;
 }
 
-.lt-nudge {
-  color: var(--ink-1);
-  display: block;
-  font-size: var(--fs-s);
-  line-height: var(--lh-card);
-  text-align: right;
-  white-space: normal;
-}
-
 .lt-remains {
   color: var(--ink-2);
   font-size: var(--fs-s);
@@ -2028,7 +2019,6 @@ tr.is-changed .assume-input {
     display: none;
   }
 
-  .lt-nudge,
   .ledger-table .lt-num {
     text-align: left;
   }

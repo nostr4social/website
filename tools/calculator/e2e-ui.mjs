@@ -254,7 +254,6 @@ await withBrowser(async (api) => {
       share: document.getElementById('save-open').className,
       sum: [...document.querySelectorAll('.lt-row .lt-saving')].reduce((a, n) => a + Number(n.textContent.replace(/[^\\d]/g, '')), 0),
       footRows: document.querySelectorAll('#r-table tfoot tr').length,
-      nudges: document.querySelectorAll('.lt-nudge:not([hidden])').length,
       subtitle: $('.results__sub').textContent,
       link: location.href,
       url: location.search,
@@ -275,7 +274,6 @@ await withBrowser(async (api) => {
   check('once the estimate is the visitor\'s own, the gold ring goes and Send & Share is filled', !r.illustrative && r.share.includes('btn--primary') && !r.share.includes('btn--secondary'), `${r.illustrative} ${r.share}`)
   check('the six lines add up to the figure in the chart, and there is no foot row', r.footRows === 0 && r.subtitle.trim().length > 0 && Math.abs(r.sum - parseFloat(r.hero.replace(/[^\d.]/g, '')) * (r.hero.endsWith('M') ? 1e6 : r.hero.endsWith('k') ? 1e3 : 1)) / r.sum < 0.01, `${r.sum} vs ${r.hero}`)
   check('the Nostr at Scale column names what remains, in the page\'s words', (await api.eval(`document.querySelector('#r-table thead .lt-remains').textContent + ' | ' + document.querySelector('.lt-row[data-line="payments"] .lt-remains').textContent.replace(/\\s+/g, ' ').trim()`)).startsWith('Nostr at Scale | Store rules still apply'))
-  check('no nudge where every line with rails already saves', r.nudges === 0, String(r.nudges))
   check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.includes('growth=0.5') && r.link.includes('team=ten') && r.link.endsWith('v=2'), r.link)
   check('sliders standing on "not given" or on a suggestion stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('eng_legal=') && !r.link.includes('kind=') && r.link.includes('mod_who=team') && r.link.includes('mod_heads=3'), r.link)
   check('the version is named', r.version.includes('2'), r.version)
@@ -428,15 +426,6 @@ await withBrowser(async (api) => {
   const picked = await api.eval(`({ track: getComputedStyle(document.getElementById('calc-tabs')).display, label: document.querySelector('#tabs-current .tabs__current-tab').textContent.trim(), tab: document.getElementById('tabs-current').dataset.tab, selected: document.getElementById('tab-app').getAttribute('aria-selected'), gold: getComputedStyle(document.getElementById('tabs-current')).color === getComputedStyle(document.getElementById('tab-app')).color })`)
   check('picking a tab folds the track and the row takes its name and colour', picked.track === 'none' && picked.tab === 'app' && picked.selected === 'true' && picked.label === (await api.eval(`document.getElementById('tab-app').textContent.trim()`)) && picked.gold, JSON.stringify(picked))
   await api.send('Emulation.clearDeviceMetricsOverride')
-
-  // ── a nudge in place of a zero ───────────────────────────────────────────
-  await api.goto(`${BASE}/calculator/?mau=50000&rails=apple%2Cgoogle&rev=10000&jur=us&team=ten&v=2`)
-  await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
-  const nudge = await api.eval(`(() => {
-    const row = document.querySelector('.lt-row[data-line="payments"]')
-    return { text: row.querySelector('.lt-nudge').textContent, nudgeHidden: row.querySelector('.lt-nudge').hidden, savingHidden: row.querySelector('.lt-saving').hidden, share: row.querySelector('.share').style.getPropertyValue('--w') }
-  })()`)
-  check('a payments line on store rails alone offers a peer-to-peer nudge instead of a zero', !nudge.nudgeHidden && nudge.savingHidden && /^Adds about \$[\d.]+[kM]? a year with a peer-to-peer rail\.$/.test(nudge.text) && nudge.share === '0%', JSON.stringify(nudge))
 
   // ── a shared link ─────────────────────────────────────────────────────────
   const link = after.link

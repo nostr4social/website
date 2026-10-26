@@ -2,10 +2,11 @@
 // routine so they share a grid, a hover layer and a keyboard path:
 //
 //   chart-custodial-cost-vs-nostr   the cost of custody a year and the cost
-//                                   on the way to Nostr, from one point today:
-//                                   the second dips as the network scales,
-//                                   both rise with the app, and the filled
-//                                   gap is the saving. The year the network
+//                                   of an app on Nostr that year: the two
+//                                   start apart today, the second falls as
+//                                   the network scales, both rise with the
+//                                   app, and the filled gap is the saving
+//                                   the network delivers. The year the network
 //                                   is at scale gets a gold dot on each line
 //                                   with a gold rule between them, and the
 //                                   gold figure beside the rule is its length:
@@ -86,15 +87,15 @@ export function drawCharts(projections) {
     series: [
       // The year the network is at scale gets a gold dot on each line.
       { key: 'custodial', cls: 'chart__line chart__line--custodial', marker: 'chart__marker chart__marker--custodial', points: typical.map((p) => p.custodial), markers: [0, 1, 2, 3, 4, 5], special: { year: MARKER_YEAR, cls: 'chart__marker chart__marker--scale', r: 7 } },
-      { key: 'path', cls: 'chart__line', marker: 'chart__marker', points: typical.map((p) => p.path), markers: [1, 2, 3, 4, 5], special: { year: MARKER_YEAR, cls: 'chart__marker chart__marker--scale', r: 7 } },
+      { key: 'nostr', cls: 'chart__line', marker: 'chart__marker', points: typical.map((p) => p.nostr), markers: [0, 1, 2, 3, 4, 5], special: { year: MARKER_YEAR, cls: 'chart__marker chart__marker--scale', r: 7 } },
     ],
-    band: ['custodial', 'path'],
+    band: ['custodial', 'nostr'],
     // No labels on the dots: the gold figure beside the rule between them is what they say.
     labels: [],
     // A gold rule from dot to dot, and beside it, hero-sized and gold, its
     // length: what the app saves a year from the year the network is at scale.
-    watermark: { year: MARKER_YEAR, between: ['custodial', 'path'], text: compact(scale.realised), sub: t('chart.versus.band_sub') },
-    title: fmt(t('chart.versus.aria'), { year: label(MARKER_YEAR), custodial: compact(scale.custodial), noncustodial: compact(scale.path), saving: compact(scale.custodial - scale.path), total: compact(end.cumulative) }),
+    watermark: { year: MARKER_YEAR, between: ['custodial', 'nostr'], text: compact(scale.custodial - scale.nostr), sub: t('chart.versus.band_sub') },
+    title: fmt(t('chart.versus.aria'), { year: label(MARKER_YEAR), custodial: compact(scale.custodial), noncustodial: compact(scale.nostr), saving: compact(scale.custodial - scale.nostr), total: compact(end.cumulative) }),
     // Two horizontal axes: the calendar along the top, from the start, since
     // the ramp is the network's; projected users along the bottom, first and
     // last, with the axis named between them.
@@ -107,7 +108,7 @@ export function drawCharts(projections) {
       return [
         fmt(t('chart.tip.users'), { n: number(p.users) }),
         fmt(t('chart.versus.tip_custody'), { amount: compact(p.custodial) }),
-        fmt(t('chart.versus.tip_nostr'), { amount: compact(p.path) }),
+        fmt(t('chart.versus.tip_nostr'), { amount: compact(p.nostr) }),
         fmt(t('chart.versus.tip_cumulative'), { amount: compact(p.cumulative) }),
       ]
     },
