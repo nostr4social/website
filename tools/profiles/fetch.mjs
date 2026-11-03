@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from
 import { spawnSync } from 'node:child_process'
 import { dirname, resolve, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { discoveryRelays } from '../lib/config.mjs'
 
 useWebSocketImplementation(globalThis.WebSocket)
 // Node's WebSocket re-fires `error` on close; nostr-tools then recurses. Not
@@ -25,7 +26,7 @@ useWebSocketImplementation(globalThis.WebSocket)
 process.on('uncaughtException', () => {})
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const RELAYS = ['wss://purplepag.es', 'wss://relay.nostr.band', 'wss://relay.damus.io', 'wss://nos.lol']
+const RELAYS = discoveryRelays()
 const RAW = resolve(root, 'tools/profiles/raw')
 const OUT = resolve(root, 'assets/images/people')
 const ABOUT_MAX = 160

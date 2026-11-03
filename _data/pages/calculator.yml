@@ -651,13 +651,9 @@ sections:
       contact_href: /contact/
       # The name in nostr.json that a lead is sent to.
       lead_recipient: hello
-      # NIP-13 proof of work, in leading zero bits: on the kind 1069 response
-      # from a one-time key, on the gift wrap of a lead message from one, and
-      # from a signed-in visitor (who skips both). Each bit doubles the work.
-      pow:
-        response: 20
-        anonymous: 18
-        signed: 0
+      # The proof-of-work thresholds and the calculator mode are shared
+      # configuration, in _data/blocks/nostr_config.yml, so the readers
+      # enforce the same numbers the page mines.
       limits:
         min_seconds: 3
         rate:

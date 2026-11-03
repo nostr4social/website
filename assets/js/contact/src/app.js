@@ -16,6 +16,7 @@ import { $ } from '../../shared/src/dom.js'
 import { config, dev, fmt, query, t } from '../../shared/src/config.js'
 import { pickRecipient } from '../../shared/src/recipients.js'
 import { createSignIn } from '../../shared/src/signin.js'
+import { siteRelays } from '../../shared/src/relays.js'
 import {
   bootRecipients,
   createStore,
@@ -104,7 +105,7 @@ function pretendSuccess() {
   const { recipient } = store.get()
   const fake = crypto.getRandomValues(new Uint8Array(32))
   const wrapId = Array.from(fake, (b) => b.toString(16).padStart(2, '0')).join('')
-  const relays = config.relays.fallback_dm.map((url) => ({ url, ok: true, reason: '' }))
+  const relays = siteRelays().map((url) => ({ url, ok: true, reason: '' }))
   finish([{ name: recipient?.name, pubkey: recipient?.pubkey, self: false, relays, usedFallback: false, wrapId }], 'success', {
     signerKind: 'guest',
     replyTo: '',

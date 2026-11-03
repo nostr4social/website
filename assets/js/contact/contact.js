@@ -137,6 +137,56 @@ function pickRecipient(recipients, wanted) {
   return recipients.find((r) => r.name.toLowerCase() === name) || recipients[0];
 }
 
+// assets/js/shared/src/relays.js
+var KIND_DM_RELAYS = 10050;
+var MAX_RELAYS = 5;
+var LOOPBACK = ["localhost", "127.0.0.1", "[::1]"];
+function normalizeRelay(url) {
+  try {
+    const parsed = new URL(String(url).trim());
+    if (parsed.protocol !== "wss:" && !(parsed.protocol === "ws:" && LOOPBACK.includes(parsed.hostname))) return null;
+    parsed.hash = "";
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+function dedupe(urls) {
+  return Array.from(new Set(urls.filter(Boolean)));
+}
+function siteRelays() {
+  return dedupe((config.relays?.site || []).map(normalizeRelay));
+}
+function discoveryRelays() {
+  return dedupe([...config.relays?.discovery || [], ...config.relays?.site || []].map(normalizeRelay));
+}
+async function inboxRelaysFor(pool, pubkey) {
+  if (dev.local && dev.relays.length) {
+    const relays2 = dedupe(dev.relays.map(normalizeRelay)).slice(0, MAX_RELAYS);
+    if (relays2.length) return { relays: relays2, usedFallback: false };
+  }
+  const fallback = () => ({
+    relays: siteRelays().slice(0, MAX_RELAYS),
+    usedFallback: true
+  });
+  if (dev.no10050) return fallback();
+  let event = null;
+  try {
+    event = await pool.get(
+      discoveryRelays(),
+      { kinds: [KIND_DM_RELAYS], authors: [pubkey] },
+      { maxWait: config.timeouts.discovery }
+    );
+  } catch {
+    return fallback();
+  }
+  if (!event) return fallback();
+  const relays = dedupe(
+    event.tags.filter((tag) => tag[0] === "relay").map((tag) => normalizeRelay(tag[1]))
+  ).slice(0, MAX_RELAYS);
+  return relays.length ? { relays, usedFallback: false } : fallback();
+}
+
 // assets/js/shared/src/profiles.js
 var KIND_PROFILE = 0;
 var MAX_NAME = 40;
@@ -144,7 +194,7 @@ async function fetchProfileName(pool, pubkey) {
   let event = null;
   try {
     event = await pool.get(
-      config.relays.discovery,
+      discoveryRelays(),
       { kinds: [KIND_PROFILE], authors: [pubkey] },
       { maxWait: config.timeouts.profile }
     );
@@ -566,50 +616,6 @@ function createSignIn({ onChange } = {}) {
     current: () => signer,
     profileName: () => profileName
   };
-}
-
-// assets/js/shared/src/relays.js
-var KIND_DM_RELAYS = 10050;
-var MAX_RELAYS = 5;
-var LOOPBACK = ["localhost", "127.0.0.1", "[::1]"];
-function normalizeRelay(url) {
-  try {
-    const parsed = new URL(String(url).trim());
-    if (parsed.protocol !== "wss:" && !(parsed.protocol === "ws:" && LOOPBACK.includes(parsed.hostname))) return null;
-    parsed.hash = "";
-    return parsed.toString().replace(/\/$/, "");
-  } catch {
-    return null;
-  }
-}
-function dedupe(urls) {
-  return Array.from(new Set(urls.filter(Boolean)));
-}
-async function inboxRelaysFor(pool, pubkey) {
-  if (dev.local && dev.relays.length) {
-    const relays2 = dedupe(dev.relays.map(normalizeRelay)).slice(0, MAX_RELAYS);
-    if (relays2.length) return { relays: relays2, usedFallback: false };
-  }
-  const fallback = () => ({
-    relays: dedupe(config.relays.fallback_dm.map(normalizeRelay)).slice(0, MAX_RELAYS),
-    usedFallback: true
-  });
-  if (dev.no10050) return fallback();
-  let event = null;
-  try {
-    event = await pool.get(
-      config.relays.discovery,
-      { kinds: [KIND_DM_RELAYS], authors: [pubkey] },
-      { maxWait: config.timeouts.discovery }
-    );
-  } catch {
-    return fallback();
-  }
-  if (!event) return fallback();
-  const relays = dedupe(
-    event.tags.filter((tag) => tag[0] === "relay").map((tag) => normalizeRelay(tag[1]))
-  ).slice(0, MAX_RELAYS);
-  return relays.length ? { relays, usedFallback: false } : fallback();
 }
 
 // node_modules/@noble/hashes/utils.js
@@ -1517,7 +1523,7 @@ function pretendSuccess() {
   const { recipient } = store.get();
   const fake = crypto.getRandomValues(new Uint8Array(32));
   const wrapId = Array.from(fake, (b) => b.toString(16).padStart(2, "0")).join("");
-  const relays = config.relays.fallback_dm.map((url) => ({ url, ok: true, reason: "" }));
+  const relays = siteRelays().map((url) => ({ url, ok: true, reason: "" }));
   finish([{ name: recipient?.name, pubkey: recipient?.pubkey, self: false, relays, usedFallback: false, wrapId }], "success", {
     signerKind: "guest",
     replyTo: ""

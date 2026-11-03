@@ -29,6 +29,16 @@ function dedupe(urls) {
   return Array.from(new Set(urls.filter(Boolean)))
 }
 
+/** The site's relays, normalised: where a response or a message goes, and where the readers look. */
+export function siteRelays() {
+  return dedupe((config.relays?.site || []).map(normalizeRelay))
+}
+
+/** Where profiles and relay lists are looked up: the indexers, then the site's relays. */
+export function discoveryRelays() {
+  return dedupe([...(config.relays?.discovery || []), ...(config.relays?.site || [])].map(normalizeRelay))
+}
+
 export async function inboxRelaysFor(pool, pubkey) {
   // Localhost only: send everything to the relays named in the query string,
   // so the whole flow can be exercised without touching public infrastructure.
@@ -38,7 +48,7 @@ export async function inboxRelaysFor(pool, pubkey) {
   }
 
   const fallback = () => ({
-    relays: dedupe(config.relays.fallback_dm.map(normalizeRelay)).slice(0, MAX_RELAYS),
+    relays: siteRelays().slice(0, MAX_RELAYS),
     usedFallback: true,
   })
 
@@ -47,7 +57,7 @@ export async function inboxRelaysFor(pool, pubkey) {
   let event = null
   try {
     event = await pool.get(
-      config.relays.discovery,
+      discoveryRelays(),
       { kinds: [KIND_DM_RELAYS], authors: [pubkey] },
       { maxWait: config.timeouts.discovery },
     )

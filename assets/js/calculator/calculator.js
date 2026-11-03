@@ -274,6 +274,56 @@ function bytesToHex(bytes) {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// assets/js/shared/src/relays.js
+var KIND_DM_RELAYS = 10050;
+var MAX_RELAYS = 5;
+var LOOPBACK = ["localhost", "127.0.0.1", "[::1]"];
+function normalizeRelay(url) {
+  try {
+    const parsed = new URL(String(url).trim());
+    if (parsed.protocol !== "wss:" && !(parsed.protocol === "ws:" && LOOPBACK.includes(parsed.hostname))) return null;
+    parsed.hash = "";
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+function dedupe(urls) {
+  return Array.from(new Set(urls.filter(Boolean)));
+}
+function siteRelays() {
+  return dedupe((config.relays?.site || []).map(normalizeRelay));
+}
+function discoveryRelays() {
+  return dedupe([...config.relays?.discovery || [], ...config.relays?.site || []].map(normalizeRelay));
+}
+async function inboxRelaysFor(pool, pubkey) {
+  if (dev.local && dev.relays.length) {
+    const relays2 = dedupe(dev.relays.map(normalizeRelay)).slice(0, MAX_RELAYS);
+    if (relays2.length) return { relays: relays2, usedFallback: false };
+  }
+  const fallback = () => ({
+    relays: siteRelays().slice(0, MAX_RELAYS),
+    usedFallback: true
+  });
+  if (dev.no10050) return fallback();
+  let event = null;
+  try {
+    event = await pool.get(
+      discoveryRelays(),
+      { kinds: [KIND_DM_RELAYS], authors: [pubkey] },
+      { maxWait: config.timeouts.discovery }
+    );
+  } catch {
+    return fallback();
+  }
+  if (!event) return fallback();
+  const relays = dedupe(
+    event.tags.filter((tag) => tag[0] === "relay").map((tag) => normalizeRelay(tag[1]))
+  ).slice(0, MAX_RELAYS);
+  return relays.length ? { relays, usedFallback: false } : fallback();
+}
+
 // assets/js/shared/src/profiles.js
 var KIND_PROFILE = 0;
 var MAX_NAME = 40;
@@ -281,7 +331,7 @@ async function fetchProfileName(pool, pubkey) {
   let event = null;
   try {
     event = await pool.get(
-      config.relays.discovery,
+      discoveryRelays(),
       { kinds: [KIND_PROFILE], authors: [pubkey] },
       { maxWait: config.timeouts.profile }
     );
@@ -1796,50 +1846,6 @@ function formSecretFromList(list, snapshot2) {
 var KIND_MY_FORMS = 14083;
 var formAddress = (snapshot2) => `${KIND_FORM}:${snapshot2.pubkey}:${snapshot2.d}`;
 
-// assets/js/shared/src/relays.js
-var KIND_DM_RELAYS = 10050;
-var MAX_RELAYS = 5;
-var LOOPBACK = ["localhost", "127.0.0.1", "[::1]"];
-function normalizeRelay(url) {
-  try {
-    const parsed = new URL(String(url).trim());
-    if (parsed.protocol !== "wss:" && !(parsed.protocol === "ws:" && LOOPBACK.includes(parsed.hostname))) return null;
-    parsed.hash = "";
-    return parsed.toString().replace(/\/$/, "");
-  } catch {
-    return null;
-  }
-}
-function dedupe(urls) {
-  return Array.from(new Set(urls.filter(Boolean)));
-}
-async function inboxRelaysFor(pool, pubkey) {
-  if (dev.local && dev.relays.length) {
-    const relays2 = dedupe(dev.relays.map(normalizeRelay)).slice(0, MAX_RELAYS);
-    if (relays2.length) return { relays: relays2, usedFallback: false };
-  }
-  const fallback = () => ({
-    relays: dedupe(config.relays.fallback_dm.map(normalizeRelay)).slice(0, MAX_RELAYS),
-    usedFallback: true
-  });
-  if (dev.no10050) return fallback();
-  let event = null;
-  try {
-    event = await pool.get(
-      config.relays.discovery,
-      { kinds: [KIND_DM_RELAYS], authors: [pubkey] },
-      { maxWait: config.timeouts.discovery }
-    );
-  } catch {
-    return fallback();
-  }
-  if (!event) return fallback();
-  const relays = dedupe(
-    event.tags.filter((tag) => tag[0] === "relay").map((tag) => normalizeRelay(tag[1]))
-  ).slice(0, MAX_RELAYS);
-  return relays.length ? { relays, usedFallback: false } : fallback();
-}
-
 // assets/js/calculator/src/restore.js
 var HEX643 = /^[0-9a-f]{64}$/;
 function decodePointer(value) {
@@ -1855,14 +1861,14 @@ function decodePointer(value) {
   }
   return null;
 }
-function relaysFor(pointer, snapshot2) {
-  const list = dev.local && dev.relays.length ? dev.relays : [...pointer.relays || [], ...snapshot2?.relays || [], ...config.relays.fallback_dm];
-  return [...new Set(list.map(normalizeRelay).filter(Boolean))].slice(0, 8);
+function relaysFor() {
+  if (dev.local && dev.relays.length) return [...new Set(dev.relays.map(normalizeRelay).filter(Boolean))];
+  return siteRelays();
 }
 async function fetchResponse(pointer, snapshot2) {
   const pool = new SimplePool();
   try {
-    const event = await pool.get(relaysFor(pointer, snapshot2), { ids: [pointer.id], kinds: [KIND_RESPONSE] }, { maxWait: config.timeouts.discovery });
+    const event = await pool.get(relaysFor(), { ids: [pointer.id], kinds: [KIND_RESPONSE] }, { maxWait: config.timeouts.discovery });
     return event || null;
   } finally {
     pool.destroy();
@@ -1871,7 +1877,7 @@ async function fetchResponse(pointer, snapshot2) {
 async function secretAsHolder(signer, snapshot2) {
   const pool = new SimplePool();
   try {
-    const relays = [...new Set([...config.relays.discovery, ...snapshot2.relays || []].map(normalizeRelay).filter(Boolean))];
+    const relays = discoveryRelays();
     const list = await pool.get(relays, { kinds: [KIND_MY_FORMS], authors: [signer.pubkey] }, { maxWait: config.timeouts.discovery });
     if (!list) return null;
     const json = JSON.parse(await signer.nip44Decrypt(signer.pubkey, list.content));
@@ -2388,10 +2394,9 @@ function prepareForm(snapshot2, map2) {
   }
   return { snapshot: snapshot2, mapping: map2 };
 }
-function responseRelays(snapshot2) {
+function responseRelays() {
   if (dev.local && dev.relays.length) return dev.relays.map(normalizeRelay).filter(Boolean);
-  const relays = snapshot2.relays.map(normalizeRelay).filter(Boolean);
-  return relays.length ? relays : config.relays.fallback_dm.map(normalizeRelay).filter(Boolean);
+  return siteRelays();
 }
 async function submitResponse(form2, { signer, values, pow = 0, onProgress }) {
   const responses = buildResponses(form2.mapping, values);
@@ -2405,7 +2410,7 @@ async function submitResponse(form2, { signer, values, pow = 0, onProgress }) {
   };
   if (pow > 0) template = await minePow(template, pow, { onProgress });
   const event = await signer.signEvent(template);
-  const relays = responseRelays(form2.snapshot);
+  const relays = responseRelays();
   const pool = new SimplePool();
   try {
     const onauth = (challenge) => signer.signEvent(challenge);

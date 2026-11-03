@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { SimplePool, useWebSocketImplementation } from 'nostr-tools/pool'
 import { decode } from 'nostr-tools/nip19'
 import yaml from './yaml.mjs'
+import { siteRelays } from '../lib/config.mjs'
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 export const SNAPSHOT = resolve(root, '_data/forms/calculator.yml')
@@ -22,13 +23,9 @@ class SafeWebSocket extends WebSocket {
 }
 useWebSocketImplementation(SafeWebSocket)
 
-export const DEFAULT_RELAYS = [
-  'wss://relay.formstr.app',
-  'wss://relay.damus.io',
-  'wss://relay.primal.net',
-  'wss://nos.lol',
-  'wss://relay.nostr.band',
-]
+// The site's relays, from _data/blocks/nostr_config.yml: the one list the
+// pages and the tools share.
+export const DEFAULT_RELAYS = siteRelays()
 
 export async function readMap() {
   return yaml.parse(await readFile(MAP, 'utf8'))

@@ -19,6 +19,7 @@
     "audit:a11y": "node tools/audit/a11y.mjs",
     "audit:responsive": "node tools/audit/responsive.mjs",
     "check:inboxes": "node tools/contact-bundle/check-inboxes.mjs",
+    "check:relays": "node tools/relays/check.mjs",
     "fetch:profiles": "node tools/profiles/fetch.mjs"
   },
   "devDependencies": {

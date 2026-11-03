@@ -1,20 +1,38 @@
 # Machine configuration every scripted page shares: where to look things up,
-# where to fall back to, which remote signers to offer, and how long to wait.
-# A page's own `config` block overrides any key here.
+# which relays to write to and read from, which remote signers to offer, how
+# hard a one-time key must work, and how long to wait. A page's own `config`
+# block overrides any key here. The tools read this same file
+# (tools/lib/config.mjs), so a relay or a threshold is changed in one place.
 relays:
-  discovery:
-    - wss://purplepag.es
-    - wss://relay.nostr.band
-    - wss://relay.damus.io
-    - wss://nos.lol
-  fallback_dm:
-    - wss://relay.damus.io
+  # The site's relays: where a form response or a message goes, and the
+  # only relays the readers (the results page, `npm run responses`) look at.
+  # Trimmed on 2026-11-03 to the relays that answered `npm run check:relays`;
+  # run it again before adding one back.
+  site:
     - wss://nos.lol
     - wss://relay.primal.net
-    - wss://relay.0xchat.com
+    - wss://relay.formstr.app
+    - wss://relay.snort.social
+    - wss://nostr.wine
+    - wss://nostr-01.yakihonne.com
+  # Indexers for profiles and relay lists, read together with the site's relays.
+  discovery:
+    - wss://purplepag.es
   nip46:
     - wss://relay.nsec.app
-    - wss://relay.damus.io
+    - wss://nos.lol
+# The calculator: `test` keeps the "test" box in Save & Share ticked, so a
+# send is recorded as a test and the lead message is marked [TEST]; `live`
+# clears it. Going live is this one change.
+calculator_mode: test
+# NIP-13 proof of work, in leading zero bits: on a kind 1069 response from a
+# one-time key, on the gift wrap of a message from one, and from a signed-in
+# visitor (who skips both). Each bit doubles the work. The readers drop what
+# falls below these, so raising the difficulty is also one change.
+pow:
+  response: 20
+  anonymous: 18
+  signed: 0
 timeouts:
   discovery: 4000
   profile: 3000

@@ -16,8 +16,7 @@ import { SimplePool } from '../../shared/src/vendor.js'
 import { minePow } from '../../shared/src/pow.js'
 import { buildResponses, checkMap, formAddress, KIND_RESPONSE } from '../../shared/src/forms.js'
 import { buildRumor, publishWrap, sealFor, wrapFor } from '../../shared/src/nip17.js'
-import { inboxRelaysFor } from '../../shared/src/relays.js'
-import { normalizeRelay } from '../../shared/src/relays.js'
+import { inboxRelaysFor, normalizeRelay, siteRelays } from '../../shared/src/relays.js'
 
 const now = () => Math.floor(Date.now() / 1000)
 
@@ -32,11 +31,14 @@ export function prepareForm(snapshot, map) {
   return { snapshot, mapping: map }
 }
 
-/** Relays a response goes to: the form's, unless localhost overrides them. */
-export function responseRelays(snapshot) {
+/**
+ * Relays a response goes to: the site's own list, unless localhost
+ * overrides them. Not the form's relay hints: those are the builder's
+ * guess, and the readers look only at the site's list.
+ */
+export function responseRelays() {
   if (dev.local && dev.relays.length) return dev.relays.map(normalizeRelay).filter(Boolean)
-  const relays = snapshot.relays.map(normalizeRelay).filter(Boolean)
-  return relays.length ? relays : config.relays.fallback_dm.map(normalizeRelay).filter(Boolean)
+  return siteRelays()
 }
 
 /**
@@ -56,7 +58,7 @@ export async function submitResponse(form, { signer, values, pow = 0, onProgress
   if (pow > 0) template = await minePow(template, pow, { onProgress })
   const event = await signer.signEvent(template)
 
-  const relays = responseRelays(form.snapshot)
+  const relays = responseRelays()
   const pool = new SimplePool()
   try {
     const onauth = (challenge) => signer.signEvent(challenge)

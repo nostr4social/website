@@ -10,7 +10,7 @@ import { config, dev } from '../../shared/src/config.js'
 import { SimplePool, decodeNip19, getConversationKey, nip44Decrypt } from '../../shared/src/vendor.js'
 import { hexToBytes } from '../../shared/src/signers.js'
 import { formSecretFromList, KIND_MY_FORMS, KIND_RESPONSE, readResponses } from '../../shared/src/forms.js'
-import { normalizeRelay } from '../../shared/src/relays.js'
+import { discoveryRelays, normalizeRelay, siteRelays } from '../../shared/src/relays.js'
 
 const HEX64 = /^[0-9a-f]{64}$/
 
@@ -29,15 +29,20 @@ export function decodePointer(value) {
   return null
 }
 
-function relaysFor(pointer, snapshot) {
-  const list = dev.local && dev.relays.length ? dev.relays : [...(pointer.relays || []), ...(snapshot?.relays || []), ...config.relays.fallback_dm]
-  return [...new Set(list.map(normalizeRelay).filter(Boolean))].slice(0, 8)
+/**
+ * Where a response is looked for: the site's own relays, never the hints in
+ * the link. A link's author could name any relay, and the page would open
+ * a socket to it; an event that is not on our relays is not ours.
+ */
+function relaysFor() {
+  if (dev.local && dev.relays.length) return [...new Set(dev.relays.map(normalizeRelay).filter(Boolean))]
+  return siteRelays()
 }
 
 export async function fetchResponse(pointer, snapshot) {
   const pool = new SimplePool()
   try {
-    const event = await pool.get(relaysFor(pointer, snapshot), { ids: [pointer.id], kinds: [KIND_RESPONSE] }, { maxWait: config.timeouts.discovery })
+    const event = await pool.get(relaysFor(), { ids: [pointer.id], kinds: [KIND_RESPONSE] }, { maxWait: config.timeouts.discovery })
     return event || null
   } finally {
     pool.destroy()
@@ -48,7 +53,7 @@ export async function fetchResponse(pointer, snapshot) {
 async function secretAsHolder(signer, snapshot) {
   const pool = new SimplePool()
   try {
-    const relays = [...new Set([...config.relays.discovery, ...(snapshot.relays || [])].map(normalizeRelay).filter(Boolean))]
+    const relays = discoveryRelays()
     const list = await pool.get(relays, { kinds: [KIND_MY_FORMS], authors: [signer.pubkey] }, { maxWait: config.timeouts.discovery })
     if (!list) return null
     const json = JSON.parse(await signer.nip44Decrypt(signer.pubkey, list.content))

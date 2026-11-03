@@ -3,6 +3,7 @@
 // picture is fetched: this page loads images from nowhere but itself.
 
 import { config } from './config.js'
+import { discoveryRelays } from './relays.js'
 
 const KIND_PROFILE = 0
 const MAX_NAME = 40
@@ -11,7 +12,7 @@ export async function fetchProfileName(pool, pubkey) {
   let event = null
   try {
     event = await pool.get(
-      config.relays.discovery,
+      discoveryRelays(),
       { kinds: [KIND_PROFILE], authors: [pubkey] },
       { maxWait: config.timeouts.profile },
     )
