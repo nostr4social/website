@@ -30,7 +30,8 @@ const data = JSON.parse(await readFile(resolve(root, `_data/assumptions/v${wante
 const out = resolve(root, `calculator/assumptions.v${data.version}.md`)
 
 const LINES = {
-  thesis: "At scale: Nostr4's thesis",
+  thesis: data.version >= 4 ? "Network mature: Nostr4's thesis" : "At scale: Nostr4's thesis",
+  timeline: 'The timeline: when the network matures and when the headline is read',
   shared: 'Used by more than one line',
   accounts: '1. Accounts and personal data',
   graph: '2. Social graph and feeds',
@@ -47,7 +48,7 @@ const CONF = {
 }
 
 const fmt = (v, unit) => {
-  if (typeof v !== 'number') return String(v)
+  if (typeof v !== 'number') return String(v) // a date, as written
   if (unit === 'multiplier') return `${v}×`
   if (/^ratio/.test(unit)) return `${Math.round(v * 1000) / 10}%`
   return v >= 1000 ? v.toLocaleString('en-US') : String(v)
@@ -63,20 +64,38 @@ lines.push('Every number the calculator uses is listed here with its source. Eac
 lines.push('page shows as the headline, and a **low** and **high** value. Any value can be overridden on the page or in a')
 lines.push('results link with `a.<key>=<value>`; the machine-readable form of this document is `assumptions.v' + data.version + '.json` beside it.')
 lines.push('')
-lines.push('The range beside every figure on the page comes from the first section alone, **At scale: Nostr4\'s thesis**:')
-lines.push('the time for Nostr to establish the standards and infrastructure that support Nostr at scale, the share of')
-lines.push('each cost that remains once an app hosts nothing of its own, and the Nostr-native fees that take its place.')
+if (data.version >= 4) {
+  lines.push('The range beside every figure on the page comes from the first section alone, **Network mature: Nostr4\'s thesis**:')
+  lines.push('the share of each cost that remains once an app hosts nothing of its own and the network is mature, and the')
+  lines.push('Nostr-native fees that take its place.')
+} else {
+  lines.push('The range beside every figure on the page comes from the first section alone, **At scale: Nostr4\'s thesis**:')
+  lines.push('the time for Nostr to establish the standards and infrastructure that support Nostr at scale, the share of')
+  lines.push('each cost that remains once an app hosts nothing of its own, and the Nostr-native fees that take its place.')
+}
 lines.push('Only those rows take their low or high value in the low and high cases; every assumption on the custodial')
 lines.push('side is held at its typical value in all three, because that half of the model is the prospect\'s to override.')
 lines.push('The band is therefore a statement about the thesis, not about cloud pricing. **Low means the smaller saving**:')
 lines.push('the thesis holding less well. The low and high beside the other rows are reference points, not scenarios.')
 lines.push('')
+if (data.version >= 4) {
+  const a = data.assumptions
+  lines.push("The app's timeline is relative and the network's is absolute: today is the day of the calculation, and the")
+  lines.push(`network's progress runs from 0 on ${a.network_mature_start.typical} (\`network_mature_start\`) to 1 on ${a.network_mature_end.typical}`)
+  lines.push('(`network_mature_end`), front-loaded, 1 − (1 − t/T)². Every point on the chart samples that curve at its own date.')
+  lines.push(`The headline annual savings are read ${a.integration_payback_months.typical} months of integration and payback plus ${a.estimated_savings_months.typical} months after today`)
+  lines.push("(`integration_payback_months`, `estimated_savings_months`). An app's own integration cost is not estimated here: it is")
+  lines.push('settled case by case, in a consult. Results links carry the version and the date they were made with; earlier')
+  lines.push('versions stay published beside this one.')
+  lines.push('')
+} else {
 lines.push(`The projection runs on a calendar, not a stopwatch: month 1 is January ${data.start_year} for every app, and`)
-lines.push('later versions of this file will shorten the time to scale as the network matures. The ramp starts from what')
-lines.push('the network delivers today (`scale_progress_today`). An app\'s own integration, its time and its cost, is not')
-lines.push('estimated here: it is settled case by case, in a consult. Results links carry the version they were made with;')
-lines.push('earlier versions stay published beside this one.')
-lines.push('')
+  lines.push('later versions of this file will shorten the time to scale as the network matures. The ramp starts from what')
+  lines.push('the network delivers today (`scale_progress_today`). An app\'s own integration, its time and its cost, is not')
+  lines.push('estimated here: it is settled case by case, in a consult. Results links carry the version they were made with;')
+  lines.push('earlier versions stay published beside this one.')
+  lines.push('')
+}
 lines.push('Confidence means:')
 lines.push('')
 for (const [k, v] of Object.entries(CONF)) lines.push(`- **${k}**: ${v}`)
@@ -96,7 +115,12 @@ for (const [line, title] of Object.entries(LINES)) {
   if (!rows.length) continue
   lines.push(`## ${title}`)
   lines.push('')
-  if (line === 'payments') {
+  if (line === 'payments' && data.version >= 4) {
+    lines.push('The input this line reads, `p2p_volume`, is **payments that flow between users, gross monthly volume (USD)**: tips,')
+    lines.push("creator payments and sales between users. The app's own sales (subscriptions, premium features) are not a custody cost")
+    lines.push('and are not counted, on any rail. The volume is split evenly across the rails the app names.')
+    lines.push('')
+  } else if (line === 'payments') {
     lines.push('The input this line reads, `rev`, is **in-app payments, gross monthly volume (USD)**: all payments the app')
     lines.push("facilitates: purchases, subscriptions, tips and sales between users. The app's own take is a share of this, not a")
     lines.push('separate input. The line measures the fee stack custody puts on that volume, not the revenue itself.')
@@ -104,7 +128,7 @@ for (const [line, title] of Object.entries(LINES)) {
   }
   if (line === 'thesis') {
     lines.push('These are not estimates of the world as it is but of the world Nostr4 is building. No public price list')
-    lines.push('exists for the Nostr-native services, including ours, and at scale there is no vendor to lock an app in, so')
+    lines.push(data.version >= 4 ? 'exists for the Nostr-native services, including ours, and with the network mature there is no vendor to lock an app in, so' : 'exists for the Nostr-native services, including ours, and at scale there is no vendor to lock an app in, so')
     lines.push('their prices are what the market will bear. Treat the range, not the typical value, as the claim.')
     lines.push('')
   }
