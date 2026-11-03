@@ -15,7 +15,7 @@ The band is therefore a statement about the thesis, not about cloud pricing. **L
 the thesis holding less well. The low and high beside the other rows are reference points, not scenarios.
 
 The app's timeline is relative and the network's is absolute: today is the day of the calculation, and the
-network's progress runs from 0 on 2020-03-01 (`network_mature_start`) to 1 on 2030-03-01
+network's progress runs from 0 on 2023-01-01 (`network_mature_start`) to 1 on 2030-03-01
 (`network_mature_end`), front-loaded, 1 − (1 − t/T)². Every point on the chart samples that curve at its own date.
 The headline annual savings are read 24 months of integration and payback plus 12 months after today
 (`integration_payback_months`, `estimated_savings_months`). An app's own integration cost is not estimated here: it is
@@ -87,7 +87,7 @@ their prices are what the market will bear. Treat the range, not the typical val
 
 | Key | What | Typical | Low | High | Unit | Confidence | Source |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `network_mature_start` | Network progress starts | 2020-03-01 | 2020-03-01 | 2020-03-01 | date | unsourced | none |
+| `network_mature_start` | Network progress starts | 2023-01-01 | 2023-01-01 | 2023-01-01 | date | unsourced | none |
 | `network_mature_end` | Network mature: Nostr's infrastructure and standards fully support non-custodial apps | 2030-03-01 | 2030-03-01 | 2030-03-01 | date | unsourced | none |
 | `integration_payback_months` | Integration and payback window | 24 | 24 | 24 | months | unsourced | none |
 | `estimated_savings_months` | Months after payback at which the headline is read | 12 | 12 | 12 | months | unsourced | none |

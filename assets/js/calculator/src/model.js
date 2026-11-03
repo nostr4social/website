@@ -1,12 +1,12 @@
-// The cost model. Pure functions, no DOM, no network: inputs and assumptions
-// in, numbers out. Everything the page shows is computed here, so this file is
-// the one to audit.
+// The cost model. Pure functions, no DOM, no network, no clock: inputs, the
+// assumptions and the date of the calculation in, numbers out. Everything
+// the page shows is computed here, so this file is the one to audit.
 //
-//   calculate(inputs, assumptions, overrides) → { typical, low, high, ... }
+//   calculate(inputs, assumptions, overrides, { today }) → { typical, low, high, ... }
 //
 // Each scenario evaluates the same six lines. Only the assumptions marked
-// `scenario_varies` in the file (Nostr4's thesis: the time to scale, what
-// remains at scale, the Nostr-native fees) take their low or high value;
+// `scenario_varies` in the file (Nostr4's thesis: what remains once the
+// network is mature, the Nostr-native fees) take their low or high value;
 // everything on the custodial side stays at its typical value in all three,
 // because that half is the prospect's to override. A user override replaces
 // the value in every scenario: it is their fact, not our estimate. Every line
@@ -17,36 +17,108 @@
 // and 1; the custodial figure then moves that far toward the non-custodial
 // one. deriveInputs() fills what the form's opening questions imply.
 //
-// The saving splits three ways: cash, from the parts that are bills; fees,
-// from the payments line, the fee stack custody puts on in-app payments;
-// and risk, from the one part that is an expected loss (the breach). The
-// page shows them apart; the total is what the chart and the cumulative use.
+// The saving splits two ways: cash, from the parts that are bills, and
+// fees, from the payments line, the fee stack custody puts on payments
+// between users. The expected breach loss is not a saving: it is an
+// exposure, kept apart from the lines and the headline, and shown as a note.
+//
+// Time. The app's timeline is relative: today is the day of the calculation
+// (`today`, an ISO date the caller passes; this file never reads the clock),
+// and the chart's six points are today and today plus one to five years,
+// each the annualized run-rate at that instant. The network's timeline is
+// absolute: its progress toward supporting non-custodial apps runs from 0 at
+// `network_mature_start` to 1 at `network_mature_end`, front-loaded, and
+// only the cost-of-Nostr line reads the calendar. The headline is read at
+// one instant, `integration_payback_months` plus `estimated_savings_months`
+// after today. An app's own integration cost is never estimated here.
 //
 // Units: USD per year unless a name says otherwise.
 
 import { INPUTS, normalizeInputs } from './inputs.js'
 
 export const LINES = ['accounts', 'graph', 'storage', 'compliance', 'moderation', 'payments']
-// `project` below carries the saving forward five years. Low is the smaller
-// saving: the thesis holding less well, not the cheaper cloud bill.
+// Low is the smaller saving: the thesis holding less well, not the cheaper cloud bill.
 export const SCENARIOS = ['low', 'typical', 'high']
 export const JURISDICTIONS = ['eu', 'uk', 'us', 'other']
+export const TEAMS = ['one', 'ten', 'fifty', 'more']
 
 // Model constants, not assumptions: conventions rather than estimates.
 export const HOURS_PER_YEAR = 2000 // 50 weeks of 40 hours
 export const WEEKS_PER_YEAR = 50
 export const RETENTION_MONTHS = 12 // how long post metadata is kept in the database term
+export const YEARS = 5 // the chart: today, then today plus one to five years
+const DAYS_PER_MONTH = 30.4375
+
+// ── dates ───────────────────────────────────────────────────────────────────
+//
+// ISO dates as strings, YYYY-MM-DD, and nothing else: no Date objects leave
+// this section, and nothing in it reads the clock.
+
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/** { y, m, d } for a well-formed, real calendar date; null otherwise. */
+export function parseDate(iso) {
+  const m = ISO_DATE.exec(String(iso ?? ''))
+  if (!m) return null
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  if (mo < 1 || mo > 12 || d < 1 || d > daysInMonth(y, mo)) return null
+  return { y, m: mo, d }
+}
+
+export const isDate = (iso) => parseDate(iso) != null
+
+export function daysInMonth(y, m) {
+  return new Date(Date.UTC(y, m, 0)).getUTCDate()
+}
+
+const pad = (n) => String(n).padStart(2, '0')
+export const formatDate = ({ y, m, d }) => `${y}-${pad(m)}-${pad(d)}`
+
+/** Months from one date to another, fractional by days. */
+export function monthsBetween(from, to) {
+  const a = parseDate(from)
+  const b = parseDate(to)
+  if (!a || !b) return NaN
+  return (b.y - a.y) * 12 + (b.m - a.m) + (b.d - a.d) / DAYS_PER_MONTH
+}
+
+/** A date some months on: whole months by the calendar, the fraction as days, the day clamped to the month. */
+export function addMonths(iso, months) {
+  const a = parseDate(iso)
+  if (!a || !Number.isFinite(months)) return null
+  const whole = Math.floor(months)
+  const days = Math.round((months - whole) * DAYS_PER_MONTH)
+  const index = a.m - 1 + whole
+  const y = a.y + Math.floor(index / 12)
+  const m = ((index % 12) + 12) % 12 + 1
+  const base = new Date(Date.UTC(y, m - 1, Math.min(a.d, daysInMonth(y, m))))
+  base.setUTCDate(base.getUTCDate() + days)
+  return formatDate({ y: base.getUTCFullYear(), m: base.getUTCMonth() + 1, d: base.getUTCDate() })
+}
+
+// ── assumptions ─────────────────────────────────────────────────────────────
+
+/** A row's kind, which decides how an override is read and clamped. */
+export function rowType(a) {
+  if (a.unit === 'date') return 'date'
+  if (/^ratio/.test(a.unit || '')) return 'share'
+  return 'number'
+}
 
 /**
  * One flat {key: value} for a scenario, with the user's overrides applied.
  * An assumption without `scenario_varies` is the same in every scenario.
+ * Overrides arrive already cleaned (cleanOverrides); a date row's value is
+ * its ISO string, every other row's a number.
  */
 export function resolveAssumptions(data, scenario, overrides = {}) {
   if (!SCENARIOS.includes(scenario)) throw new Error(`unknown scenario: ${scenario}`)
   const out = {}
   for (const [key, a] of Object.entries(data.assumptions)) {
-    const o = overrides[key]
-    out[key] = o != null && Number.isFinite(Number(o)) ? Number(o) : a[a.scenario_varies ? scenario : 'typical']
+    const o = Object.hasOwn(overrides, key) ? overrides[key] : null
+    const base = a[a.scenario_varies ? scenario : 'typical']
+    if (rowType(a) === 'date') out[key] = isDate(o) ? o : base
+    else out[key] = o != null && Number.isFinite(Number(o)) ? Number(o) : base
   }
   return out
 }
@@ -56,14 +128,20 @@ export function varyingKeys(data) {
   return Object.keys(data.assumptions).filter((key) => data.assumptions[key].scenario_varies)
 }
 
-/** Keep only overrides that name a real assumption with a finite, non-negative value. */
+/** Keep only overrides that name a real assumption with a usable value: a real date for a date row, a finite non-negative number otherwise. */
 export function cleanOverrides(data, overrides = {}) {
   const out = {}
   for (const [key, v] of Object.entries(overrides)) {
-    if (!(key in data.assumptions)) continue
+    if (!Object.hasOwn(data.assumptions, key)) continue
+    const a = data.assumptions[key]
+    if (rowType(a) === 'date') {
+      if (!isDate(v) || v === a.typical) continue
+      out[key] = String(v)
+      continue
+    }
     const n = Number(v)
     if (!Number.isFinite(n) || n < 0) continue
-    if (n === data.assumptions[key].typical) continue
+    if (n === a.typical) continue
     out[key] = n
   }
   return out
@@ -129,6 +207,22 @@ function teamFactor(team, v) {
   return null
 }
 
+/** The compliance programmes' share for a team size: the rows are the top tier's figures, scaled down by firm size. */
+export function complianceFactor(team, v) {
+  if (team === 'one') return v.compliance_tier_factor_one
+  if (team === 'ten') return v.compliance_tier_factor_ten
+  if (team === 'fifty') return v.compliance_tier_factor_fifty
+  return v.compliance_tier_factor_more
+}
+
+/** The median loss from a breach for a team size: a firm's figure, not a per-user one. */
+export function breachLoss(team, v) {
+  if (team === 'one') return v.breach_loss_one
+  if (team === 'ten') return v.breach_loss_ten
+  if (team === 'fifty') return v.breach_loss_fifty
+  return v.breach_loss_more
+}
+
 /** The kind of app sets how many bytes and how much compute a user costs; an override in Other Info still wins. */
 function kindEgress(kind, v) {
   if (kind === 'messaging') return v.kind_messaging_egress_gb
@@ -155,12 +249,12 @@ export function applyKind(v, kind, overrides = {}) {
   const out = { ...v }
   const set = {}
   const egress = kindEgress(kind, v)
-  if (egress != null && !('egress_gb_per_mau_month' in overrides)) {
+  if (egress != null && !Object.hasOwn(overrides, 'egress_gb_per_mau_month')) {
     out.egress_gb_per_mau_month = egress
     set.egress_gb_per_mau_month = 'kind'
   }
   const compute = kindCompute(kind, v)
-  if (compute != null && !('compute_per_mau_year' in overrides)) {
+  if (compute != null && !Object.hasOwn(overrides, 'compute_per_mau_year')) {
     out.compute_per_mau_year = compute
     set.compute_per_mau_year = 'kind'
   }
@@ -287,7 +381,7 @@ function accounts(inputs, v) {
     // Age assurance becomes a layer the app reads (store, wallet) rather than buys; a share remains.
     part('verify', verify, verify * v.verify_remains_share, { rate: verifyShare }),
     // Signer login, the recovery hand-off and sessions still need building and keeping.
-    part('engineering', eng.cost, eng.cost * v.accounts_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
+    part('engineering', eng.cost, eng.cost * v.accounts_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly, from: eng.from }),
     part('key_handoff', 0, mau * v.reset_rate_per_mau_year * handoff, { rate: v.reset_rate_per_mau_year, contact: handoff }),
   ]
   return { parts }
@@ -300,7 +394,7 @@ function graph(inputs, v) {
   const parts = [
     part('database', dbGb * v.db_gb_month * 12, 0, { gb: dbGb, posts: posts(inputs) }),
     part('feed_compute', mau * v.compute_per_mau_year * v.feed_compute_share, 0),
-    part('engineering', eng.cost, eng.cost * v.graph_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
+    part('engineering', eng.cost, eng.cost * v.graph_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly, from: eng.from }),
     part('ranking', 0, mau * v.ranking_fee_per_mau_year),
   ]
   return { parts }
@@ -319,7 +413,7 @@ function storage(inputs, v) {
     part('egress', egress, egress * v.media_sponsor_share, { gb: egressGb }),
     part('serving', mau * v.compute_per_mau_year * (1 - v.feed_compute_share), mau * v.cache_per_mau_year, { share: 1 - v.feed_compute_share }),
     // Relay connections, caching and media handling still need engineering time.
-    part('engineering', eng.cost, eng.cost * v.infra_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
+    part('engineering', eng.cost, eng.cost * v.infra_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly, from: eng.from }),
     // Relay capacity for the users who don't bring their own, rented from a
     // provider who carries the hosting duties; never below one managed relay.
     part('relay', 0, Math.max(v.relay_floor_year, sponsored), { sponsored: v.relay_sponsored_share, minimum: sponsored < v.relay_floor_year }),
@@ -332,9 +426,14 @@ function compliance(inputs, v) {
   const eu = has(inputs, 'eu')
   const uk = has(inputs, 'uk')
   const us = has(inputs, 'us')
-  const gdpr = eu || uk ? v.gdpr_program_year : 0
-  const osa = uk ? v.uk_osa_year : 0
-  const dsa = eu ? v.dsa_year : 0
+  // The programme rows are the top tier's figures; a smaller team carries its
+  // tier's share. The DSA is a token amount below the top tier: micro and
+  // small enterprises are exempt from the online-platform duties (Art. 19)
+  // and from transparency reporting (Art. 15), and keep a point of contact.
+  const factor = complianceFactor(inputs.team, v)
+  const gdpr = eu || uk ? v.gdpr_program_year * factor : 0
+  const osa = uk ? v.uk_osa_year * factor : 0
+  const dsa = eu ? v.dsa_year * (inputs.team === 'more' ? factor : v.compliance_tier_factor_one) : 0
   // The CCPA counts California consumers: the app's US users times the Californian share, not total MAU.
   const shares = jurShares(inputs, v)
   const usTier = us ? (ccpaApplies(inputs, v, shares) ? 'large' : 'small') : null
@@ -359,15 +458,19 @@ function compliance(inputs, v) {
   // On Nostr they fall with the data still retained, not to zero.
   const dsarUsers = mau * (shares.eu + shares.uk + (usTier === 'large' ? shares.us : 0))
   const dsar = dsarUsers * v.dsar_rate_per_mau_year * v.dsar_cost
-  const breach = v.breach_prob_year * Math.min(v.breach_cost_cap, mau * v.breach_cost_per_user)
-  const breachRemains = v.breach_prob_year * Math.min(v.breach_cost_cap, mau * v.retained_data_share * v.breach_cost_per_user)
+  // An expected loss, not a bill, sized by the firm: the chance of a breach
+  // in a year times the median loss for a firm this size. On Nostr the same
+  // chance falls on the little personal data still held. Kept apart from
+  // the cash parts: it is an exposure the page notes, never a saving it claims.
+  const loss = breachLoss(inputs.team, v)
+  const breach = v.breach_prob_year * loss
+  const breachRemains = breach * v.retained_data_share
   const parts = [
-    part('privacy_programs', programs, programsRemain, { us_tier: usTier, reported: reported != null && reported > 0, gdpr, osa, dsa, usp, content_law: contentLaw, us_share: shares.us, ca_consumers: caConsumers(inputs, v, shares) }),
-    part('legal_labour', legal.cost, legal.cost * v.privacy_remains_share, { defaulted: legal.defaulted, hours: legal.hours, hourly: legal.hourly }),
+    part('privacy_programs', programs, programsRemain, { us_tier: usTier, reported: reported != null && reported > 0, gdpr, osa, dsa, usp, content_law: contentLaw, us_share: shares.us, ca_consumers: caConsumers(inputs, v, shares), factor, team: inputs.team }),
+    part('legal_labour', legal.cost, legal.cost * v.privacy_remains_share, { defaulted: legal.defaulted, hours: legal.hours, hourly: legal.hourly, from: legal.from }),
     part('dsar', dsar, dsar * v.retained_data_share, { users: dsarUsers }),
     part('insurance', v.cyber_insurance_year, v.cyber_insurance_year * v.insurance_remains_share),
-    // An expected loss, not a bill: probability times severity. The page shows it apart from the cash costs.
-    part('breach', breach, breachRemains, { kind: 'risk' }),
+    part('breach', breach, breachRemains, { kind: 'risk', loss, team: inputs.team, policy: v.cyber_insurance_year }),
   ]
   return { parts }
 }
@@ -418,14 +521,17 @@ function moderation(inputs, v) {
   return { parts, implied, nobody }
 }
 
-// The payments line is the fee stack custody puts on in-app payments: `rev`
-// is the gross monthly volume the app facilitates (purchases, subscriptions,
-// tips, sales between users), split evenly across the rails given, each at
-// its sourced rate, a store's tier by the proceeds through that store. On
-// Nostr the app is not a party to the payment: the store's commission
-// reaches it only as far as the precedent leaves (p2p_store_fee_remains_share),
-// and the user's own rail carries everything else. Every part is `kind:
-// 'fees'`, so the page keeps the line apart from operating cost.
+// The payments line is the fee stack custody puts on payments between users:
+// `rev` is the gross monthly volume of tips, creator payments and sales
+// between users (the app's own sales are not a custody cost and are not
+// counted, on any rail), split evenly across the rails given, each at its
+// sourced rate, a store's tier by the proceeds through that store. Once the
+// network is mature the converted share (p2p_conversion_share) settles on
+// the user's own rail: on a store rail it still carries the commission the
+// precedent leaves (p2p_store_fee_remains_share) plus the rail's own rate;
+// on a processor or reseller rail only the rail's rate. The unconverted
+// share stays where it is at the full rate. Every part is `kind: 'fees'`,
+// so the page keeps the line apart from operating cost.
 function payments(inputs, v) {
   const rails = inputs.rails
   if (!rails.length || !(inputs.rev > 0)) return { parts: [], none: true }
@@ -434,19 +540,22 @@ function payments(inputs, v) {
   const share = 1 / rails.length
   const proceeds = annual * share
   const small = proceeds < v.store_small_threshold
-  const fee = (id, custodial, noncustodial, extra = {}) => part(id, custodial, noncustodial, { kind: 'fees', ...extra })
+  const conv = Math.min(1, Math.max(0, v.p2p_conversion_share))
+  const fee = (id, custodial, noncustodial, extra = {}) => part(id, custodial, noncustodial, { kind: 'fees', conversion: conv, ...extra })
   const parts = []
   for (const rail of rails) {
     const rev = proceeds
     if (rail === 'apple' || rail === 'google') {
       const rate = rail === 'apple' ? (small ? v.apple_rate_small : v.apple_rate_standard) : small ? v.google_rate_small : v.google_rate_standard
-      parts.push(fee(`store_${rail}`, rev * rate, rev * rate * v.p2p_store_fee_remains_share + rev * v.lightning_rate, { rate, tier: small ? 'small' : 'standard', revenue: rev }))
+      const custodial = rev * rate
+      const converted = rev * conv * (rate * v.p2p_store_fee_remains_share + v.lightning_rate)
+      parts.push(fee(`store_${rail}`, custodial, converted + rev * (1 - conv) * rate, { rate, tier: small ? 'small' : 'standard', revenue: rev }))
     } else if (rail === 'processor') {
       const cost = rev * v.processor_rate + (rev / v.avg_ticket) * v.processor_fixed
-      parts.push(fee('processor', cost, rev * v.lightning_rate, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev, tickets: rev / v.avg_ticket }))
+      parts.push(fee('processor', cost, rev * conv * v.lightning_rate + (1 - conv) * cost, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev, tickets: rev / v.avg_ticket }))
     } else if (rail === 'reseller') {
       const cost = rev * v.reseller_rate + (rev / v.avg_ticket) * v.reseller_fixed
-      parts.push(fee('reseller', cost, rev * v.lightning_rate, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev, tickets: rev / v.avg_ticket }))
+      parts.push(fee('reseller', cost, rev * conv * v.lightning_rate + (1 - conv) * cost, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev, tickets: rev / v.avg_ticket }))
     } else {
       const cost = rev * v.lightning_rate
       parts.push(fee('p2p', cost, cost, { rate: v.lightning_rate, revenue: rev }))
@@ -464,7 +573,7 @@ export const LINE_FUNCTIONS = LINE_FN
 // is calculated" dialog lists them and lights them up in the assumptions
 // table; a test runs every line with a recording proxy and fails if this map
 // and the code disagree. Conditional keys (a jurisdiction's share, a store's
-// tier, a default hours band) are listed in full and narrowed on the page.
+// tier, a default hours band, a team tier) are listed in full and narrowed on the page.
 /** The assumptions an opener's default rests on, by what was derived and from what. */
 export function derivedAssumptions(key, from, inputs) {
   if (/^eng_/.test(key)) return [`team_factor_${inputs.team}`]
@@ -478,6 +587,8 @@ export function derivedAssumptions(key, from, inputs) {
 
 const PEOPLE = ['eng_base_salary', 'loaded_multiplier', 'overhead_multiplier']
 const WEIGHTS = ['jur_weight_eu', 'jur_weight_uk', 'jur_weight_us', 'jur_weight_other']
+const TIERS = TEAMS.map((t) => `compliance_tier_factor_${t}`)
+const LOSSES = TEAMS.map((t) => `breach_loss_${t}`)
 export const PART_ASSUMPTIONS = {
   'accounts.auth': ['auth_per_mau_month'],
   'accounts.resets': ['reset_rate_per_mau_year', 'reset_cost'],
@@ -493,39 +604,40 @@ export const PART_ASSUMPTIONS = {
   'storage.serving': ['compute_per_mau_year', 'feed_compute_share', 'cache_per_mau_year'],
   'storage.engineering': [...PEOPLE, 'default_hours_infra', 'infra_eng_remains_share'],
   'storage.relay': ['relay_per_mau_year', 'relay_sponsored_share', 'relay_floor_year'],
-  'compliance.privacy_programs': ['gdpr_program_year', 'uk_osa_year', 'dsa_year', 'us_privacy_year_small', 'us_privacy_year_large', 'ccpa_consumer_threshold', 'annual_users_per_mau', 'ca_share_of_us_users', ...WEIGHTS, 'content_law_remains_share', 'privacy_remains_share'],
+  'compliance.privacy_programs': ['gdpr_program_year', 'uk_osa_year', 'dsa_year', ...TIERS, 'us_privacy_year_small', 'us_privacy_year_large', 'ccpa_consumer_threshold', 'annual_users_per_mau', 'ca_share_of_us_users', ...WEIGHTS, 'content_law_remains_share', 'privacy_remains_share'],
   'compliance.legal_labour': [...PEOPLE, 'default_hours_legal', 'privacy_remains_share'],
   'compliance.dsar': ['dsar_rate_per_mau_year', 'dsar_cost', 'retained_data_share', 'ccpa_consumer_threshold', 'annual_users_per_mau', 'ca_share_of_us_users', ...WEIGHTS],
   'compliance.insurance': ['cyber_insurance_year', 'insurance_remains_share'],
-  'compliance.breach': ['breach_prob_year', 'breach_cost_cap', 'breach_cost_per_user', 'retained_data_share'],
+  'compliance.breach': ['breach_prob_year', ...LOSSES, 'retained_data_share', 'cyber_insurance_year'],
   'moderation.labour': ['ts_base_salary', 'moderator_base_salary', 'moderator_seat_outsourced', 'mods_per_million_mau', 'loaded_multiplier', 'overhead_multiplier', 'moderation_remains_share'],
   'moderation.appeals': ['appeals_share', 'moderation_remains_share'],
   'moderation.tooling': ['ts_tooling_per_mau_year', 'tooling_remains_share'],
   'moderation.labels': ['label_provider_per_mau_year'],
-  'payments.store_apple': ['apple_rate_standard', 'apple_rate_small', 'store_small_threshold', 'p2p_store_fee_remains_share', 'lightning_rate'],
-  'payments.store_google': ['google_rate_standard', 'google_rate_small', 'store_small_threshold', 'p2p_store_fee_remains_share', 'lightning_rate'],
-  'payments.processor': ['processor_rate', 'processor_fixed', 'avg_ticket', 'lightning_rate'],
-  'payments.reseller': ['reseller_rate', 'reseller_fixed', 'avg_ticket', 'lightning_rate'],
-  'payments.p2p': ['lightning_rate'],
-  'payments.money_transmitter': ['mt_avoidance_year', 'mt_remains_share'],
+  'payments.store_apple': ['apple_rate_standard', 'apple_rate_small', 'store_small_threshold', 'p2p_store_fee_remains_share', 'p2p_conversion_share', 'lightning_rate'],
+  'payments.store_google': ['google_rate_standard', 'google_rate_small', 'store_small_threshold', 'p2p_store_fee_remains_share', 'p2p_conversion_share', 'lightning_rate'],
+  'payments.processor': ['processor_rate', 'processor_fixed', 'avg_ticket', 'p2p_conversion_share', 'lightning_rate'],
+  'payments.reseller': ['reseller_rate', 'reseller_fixed', 'avg_ticket', 'p2p_conversion_share', 'lightning_rate'],
+  'payments.p2p': ['lightning_rate', 'p2p_conversion_share'],
+  'payments.money_transmitter': ['mt_avoidance_year', 'mt_remains_share', 'p2p_conversion_share'],
 }
 
-
-/** Evaluate every line for one set of assumption values. */
+/** Evaluate every line for one set of assumption values: the annualized run-rate at one instant. */
 export function evaluate(inputs, v) {
   const shares = nostrShares(inputs)
   const lines = {}
   let custodial = 0
   let noncustodial = 0
   let fees = 0
-  let risk = 0
+  const breach = { custodial: 0, noncustodial: 0 }
   for (const name of LINES) {
     const r = LINE_FN[name](inputs, v)
-    const nc = sum(r.parts, 'noncustodial')
-    const full = sum(r.parts, 'custodial')
     const share = Math.min(1, Math.max(0, shares[name]))
+    // The line is its bills and fees; an expected loss (the breach) rides
+    // beside it, moved by the same share, and is kept apart from every total.
+    const cash = r.parts.filter((p) => p.kind !== 'risk')
+    const nc = sum(cash, 'noncustodial')
+    const full = sum(cash, 'custodial')
     const c = full - share * (full - nc)
-    // A kind's parts move with the line's share like every other part; their saving is that kind's.
     const kindSaving = (kind) => {
       const parts = r.parts.filter((p) => p.kind === kind)
       const kindFull = sum(parts, 'custodial')
@@ -533,12 +645,14 @@ export function evaluate(inputs, v) {
       return kindFull - share * (kindFull - kindNc) - kindNc
     }
     const feesSaving = kindSaving('fees')
-    const riskSaving = kindSaving('risk')
-    lines[name] = { ...r, custodial: c, noncustodial: nc, full, share, already: share >= 0.999, partly: share > 0 && share < 0.999, saving: c - nc, saving_cash: c - nc - feesSaving - riskSaving, saving_fees: feesSaving, saving_risk: riskSaving }
+    for (const p of r.parts.filter((q) => q.kind === 'risk')) {
+      breach.custodial += p.custodial - share * (p.custodial - p.noncustodial)
+      breach.noncustodial += p.noncustodial
+    }
+    lines[name] = { ...r, custodial: c, noncustodial: nc, full, share, already: share >= 0.999, partly: share > 0 && share < 0.999, saving: c - nc, saving_cash: c - nc - feesSaving, saving_fees: feesSaving }
     custodial += c
     noncustodial += nc
     fees += feesSaving
-    risk += riskSaving
   }
   const { mau } = inputs
   return {
@@ -548,126 +662,124 @@ export function evaluate(inputs, v) {
       custodial,
       noncustodial,
       saving: custodial - noncustodial,
-      saving_cash: custodial - noncustodial - fees - risk,
+      saving_cash: custodial - noncustodial - fees,
       saving_fees: fees,
-      saving_risk: risk,
+      breach_custodial: breach.custodial,
+      breach_noncustodial: breach.noncustodial,
+      breach_saving: breach.custodial - breach.noncustodial,
       per_mau_custodial: custodial / mau,
       per_mau_noncustodial: noncustodial / mau,
     },
   }
 }
 
-// ── the projection ──────────────────────────────────────────────────────────
+// ── the timeline ────────────────────────────────────────────────────────────
 //
-// Six years, year 0 through YEARS. Each year re-runs the six lines at that
-// year's user count, with payment volume held per user (posts and storage
-// already are), so fixed program fees and tiers behave as they would;
-// hours, head counts and reported legal spend stay as given, which errs
-// conservative. Users compound at the growth given, or the default (flat),
-// with each year's rate a fraction of the previous (growth_decay).
-//
-// The ramp is the network's, not the app's. Month 1 is January of
-// data.start_year for every app. The share of the at-scale saving the
-// network delivers in month m starts at scale_progress_today (p: keys,
-// signed events, relays and follows already carry most of the custodial
-// cost) and rises to 1 over scale_months (M), front-loaded,
-// p + (1 − p)(1 − (1 − m/M)²), because the pieces still maturing
-// (user-paid providers, a media market, label and ranking providers,
-// payment conversion) are the tail. MARKER_YEAR is the first full year at
-// scale under the typical 36 months.
-//
-// Each point's `nostr` is what an app on Nostr pays that year: the custodial
-// figure less the saving the network delivers, so the two lines start apart
-// at year 0 and the gap between them is that year's saving, `realised`; the
-// cumulative is its running sum from today. An app's own integration, its
-// time and its cost, is not modelled: that is settled case by case, in a
-// consult, never estimated on the page.
+// The network's progress toward supporting non-custodial apps, 0 at
+// network_mature_start and 1 at network_mature_end, front-loaded,
+// 1 − (1 − t/T)², because the standards adopted first (keys, signed events,
+// relays, follows) carry the bulk of custodial cost and deliver early, while
+// the pieces still maturing (user-paid providers, a media market, label and
+// ranking providers, payment conversion) are the tail. Every point samples
+// this curve at its own date; after network_mature_end the share is 1.
 
-export const YEARS = 5
-export const MARKER_YEAR = 3 // Nostr at scale
-
-/** The calendar year a projection year stands for, from the assumptions' start year. */
-export function calendarYear(startYear, year) {
-  return startYear + year
-}
-
-/** The share of the at-scale saving the network delivers in absolute month m (1 = January of the start year), from p today to 1 over M months. */
-export function networkShare(m, p, M) {
-  if (!(M > 0)) return 1
-  const u = Math.min(1, (m - 0.5) / M)
-  return p + (1 - p) * (1 - (1 - u) ** 2)
-}
-
-/** A year's share: the mean over its twelve months; year 0 is months 1 to 12. */
-export function rampShare(year, p, M) {
-  let s = 0
-  for (let m = year * 12 + 1; m <= year * 12 + 12; m++) s += networkShare(m, p, M)
-  return s / 12
+/** The share of the full saving the network delivers on a date. */
+export function networkShare(date, v) {
+  const T = monthsBetween(v.network_mature_start, v.network_mature_end)
+  if (!(T > 0)) return 1
+  const t = monthsBetween(v.network_mature_start, date)
+  const u = Math.min(1, Math.max(0, t / T))
+  return 1 - (1 - u) ** 2
 }
 
 /**
- * Year 0 (today) through YEARS, for one scenario's assumption values. Each
- * point carries the year's two costs, the Nostr cost, the saving and its
- * cash, fees and risk parts, the network's share, the saving realised that
- * year and the cumulative; and `lines`, each line and part at that year's
- * users with its gap, so the savings list can show the marker year.
+ * Users some months from today: whole years compound at the growth given,
+ * or the default (flat), each year's rate a fraction of the previous
+ * (growth_decay), and a point between two years is set between them in
+ * proportion, so a marker between the dots sits on the line.
  */
-export function project(inputs, v, today = evaluate(inputs, v)) {
+export function usersAt(months, inputs, v) {
   const given = num(inputs.growth)
   let rate = given != null ? given : v.growth_default
-  const p = v.scale_progress_today
-  const M = v.scale_months
-  // Each year's lines and their parts; a part's custodial figure is moved
-  // toward its Nostr one by the line's "already on Nostr" share, as the line's
-  // own is, so the parts always add up to the line. `gap` is the saving the
-  // network delivers that year: the difference times the year's share.
-  const perLine = (r, share) =>
-    Object.fromEntries(
-      LINES.map((name) => {
-        const l = r.lines[name]
-        const parts = l.parts.map((q) => {
-          const custodial = q.custodial - l.share * (q.custodial - q.noncustodial)
-          return { id: q.id, kind: q.kind, custodial, noncustodial: q.noncustodial, gap: (custodial - q.noncustodial) * share }
-        })
-        return [name, { custodial: l.custodial, noncustodial: l.noncustodial, gap: (l.custodial - l.noncustodial) * share, parts }]
-      }),
-    )
-  const point = (year, users, r) => {
-    const share = rampShare(year, p, M)
-    const T = r.totals
-    return { year, users, rate, custodial: T.custodial, noncustodial: T.noncustodial, nostr: T.custodial - T.saving * share, saving: T.saving, saving_cash: T.saving_cash, saving_fees: T.saving_fees, saving_risk: T.saving_risk, share, realised: T.saving * share, lines: perLine(r, share) }
-  }
-  const points = [point(0, inputs.mau, today)]
-  let users = inputs.mau
-  for (let year = 1; year <= YEARS; year++) {
+  const years = [inputs.mau]
+  const last = Math.ceil(months / 12)
+  for (let year = 1; year <= last; year++) {
     if (year > 1) rate *= v.growth_decay
-    users = Math.max(1, Math.round(users * (1 + rate)))
-    const scaled = { ...inputs, mau: users, rev: (inputs.rev * users) / inputs.mau }
-    points.push(point(year, users, evaluate(scaled, v)))
+    years.push(Math.max(1, Math.round(years[year - 1] * (1 + rate))))
   }
-  let cumulative = 0
-  for (const q of points) {
-    cumulative += q.realised
-    q.cumulative = cumulative
+  const whole = Math.floor(months / 12)
+  const frac = months / 12 - whole
+  if (frac === 0) return years[whole]
+  return years[whole] * (years[whole + 1] / years[whole]) ** frac
+}
+
+/** Each line and part at one instant, with its gap (the saving the network delivers there), so the parts always add up to the line. */
+function perLine(r, share) {
+  return Object.fromEntries(
+    LINES.map((name) => {
+      const l = r.lines[name]
+      const parts = l.parts.map((q) => {
+        const custodial = q.custodial - l.share * (q.custodial - q.noncustodial)
+        return { id: q.id, kind: q.kind, custodial, noncustodial: q.noncustodial, gap: (custodial - q.noncustodial) * share }
+      })
+      return [name, { custodial: l.custodial, noncustodial: l.noncustodial, gap: (l.custodial - l.noncustodial) * share, parts }]
+    }),
+  )
+}
+
+/**
+ * The app at one instant, `months` after today: the annualized run-rate of
+ * custody as it runs today, carried forward to that instant's users (with
+ * payment volume held per user; hours, head counts and reported legal spend
+ * stay as given, which errs conservative), and the cost of the same app if
+ * it were Nostr-integrated at that instant: custody less the saving the
+ * network delivers on that date. The gap between the two is `realised`.
+ */
+export function pointAt(months, inputs, v, today, base = null, date = addMonths(today, months)) {
+  const users = usersAt(months, inputs, v)
+  const r = months === 0 && base ? base : evaluate(months === 0 ? inputs : { ...inputs, mau: users, rev: (inputs.rev * users) / inputs.mau }, v)
+  const share = networkShare(date, v)
+  const T = r.totals
+  return {
+    months,
+    year: months / 12,
+    date,
+    users,
+    share,
+    custodial: T.custodial,
+    noncustodial: T.noncustodial,
+    nostr: T.custodial - T.saving * share,
+    saving: T.saving,
+    saving_cash: T.saving_cash,
+    saving_fees: T.saving_fees,
+    realised: T.saving * share,
+    breach: { custodial: T.breach_custodial, noncustodial: T.breach_noncustodial, reduction: T.breach_saving * share },
+    lines: perLine(r, share),
   }
+}
+
+/** The six points of the chart: today, then today plus one to five years. */
+export function project(inputs, v, today, base = evaluate(inputs, v)) {
+  const points = []
+  for (let year = 0; year <= YEARS; year++) points.push(pointAt(year * 12, inputs, v, today, base))
   return points
 }
 
 /**
  * The whole result: the typical scenario plus the low and high bounds, each
- * with its projection, the clean inputs the page should echo back, and the
- * overrides that applied. "At scale" is the marker year's column of the
- * projection: what the app pays under custody that year, what an app on
- * Nostr pays, and the saving between the two, cash, fees and risk apart.
- * Every line and part carries its figures for that year, and the lines add
- * up to the total's own, so the chart, the savings list and the facts all
- * show one set of numbers. The five-year figure is the cumulative saving
- * over the years shown.
+ * with its six points, its three markers and its headline; the clean inputs
+ * the page should echo back; the overrides that applied; and the date it
+ * was all calculated as of. The headline, `totals.estimated`, is the gap
+ * between the two lines at the estimated-savings instant, cash and fees
+ * only; every line and part carries its figures for that instant, and the
+ * lines add up to the headline. The breach reduction at the same instant
+ * sits beside it, never in it.
  */
-export function calculate(rawInputs, data, rawOverrides = {}) {
+export function calculate(rawInputs, data, rawOverrides = {}, { today } = {}) {
+  if (!isDate(today)) throw new Error('calculate: today must be an ISO date (YYYY-MM-DD)')
   const inputs = normalizeInputs(rawInputs)
   const overrides = cleanOverrides(data, rawOverrides)
-  const out = { version: data.version, start_year: data.start_year, inputs, overrides }
+  const out = { version: data.version, today, inputs, overrides }
   for (const s of SCENARIOS) {
     const resolved = resolveAssumptions(data, s, overrides)
     const { values: v, set } = applyKind(resolved, inputs.kind, overrides)
@@ -677,31 +789,40 @@ export function calculate(rawInputs, data, rawOverrides = {}) {
     r.effective = eff
     r.derived = eff.derived
     r.values = v
-    r.projection = project(eff, v, r)
-    const scale = r.projection[MARKER_YEAR]
-    r.totals.five_year = r.projection[YEARS].cumulative
-    r.totals.marker_year = scale.cumulative
-    r.totals.at_scale = scale.custodial - scale.nostr
-    r.totals.at_scale_cash = scale.saving_cash * scale.share
-    r.totals.at_scale_fees = scale.saving_fees * scale.share
-    r.totals.at_scale_risk = scale.saving_risk * scale.share
-    r.totals.scale_custodial = scale.custodial
-    r.totals.scale_nostr = scale.nostr
-    r.totals.scale_users = scale.users
-    r.totals.scale_per_mau_custodial = scale.custodial / scale.users
-    r.totals.scale_per_mau_nostr = scale.nostr / scale.users
+    r.projection = project(eff, v, today, r)
+    const payback = Math.max(0, v.integration_payback_months)
+    const estimatedAt = payback + Math.max(0, v.estimated_savings_months)
+    const matureIn = monthsBetween(today, v.network_mature_end)
+    r.markers = {
+      // The integration wedge ends here: nothing in it is summed or estimated.
+      payback: { months: payback, point: pointAt(payback, eff, v, today, r) },
+      // The headline instant.
+      estimated: { months: estimatedAt, point: pointAt(estimatedAt, eff, v, today, r) },
+      // The network's date, on the app's timeline: before today it is "since".
+      mature: { date: v.network_mature_end, months: matureIn, since: !(matureIn > 0), point: matureIn > 0 ? pointAt(matureIn, eff, v, today, r, v.network_mature_end) : null },
+    }
+    const E = r.markers.estimated.point
+    r.totals.estimated = E.realised
+    r.totals.estimated_cash = E.saving_cash * E.share
+    r.totals.estimated_fees = E.saving_fees * E.share
+    r.totals.estimated_custodial = E.custodial
+    r.totals.estimated_nostr = E.nostr
+    r.totals.estimated_users = E.users
+    r.totals.estimated_months = E.months
+    r.totals.estimated_after_payback = estimatedAt - payback
+    r.totals.estimated_date = E.date
+    r.totals.breach_reduction = E.breach.reduction
+    r.totals.today_nostr = r.projection[0].nostr
     for (const name of LINES) {
       const line = r.lines[name]
-      line.five_year = r.projection.reduce((acc, q) => acc + q.lines[name].gap, 0)
-      // At scale: what the line costs under custody and on Nostr in the marker year, at that year's users.
-      const at = scale.lines[name]
-      line.scale_custodial = at.custodial
-      line.scale_noncustodial = at.custodial - at.gap
-      line.at_scale = at.gap
-      for (const part of line.parts) {
-        const q = at.parts.find((x) => x.id === part.id)
-        part.scale_custodial = q ? q.custodial : 0
-        part.scale_noncustodial = q ? q.custodial - q.gap : 0
+      const at = E.lines[name]
+      line.estimated = at.gap
+      line.estimated_custodial = at.custodial
+      line.estimated_noncustodial = at.custodial - at.gap
+      for (const p of line.parts) {
+        const q = at.parts.find((x) => x.id === p.id)
+        p.estimated_custodial = q ? q.custodial : 0
+        p.estimated_noncustodial = q ? q.custodial - q.gap : 0
       }
     }
     out[s] = r

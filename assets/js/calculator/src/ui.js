@@ -5,17 +5,17 @@
 
 import { $, $$, clear, el, show } from '../../shared/src/dom.js'
 import { fmt, t } from '../../shared/src/config.js'
-import { compact, money, number, percent, perMau } from './format.js'
-import { LINES, MARKER_YEAR, YEARS, calendarYear } from './model.js'
+import { approx, compact, date, money, number, percent, perMau } from './format.js'
+import { LINES, YEARS, isDate } from './model.js'
 import { drawCharts, yearLabel } from './chart.js'
 import { explain } from './explain.js'
 
 // The two bounds in reading order, whichever scenario gave which: low is the
 // smaller saving, so on the Nostr side it is the larger cost.
 const ordered = (a, b) => (a <= b ? [a, b] : [b, a])
-const range = (a, b) => {
+const range = (a, b, f = approx) => {
   const [low, high] = ordered(a, b)
-  return fmt(t('range_short'), { low: compact(low), high: compact(high) })
+  return fmt(t('range_short'), { low: f(low), high: f(high) })
 }
 const rangeFull = (a, b, f = compact) => {
   const [low, high] = ordered(a, b)
@@ -25,41 +25,29 @@ const rangeFull = (a, b, f = compact) => {
 export function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result
   const T = typical.totals
-  const year = calendarYear(result.start_year, MARKER_YEAR)
 
   // Whose estimate this is, and the app it describes, one piece per section.
-  // The saving a year at scale is in the chart, the gold figure beside the rule.
   renderWhose(result, own)
   const link = $('#r-whose-link')
   if (link) link.textContent = t('whose.link')
 
-  // The three facts under the chart, all for the year Nostr is at scale,
-  // each label naming it: the custodial cost per user that year (that side
-  // does not vary, so it has no range), the Nostr cost per user that year,
-  // and the Nostr cost that year, the lower gold dot, each with its range.
-  for (const id of ['r-permau-c-label', 'r-permau-nc-label', 'r-scale-nostr-label']) {
-    const node = $(`#${id}`)
-    if (node?.dataset.template) node.textContent = fmt(node.dataset.template, { year })
-  }
-  text('#r-permau-c', perMau(T.scale_per_mau_custodial))
-  text('#r-permau-c-range', rangeFull(low.totals.scale_per_mau_custodial, high.totals.scale_per_mau_custodial, perMau))
-  text('#r-permau-nc', perMau(T.scale_per_mau_nostr))
-  text('#r-permau-nc-range', rangeFull(low.totals.scale_per_mau_nostr, high.totals.scale_per_mau_nostr, perMau))
-  text('#r-scale-nostr', compact(T.scale_nostr))
-  text('#r-scale-nostr-range', rangeFull(low.totals.scale_nostr, high.totals.scale_nostr))
-  // The five years of saving added up sit on the year-by-year summary, where their table is.
-  text('#r-cumulative', fmt(t('cumulative_note'), { amount: compact(T.five_year) }))
-  text('#r-version', fmt(t('version'), { version: result.version }))
+  // The three facts beside the chart, all at the instant the headline is
+  // read: the custodial cost per user then (that side does not vary, so it
+  // has no range), the Nostr cost per user then, and the Nostr cost a year then.
+  text('#r-permau-c', perMau(T.estimated_custodial / T.estimated_users))
+  text('#r-permau-c-range', rangeFull(low.totals.estimated_custodial / low.totals.estimated_users, high.totals.estimated_custodial / high.totals.estimated_users, perMau))
+  text('#r-permau-nc', perMau(T.estimated_nostr / T.estimated_users))
+  text('#r-permau-nc-range', rangeFull(low.totals.estimated_nostr / low.totals.estimated_users, high.totals.estimated_nostr / high.totals.estimated_users, perMau))
+  text('#r-scale-nostr', approx(T.estimated_nostr))
+  text('#r-scale-nostr-range', rangeFull(low.totals.estimated_nostr, high.totals.estimated_nostr, approx))
+  text('#r-version', fmt(t('version'), { version: result.version, date: date(result.today) }))
 
-  // The chart's caption names the marker year.
-  const caption = $('#caption-chart-custodial-cost-vs-nostr')
-  if (caption?.dataset.template) caption.textContent = fmt(caption.dataset.template, { year })
-  drawCharts({ typical: typical.projection, low: low.projection, start_year: result.start_year, marker: compact(T.at_scale_cash) })
-  renderYears(typical.projection, result.start_year)
+  renderChart(result)
+  renderYears(typical.projection)
 
-  // Where the saving comes from: each line's saving a year at scale, and the
-  // bar as the share of that line's own cost that goes away. The six add up
-  // to the figure in the chart.
+  // Where the saving comes from: each line's saving a year at the instant the
+  // headline is read, and the bar as the share of that line's own cost that
+  // goes away. The six add up to the headline.
   const cut = (c, nc) => (c > 0 ? Math.min(1, Math.max(0, 1 - nc / c)) : 0)
 
   for (const name of LINES) {
@@ -84,8 +72,8 @@ export function renderResults(result, { own = false } = {}) {
 
     const saving = $('.lt-saving', row)
     const rangeNode = $('.lt-saving-range', row)
-    saving.textContent = line.none ? '' : money(line.at_scale)
-    rangeNode.textContent = line.none ? '' : range(low.lines[name].at_scale, high.lines[name].at_scale)
+    saving.textContent = line.none ? '' : approx(line.estimated)
+    rangeNode.textContent = line.none ? '' : range(low.lines[name].estimated, high.lines[name].estimated)
     show(saving, !line.none)
     const share = line.none ? 0 : cut(line.custodial, line.noncustodial)
     $('.share', row).style.setProperty('--w', `${100 * share}%`)
@@ -93,6 +81,35 @@ export function renderResults(result, { own = false } = {}) {
 
     renderParts(name, line, inputs)
   }
+}
+
+/**
+ * The picture and its caption. The chart gets the typical scenario's six
+ * points and three markers; the gold figure is the headline, rounded as it
+ * is everywhere. The caption names the window, the months and the network's
+ * date: "since" when it is already behind us, "by" when it is beyond the years shown.
+ */
+function renderChart(result) {
+  const { typical } = result
+  const T = typical.totals
+  const M = typical.markers
+  const months = T.estimated_after_payback
+  const matureVars = { date: date(M.mature.date) }
+  const mature = M.mature.since ? fmt(t('chart.caption_mature_since'), matureVars) : M.mature.months > YEARS * 12 ? fmt(t('chart.caption_mature_beyond'), matureVars) : fmt(t('chart.caption_mature'), matureVars)
+  const caption = $(`#caption-${'chart-custodial-cost-vs-nostr'}`)
+  if (caption) caption.textContent = [caption.dataset.template, t('chart.caption_window'), fmt(t('chart.caption_estimated'), { months: number(months) }), mature].filter(Boolean).join(' ')
+  const first = typical.projection[0]
+  const end = typical.projection[YEARS]
+  const title = fmt(t('chart.versus.aria'), {
+    custodial: approx(first.custodial),
+    nostr: approx(first.nostr),
+    end_custodial: approx(end.custodial),
+    end_nostr: approx(end.nostr),
+    saving: approx(T.estimated),
+    months: number(months),
+    mature,
+  })
+  drawCharts({ projection: typical.projection, markers: M, headline: { text: approx(T.estimated), sub: t('chart.versus.band_sub') }, title })
 }
 
 /**
@@ -125,13 +142,13 @@ function renderWhose(result, own) {
   }
 }
 
-/** The year-by-year table under the chart: the picture as numbers, measures down and calendar years across, from today. */
-function renderYears(projection, startYear) {
+/** The year-by-year table under the chart: the picture as numbers, measures down and years across, from today. Every cell is a run-rate at that instant. */
+function renderYears(projection) {
   const head = $('#r-years-head')
   if (!head) return
   for (const extra of $$('th[data-year]', head)) extra.remove()
-  for (let year = 0; year <= YEARS; year++) head.append(el('th', { scope: 'col', class: 'years-num', 'data-year': year, text: yearLabel(startYear, year) }))
-  const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), nostr: (p) => money(p.nostr), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) }
+  for (let year = 0; year <= YEARS; year++) head.append(el('th', { scope: 'col', class: 'years-num', 'data-year': year, text: yearLabel(year) }))
+  const cell = { users: (p) => number(Math.round(p.users)), custodial: (p) => money(p.custodial), nostr: (p) => money(p.nostr), realised: (p) => money(p.realised) }
   for (const row of $$('#r-years tbody tr[data-row]')) {
     const value = cell[row.dataset.row]
     if (!value) continue
@@ -143,9 +160,9 @@ function renderYears(projection, startYear) {
 function renderParts(name, line, inputs) {
   const host = $(`.lt-parts[data-line="${name}"] .parts`)
   if (!host) return
-  // The line's two totals foot the table: the year the network is at scale, under custody and on Nostr.
-  text(`.lt-parts[data-line="${name}"] .parts__total-c`, money(line.scale_custodial))
-  text(`.lt-parts[data-line="${name}"] .parts__total-nc`, money(line.scale_noncustodial))
+  // The line's two totals foot the table: the instant the headline is read, under custody and on Nostr.
+  text(`.lt-parts[data-line="${name}"] .parts__total-c`, money(line.estimated_custodial))
+  text(`.lt-parts[data-line="${name}"] .parts__total-nc`, money(line.estimated_noncustodial))
   clear(host)
   // One row per part: the item (a link-styled button that explains how the
   // figure was made), its custodial cost and its Nostr cost.
@@ -158,23 +175,23 @@ function renderParts(name, line, inputs) {
           meta ? el('span', { class: 'part__meta', text: meta }) : null,
         ]),
       ]),
-      el('td', { class: 'parts-num', text: money(p.scale_custodial) }),
-      el('td', { class: 'parts-num' }, [el('b', { text: money(p.scale_noncustodial) })]),
+      el('td', { class: 'parts-num', text: money(p.estimated_custodial) }),
+      el('td', { class: 'parts-num' }, [el('b', { text: money(p.estimated_noncustodial) })]),
     ])
   }
   const subtotal = (label, parts) =>
     el('tr', { class: 'parts__subtotal' }, [
       el('th', { scope: 'row', text: label }),
-      el('td', { class: 'parts-num', text: money(parts.reduce((a, p) => a + p.scale_custodial, 0)) }),
-      el('td', { class: 'parts-num' }, [el('b', { text: money(parts.reduce((a, p) => a + p.scale_noncustodial, 0)) })]),
+      el('td', { class: 'parts-num', text: money(parts.reduce((a, p) => a + p.estimated_custodial, 0)) }),
+      el('td', { class: 'parts-num' }, [el('b', { text: money(parts.reduce((a, p) => a + p.estimated_noncustodial, 0)) })]),
     ])
-  // Fees on in-app payments and an expected loss are not operating bills:
-  // where a line carries either kind, each group is listed with its own
-  // sub-total, cash costs first.
+  // Fees on payments between users are not operating bills: where a line
+  // carries both kinds, each group is listed with its own sub-total, cash
+  // costs first. The expected breach loss is not in the table at all: it is
+  // an exposure, noted under the headline with its own dialog.
   const groups = [
     ['cash', line.parts.filter((p) => !p.kind)],
     ['fees', line.parts.filter((p) => p.kind === 'fees')],
-    ['risk', line.parts.filter((p) => p.kind === 'risk')],
   ].filter(([, parts]) => parts.length)
   const labelled = groups.some(([kind]) => kind !== 'cash')
   for (const [kind, parts] of groups) {
@@ -192,13 +209,14 @@ let howLabel = ''
 export function openHow(line, partId, result, data) {
   const part = result.typical.lines[line]?.parts.find((p) => p.id === partId)
   if (!part) return
-  const info = explain(line, part, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, scale: { year: MARKER_YEAR, users: result.typical.totals.scale_users } })
+  const T = result.typical.totals
+  const info = explain(line, part, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, estimated: { months: T.estimated_months, users: T.estimated_users, date: T.estimated_date } })
   fillHow({
     label: info.label,
     line: $(`.lt-row[data-line="${line}"] .lt-title`)?.textContent.trim() || line,
     heads: [t('details.today'), t('details.on_nostr')],
     rows: [info.today, info.nostr],
-    foot: info.at_scale,
+    foot: info.estimated,
     assumptions: info.assumptions,
   })
 }
@@ -387,15 +405,20 @@ export function setError(code, fieldLabel) {
 
 // ── the assumptions panel ────────────────────────────────────────────────────
 
-/** Current overrides from the inputs: anything that is not its typical value. */
+const isDateInput = (input) => input.dataset.unit === 'date' || input.type === 'date'
+
+/** Current overrides from the inputs: anything that is not its typical value. A date row gives its ISO string, every other row a number. */
 export function readOverrides() {
   const out = {}
   for (const input of $$('.assume-input')) {
-    const typical = Number(input.dataset.typical)
     const v = input.value.trim()
     if (v === '') continue
+    if (isDateInput(input)) {
+      if (isDate(v) && v !== input.dataset.typical) out[input.dataset.key] = v
+      continue
+    }
     const n = Number(v)
-    if (!Number.isFinite(n) || n < 0 || n === typical) continue
+    if (!Number.isFinite(n) || n < 0 || n === Number(input.dataset.typical)) continue
     out[input.dataset.key] = n
   }
   return out
@@ -404,14 +427,15 @@ export function readOverrides() {
 export function writeOverrides(overrides = {}) {
   for (const input of $$('.assume-input')) {
     const key = input.dataset.key
-    input.value = key in overrides ? String(overrides[key]) : input.dataset.typical
+    input.value = Object.hasOwn(overrides, key) ? String(overrides[key]) : input.dataset.typical
   }
   markChanged()
 }
 
 export function markChanged() {
   for (const input of $$('.assume-input')) {
-    const changed = input.value.trim() !== '' && Number(input.value) !== Number(input.dataset.typical)
+    const v = input.value.trim()
+    const changed = v !== '' && (isDateInput(input) ? v !== input.dataset.typical : Number(v) !== Number(input.dataset.typical))
     input.closest('tr')?.classList.toggle('is-changed', changed)
   }
 }

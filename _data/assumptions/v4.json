@@ -284,9 +284,9 @@
     "network_mature_start": {
       "label": "Network progress starts",
       "unit": "date",
-      "typical": "2020-03-01",
-      "low": "2020-03-01",
-      "high": "2020-03-01",
+      "typical": "2023-01-01",
+      "low": "2023-01-01",
+      "high": "2023-01-01",
       "confidence": "unsourced",
       "source": null,
       "note": "The date the network's progress toward supporting non-custodial apps counts from: progress is 0 here and 1 at network_mature_end, front-loaded between the two, 1 − (1 − t/T)², because the standards adopted first (keys, signed events, relays, follows) carry the bulk of custodial cost. A rough assumption; a refined model comes in a later version.",

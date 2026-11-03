@@ -4,8 +4,8 @@
 // the result, the inputs and the assumption values in use. Pure: no DOM.
 
 import { t } from '../../shared/src/config.js'
-import { compact, money, number, percent, perMau } from './format.js'
-import { PART_ASSUMPTIONS, RETENTION_MONTHS, WEEKS_PER_YEAR, calendarYear, derivedAssumptions } from './model.js'
+import { compact, date, money, number, percent, perMau } from './format.js'
+import { PART_ASSUMPTIONS, RETENTION_MONTHS, TEAMS, WEEKS_PER_YEAR, derivedAssumptions } from './model.js'
 
 /** Fill {a.key}, {i.key}, {p.key} and {d.key} from a flat map; anything unknown stays visible. */
 export function fill(template, vars) {
@@ -14,6 +14,7 @@ export function fill(template, vars) {
 
 /** An assumption's value in the words of its unit. */
 export function formatValue(v, unit = '') {
+  if (unit === 'date') return date(v)
   if (/^ratio/.test(unit)) return percent(v)
   if (unit === 'multiplier') return `${number(v)}×`
   if (/^USD/.test(unit)) return v < 100 ? perMau(v) : money(v)
@@ -30,8 +31,8 @@ function variant(line, part) {
   return part.id
 }
 
-const MONEY = new Set(['custodial', 'noncustodial', 'revenue', 'loaded', 'gdpr', 'osa', 'dsa', 'usp', 'content_law'])
-const PERCENT = new Set(['rate', 'share', 'us_share', 'sponsored'])
+const MONEY = new Set(['custodial', 'noncustodial', 'revenue', 'loaded', 'gdpr', 'osa', 'dsa', 'usp', 'content_law', 'loss', 'policy'])
+const PERCENT = new Set(['rate', 'share', 'us_share', 'sponsored', 'factor', 'conversion'])
 const CENTS = new Set(['hourly', 'fixed', 'contact'])
 
 /** The part's own numbers, formatted by what they are. */
@@ -50,7 +51,7 @@ function partVars(part) {
   return out
 }
 
-/** Only the assumptions that applied: a jurisdiction's share, a store's tier, a default band. */
+/** Only the assumptions that applied: a jurisdiction's share, a store's tier, a default band, the team's tier. */
 export function relevantKeys(line, part, inputs) {
   const keys = [...(PART_ASSUMPTIONS[`${line}.${part.id}`] || [])]
   // What an opener's default rests on, where this part used one.
@@ -65,6 +66,7 @@ export function relevantKeys(line, part, inputs) {
   if (part.id === 'egress' && derived.egress_gb_per_mau_month) keys.push(...derivedAssumptions('egress_gb_per_mau_month', 'kind', inputs))
   if ((part.id === 'serving' || part.id === 'feed_compute') && derived.compute_per_mau_year) keys.push(...derivedAssumptions('compute_per_mau_year', 'kind', inputs))
   const jur = inputs.jur || []
+  const team = TEAMS.includes(inputs.team) ? inputs.team : 'more'
   return keys.filter((key) => {
     const m = key.match(/^verify_share_(\w+)$/)
     if (m) return jur.includes(m[1])
@@ -76,6 +78,11 @@ export function relevantKeys(line, part, inputs) {
     if (key === 'gdpr_program_year') return jur.includes('eu') || jur.includes('uk')
     if (key === 'uk_osa_year') return jur.includes('uk')
     if (key === 'dsa_year') return jur.includes('eu')
+    // The team's own tier; the DSA token below the top tier reads the one-person factor too.
+    const tier = key.match(/^compliance_tier_factor_(\w+)$/)
+    if (tier) return !part.reported && (tier[1] === team || (tier[1] === 'one' && team !== 'more' && jur.includes('eu')))
+    const loss = key.match(/^breach_loss_(\w+)$/)
+    if (loss) return loss[1] === team
     if (key === 'us_privacy_year_small') return part.us_tier === 'small'
     if (key === 'us_privacy_year_large') return part.us_tier === 'large'
     if (key === 'ccpa_consumer_threshold') return jur.includes('us')
@@ -90,6 +97,7 @@ export function relevantKeys(line, part, inputs) {
     if (key === 'moderator_base_salary' || key === 'mods_per_million_mau') return Boolean(part.implied)
     if (part.id === 'labour' && (key === 'loaded_multiplier' || key === 'overhead_multiplier')) return part.who !== 'vendor'
     if (key === 'mt_avoidance_year' || key === 'mt_remains_share') return Boolean(part.holds)
+    if (key === 'p2p_conversion_share') return part.id !== 'money_transmitter' && part.id !== 'p2p'
     return true
   })
 }
@@ -106,7 +114,7 @@ function describe(keys, { values, overrides = {}, data }) {
       low: formatValue(a.low, a.unit),
       high: formatValue(a.high, a.unit),
       confidence: a.confidence,
-      changed: key in overrides,
+      changed: Object.hasOwn(overrides, key),
     }
   })
 }
@@ -115,7 +123,7 @@ function describe(keys, { values, overrides = {}, data }) {
  * The explanation for one part: its words, the two arithmetic lines, and the
  * assumptions in use with their values, ranges and whether one was changed.
  */
-export function explain(line, part, { inputs, values, overrides = {}, data, scale = {} }) {
+export function explain(line, part, { inputs, values, overrides = {}, data, estimated = {} }) {
   const v = values
   const vars = {
     ...partVars(part),
@@ -127,10 +135,12 @@ export function explain(line, part, { inputs, values, overrides = {}, data, scal
     'd.weeks': number(WEEKS_PER_YEAR),
     'd.retention': number(RETENTION_MONTHS),
     'd.rev_year': money((inputs.rev || 0) * 12),
-    'd.scale_year': scale.year != null && data.start_year != null ? String(calendarYear(data.start_year, scale.year)) : '',
-    'd.scale_users': scale.users != null ? number(scale.users) : '',
+    'd.estimated_months': estimated.months != null ? number(estimated.months) : '',
+    'd.estimated_users': estimated.users != null ? number(Math.round(estimated.users)) : '',
+    'd.estimated_date': estimated.date ? date(estimated.date) : '',
     'p.users': part.users != null ? number(Math.round(part.users)) : '',
     'd.tier': part.tier ? t(`details.tier_${part.tier}`) : '',
+    'd.team': part.team ? t(`whose.team.${part.team}`) : '',
     'd.programs': programsList(part),
   }
   for (const [key, a] of Object.entries(data.assumptions)) vars[`a.${key}`] = formatValue(v[key], a.unit)
@@ -143,8 +153,8 @@ export function explain(line, part, { inputs, values, overrides = {}, data, scal
     label: t(`parts.${part.id}`, part.id),
     today: fill(f.today || '', vars),
     nostr: fill(f.nostr || '', vars),
-    // What the savings list shows: the same part in the year the network is at scale, at that year's users.
-    at_scale: part.scale_custodial != null ? fill(t('how.at_scale'), { ...vars, 'p.custodial': money(part.scale_custodial), 'p.noncustodial': money(part.scale_noncustodial) }) : '',
+    // What the savings list shows: the same part at the instant the headline is read, at that instant's users.
+    estimated: part.estimated_custodial != null ? fill(t('how.estimated'), { ...vars, 'p.custodial': money(part.estimated_custodial), 'p.noncustodial': money(part.estimated_noncustodial) }) : '',
     assumptions: describe(relevantKeys(line, part, inputs), { values, overrides, data }),
   }
 }

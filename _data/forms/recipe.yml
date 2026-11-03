@@ -167,7 +167,8 @@ sections:
         label: Annual custodial cost (USD, typical)
         type: number
       - key: fees_saved
-        label: Fees saved (at scale)
+        # To be relabelled in the builder (v4 reads nothing "at scale").
+        label: Fees saved (estimated)
         type: short text
       # To be removed from the builder: integration cost and payback are the
       # consult's, never the page's. Unmapped until then.

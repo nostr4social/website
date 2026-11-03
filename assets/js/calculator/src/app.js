@@ -25,7 +25,7 @@ import { decode, encode } from './codec.js'
 import { GRIDS, InputError } from './inputs.js'
 import { CONTACT_KEYS, markInvalid, readContact, readInputs, resetForm, revealDetails, suggest, wireDetails, wireSliders, writeContact, writeDefaults, writeInputs } from './form.js'
 import { decodePointer, fetchResponse, openResponse } from './restore.js'
-import { compact } from './format.js'
+import { approx } from './format.js'
 import { composeLead, prepareForm, sendLead, submitResponse } from './submit.js'
 import {
   TAB_ANCHORS,
@@ -51,6 +51,14 @@ const map = readJson('page-map')
 const form = prepareForm(snapshot, map)
 
 let current = null // the last result shown
+let today = localDate() // the date the calculation is as of: the day the page opened, or the date a results link carries
+
+/** Today's date where the visitor is, as YYYY-MM-DD. The model never reads the clock; the app passes it. */
+function localDate() {
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
 let dirty = false // the form or an assumption changed since the last calculation
 let test = null // the test marker in the URL, which presets the test checkbox in the modal
 let openedAt = Date.now()
@@ -73,7 +81,7 @@ function labelFor(key) {
 function run(raw, overrides, { focus = true, show = true, scroll = true } = {}) {
   let result
   try {
-    result = calculate(raw, assumptions, overrides)
+    result = calculate(raw, assumptions, overrides, { today })
   } catch (err) {
     if (err instanceof InputError) {
       if (!show) return null // mid-edit on the form: wait for a complete answer
@@ -273,8 +281,8 @@ function valuesFor(result, contact) {
     distribution: i.distribution,
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
-    // The fees saved a year at scale travel too (map.yml).
-    fees_saved: Math.round(T.at_scale_fees),
+    // The fees saved a year at the estimated instant travel too (map.yml).
+    fees_saved: Math.round(T.estimated_fees),
     link: result.link,
     overrides: Object.keys(result.overrides).length ? JSON.stringify(result.overrides) : '',
     version: String(result.version),
@@ -396,15 +404,18 @@ async function tell(signer, result, contact, open) {
     return
   }
   if (!recipient) return
+  const T = result.typical.totals
   const content = composeLead({
     inputs: result.inputs,
     result: {
-      custodial: compact(result.typical.totals.custodial),
-      noncustodial: compact(result.typical.totals.noncustodial),
-      at_scale: compact(result.typical.totals.at_scale),
-      five_year: compact(result.typical.totals.five_year),
-      low: compact(result.low.totals.five_year),
-      fees: result.typical.totals.at_scale_fees >= 1 ? compact(result.typical.totals.at_scale_fees) : '',
+      date: result.today,
+      custodial: approx(T.custodial),
+      noncustodial: approx(T.noncustodial),
+      estimated: approx(T.estimated),
+      low: approx(result.low.totals.estimated),
+      high: approx(result.high.totals.estimated),
+      breach: T.breach_reduction >= 1 ? approx(T.breach_reduction) : '',
+      fees: T.estimated_fees >= 1 ? approx(T.estimated_fees) : '',
     },
     link: result.link,
     contact,

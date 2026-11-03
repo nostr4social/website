@@ -830,8 +830,33 @@
   stroke-width: 2;
 }
 
-// The integration ramp: a dotted segment in the Nostr line's colour, from
-// today's custody dot to the first Nostr dot. No figure, no label.
+// The integration wedge: the gap left of the dotted edge, against the Nostr
+// line, hatched and lighter than the saving fill. The fill is an SVG pattern
+// the chart defines (chart.js); these are the pattern's two strokes. It
+// carries no figure and is summed into nothing.
+.chart__hatch-bg {
+  fill: var(--purple-lift);
+  fill-opacity: 0.05;
+}
+
+.chart__hatch-line {
+  stroke: var(--purple-lift);
+  stroke-opacity: 0.4;
+  stroke-width: 1;
+}
+
+// Set like the headline's name (.chart__watermark-sub), in the Nostr line's colour.
+.chart__wedge-label {
+  fill: var(--purple-lift);
+  fill-opacity: 0.85;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+// The integration ramp: the wedge's dotted edge, in the Nostr line's colour,
+// from today's custody dot to the Nostr line at the end of the payback
+// window. No figure, no label.
 .chart__ramp {
   stroke: var(--purple-lift);
   stroke-dasharray: 1 5;
@@ -1954,6 +1979,10 @@ tr.is-changed .assume-input {
 
   .chart__watermark-sub {
     font-size: 11px;
+  }
+
+  .chart__wedge-label {
+    font-size: 10px;
   }
 
   .years-table {

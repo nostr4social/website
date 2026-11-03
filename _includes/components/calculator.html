@@ -1,15 +1,14 @@
 {%- comment -%}
 The Non-Custodial Savings Calculator, in three tabs and a modal.
 
-  Estimated Cost    the results: whose estimate it is, the cost chart with
-                    the at-scale
-                    year as a gold dot on each line, a gold rule between them
-                    and the saving a year beside it, three facts (the Nostr
-                    cost a year at scale among them), the year-by-year table
-                    with the five-year cumulative on its summary, then the six
-                    lines as savings at scale, the parts, and the button back
-                    to the form. Integration cost and payback are never
-                    estimated here: they are the consult's. The page's front:
+  Estimated Cost    the results: whose estimate it is, the cost chart (six
+                    points a line, today and today plus one to five years,
+                    the integration wedge, the network-mature dot, the gold
+                    rule at the estimated-savings instant with the headline
+                    beside it), three facts, the year-by-year table, then
+                    the six lines as savings at that instant, the parts, and
+                    the button back to the form. Integration cost is never
+                    estimated here: it is the consult's. The page's front:
                     a fresh page shows the illustrative app's estimate.
   App Info          the form, rendered from the published form event
                     (_data/forms/calculator.yml) and nothing else: section
@@ -38,7 +37,7 @@ simply stack.
 {%- assign f = s.form -%}
 {%- assign r = s.results -%}
 {%- assign asm = s.assumptions -%}
-{%- assign data = site.data.assumptions.v3 -%}
+{%- assign data = site.data.assumptions.v4 -%}
 {%- assign form = site.data.forms.calculator -%}
 {%- assign map = site.data.forms.map -%}
 {%- assign shared = site.data.assets.shared -%}
@@ -199,7 +198,8 @@ simply stack.
           {%- if g == gid -%}
           <tr data-key="{{ key }}"{% if v.scenario_varies %} class="is-thesis"{% endif %}>
             <th scope="row" class="assume-what"><label for="a-{{ key }}">{{ v.label }}</label>{% if v.note %}<span class="assume-note">{{ v.note }}</span>{% endif %}</th>
-            <td class="assume-num" data-label="{{ asm.columns.typical }}"><input class="field__input field__input--small assume-input" id="a-{{ key }}" type="number" inputmode="decimal" step="any" min="0" value="{{ v.typical }}" data-key="{{ key }}" data-typical="{{ v.typical }}"></td>
+            {%- comment -%} A date row takes a date; every other row a number. {%- endcomment -%}
+            <td class="assume-num" data-label="{{ asm.columns.typical }}">{% if v.unit == "date" %}<input class="field__input field__input--small assume-input" id="a-{{ key }}" type="date" value="{{ v.typical }}" data-key="{{ key }}" data-typical="{{ v.typical }}" data-unit="date">{% else %}<input class="field__input field__input--small assume-input" id="a-{{ key }}" type="number" inputmode="decimal" step="any" min="0" value="{{ v.typical }}" data-key="{{ key }}" data-typical="{{ v.typical }}">{% endif %}</td>
             <td class="assume-num" data-label="{{ asm.columns.low }}">{{ v.low }}</td>
             <td class="assume-num" data-label="{{ asm.columns.high }}">{{ v.high }}</td>
             <td data-label="{{ asm.columns.unit }}">{{ v.unit }}</td>
@@ -246,25 +246,24 @@ simply stack.
         <svg class="chart__svg" id="{{ chart.id }}" viewBox="0 0 640 300" role="img" aria-labelledby="{{ chart.id }}-title" tabindex="0"><title id="{{ chart.id }}-title"></title></svg>
         <div class="chart__tip" id="tip-{{ chart.id }}" role="status" hidden></div>
       </div>
-      {%- comment -%} The caption names the marker year; the script fills it. {%- endcomment -%}
+      {%- comment -%} The page's sentence; the script adds the window, the months and the network's date after it. {%- endcomment -%}
       <figcaption class="chart__caption" id="caption-{{ chart.id }}" data-template="{{ chart.caption }}">{{ chart.caption }}</figcaption>
     </figure>
     {%- endfor -%}
 
     <div class="stats">
-      {%- comment -%} Every label carries the year; the script fills it in. {%- endcomment -%}
       <div class="stat">
-        <span class="eyebrow eyebrow--gold" id="r-permau-c-label" data-template="{{ r.stats.custodial_per_mau.label }}">{{ r.stats.custodial_per_mau.label }}</span>
+        <span class="eyebrow eyebrow--gold" id="r-permau-c-label">{{ r.stats.custodial_per_mau.label }}</span>
         <span class="stat__value" id="r-permau-c"></span>
         <span class="stat__range" id="r-permau-c-range"></span>
       </div>
       <div class="stat">
-        <span class="eyebrow eyebrow--gold" id="r-permau-nc-label" data-template="{{ r.stats.nostr_per_mau.label }}">{{ r.stats.nostr_per_mau.label }}</span>
+        <span class="eyebrow eyebrow--gold" id="r-permau-nc-label">{{ r.stats.nostr_per_mau.label }}</span>
         <span class="stat__value" id="r-permau-nc"></span>
         <span class="stat__range" id="r-permau-nc-range"></span>
       </div>
       <div class="stat stat--saving">
-        <span class="eyebrow eyebrow--gold" id="r-scale-nostr-label" data-template="{{ r.stats.nostr_at_scale.label }}">{{ r.stats.nostr_at_scale.label }}</span>
+        <span class="eyebrow eyebrow--gold" id="r-scale-nostr-label">{{ r.stats.nostr_at_scale.label }}</span>
         <span class="stat__value" id="r-scale-nostr"></span>
         <span class="stat__range" id="r-scale-nostr-range"></span>
       </div>
@@ -272,7 +271,7 @@ simply stack.
     </div>
 
     <details class="years">
-      <summary class="years__summary">{{ r.years.summary }} <span class="years__note" id="r-cumulative"></span></summary>
+      <summary class="years__summary">{{ r.years.summary }}</summary>
       <table class="years-table" id="r-years">
         <thead>
           <tr id="r-years-head"><th scope="col">{{ r.years.columns.year }}</th></tr>
@@ -316,8 +315,8 @@ simply stack.
         </tr>
         {%- comment -%}
           The costs beneath a line, three columns: the item, its custodial
-          cost and its Nostr cost in the marker year. The script fills the
-          body; the foot is the line's two totals, in the same columns.
+          cost and its Nostr cost at the instant the headline is read. The
+          script fills the body; the foot is the line's two totals.
         {%- endcomment -%}
         <tr class="lt-parts" id="parts-{{ line.id }}" data-line="{{ line.id }}" hidden>
           <td colspan="4">

@@ -50,7 +50,7 @@ try {
 
   // ── the page's submit module, bundled for node ────────────────────────────
   const dir = await mkdtemp(join(tmpdir(), 'nostr4-form-e2e-'))
-  const strings = { compose: { header: 'via test:', subject: 'lead', results: '{custodial} / {noncustodial}', five_year: 'five years {five_year}, low {low}', fees: 'fees {amount}', link: 'link {link}', open: 'open {link}' } }
+  const strings = { compose: { header: 'via test:', subject: 'lead', date: 'as of {date}', results: '{custodial} / {noncustodial}', estimated: 'estimated {amount} ({low} to {high})', fees: 'fees {amount}', breach: 'breach {amount}', link: 'link {link}', open: 'open {link}' } }
   const config = { relays: { fallback_dm: [RELAY], discovery: [RELAY] }, timeouts: { publish: 4000, discovery: 2000 }, pow: { response: 12 } }
   const shim = join(dir, 'shim.mjs')
   await writeFile(shim, `
@@ -129,8 +129,8 @@ try {
   check('a stranger cannot decrypt it', (() => { try { decrypt(got.content, getConversationKey(generateSecretKey(), got.pubkey)); return false } catch { return true } })())
 
   // ── the lead message ──────────────────────────────────────────────────────
-  const text = m.composeLead({ inputs: { mau: 50000, jur: ['eu', 'us'] }, result: { custodial: '$968k', noncustodial: '$266k', five_year: '$3.1M', low: '$400k', fees: '$4.2k' }, link: 'https://x', contact: { email: 'founder@example.com' }, fieldLabels: { mau: { label: 'Monthly active users' } } })
-  check('the lead text names the source, the inputs, the figures, the fees, the link and the contact, and nothing about payback', text.startsWith('via test:') && text.includes('Monthly active users: 50000') && text.includes('jur: eu, us') && text.includes('$968k / $266k') && text.includes('five years $3.1M, low $400k') && text.includes('fees $4.2k') && text.includes('link https://x') && !/payback/i.test(text) && text.endsWith('email: founder@example.com'), text)
+  const text = m.composeLead({ inputs: { mau: 50000, jur: ['eu', 'us'] }, result: { date: '2026-11-03', custodial: '$970k', noncustodial: '$270k', estimated: '$290k', low: '$150k', high: '$340k', fees: '$4.2k', breach: '$20k' }, link: 'https://x', contact: { email: 'founder@example.com' }, fieldLabels: { mau: { label: 'Monthly active users' } } })
+  check('the lead text names the source, the inputs, the date, the figures, the breach line, the link and the contact, and nothing about payback or a cumulative', text.startsWith('via test:') && text.includes('Monthly active users: 50000') && text.includes('jur: eu, us') && text.includes('as of 2026-11-03') && text.includes('$970k / $270k') && text.includes('estimated $290k ($150k to $340k)') && text.includes('fees $4.2k') && text.includes('breach $20k') && text.includes('link https://x') && !/payback|five years|cumulative/i.test(text) && text.endsWith('email: founder@example.com'), text)
 
   // ── reading a response back ───────────────────────────────────────────────
   const back = m.readResponses(map, answers)

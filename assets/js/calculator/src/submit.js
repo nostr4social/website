@@ -74,7 +74,7 @@ export async function submitResponse(form, { signer, values, pow = 0, onProgress
   }
 }
 
-/** The plaintext hello reads: the source line, the inputs, the figures, the link, the contact. */
+/** The plaintext hello reads: the source line, the inputs, the date, the headline, the breach line, the link, the contact. Every figure rounded as the page rounds it. */
 export function composeLead({ inputs, result, link, contact, fieldLabels, open }) {
   const lines = [t('compose.header'), '']
   for (const [key, v] of Object.entries(inputs)) {
@@ -82,10 +82,11 @@ export function composeLead({ inputs, result, link, contact, fieldLabels, open }
     lines.push(`${fieldLabels[key]?.label || key}: ${Array.isArray(v) ? v.join(', ') : v}`)
   }
   lines.push('')
+  if (result.date) lines.push(fmt(t('compose.date'), { date: result.date }))
   lines.push(fmt(t('compose.results'), { custodial: result.custodial, noncustodial: result.noncustodial }))
-  if (result.at_scale) lines.push(fmt(t('compose.at_scale'), { at_scale: result.at_scale }))
-  if (result.five_year) lines.push(fmt(t('compose.five_year'), { five_year: result.five_year, low: result.low }))
+  if (result.estimated) lines.push(fmt(t('compose.estimated'), { amount: result.estimated, low: result.low, high: result.high }))
   if (result.fees) lines.push(fmt(t('compose.fees'), { amount: result.fees }))
+  if (result.breach) lines.push(fmt(t('compose.breach'), { amount: result.breach }))
   lines.push(fmt(t('compose.link'), { link }))
   if (open) lines.push(fmt(t('compose.open'), { link: open }))
   lines.push('')

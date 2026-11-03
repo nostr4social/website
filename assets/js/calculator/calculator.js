@@ -761,25 +761,73 @@ function normalizeInputs(raw = {}) {
 var LINES = ["accounts", "graph", "storage", "compliance", "moderation", "payments"];
 var SCENARIOS = ["low", "typical", "high"];
 var JURISDICTIONS = ["eu", "uk", "us", "other"];
+var TEAMS = ["one", "ten", "fifty", "more"];
 var HOURS_PER_YEAR = 2e3;
 var WEEKS_PER_YEAR = 50;
 var RETENTION_MONTHS = 12;
+var YEARS = 5;
+var DAYS_PER_MONTH = 30.4375;
+var ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+function parseDate(iso) {
+  const m = ISO_DATE.exec(String(iso ?? ""));
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (mo < 1 || mo > 12 || d < 1 || d > daysInMonth(y, mo)) return null;
+  return { y, m: mo, d };
+}
+var isDate = (iso) => parseDate(iso) != null;
+function daysInMonth(y, m) {
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+var pad = (n) => String(n).padStart(2, "0");
+var formatDate = ({ y, m, d }) => `${y}-${pad(m)}-${pad(d)}`;
+function monthsBetween(from, to) {
+  const a = parseDate(from);
+  const b = parseDate(to);
+  if (!a || !b) return NaN;
+  return (b.y - a.y) * 12 + (b.m - a.m) + (b.d - a.d) / DAYS_PER_MONTH;
+}
+function addMonths(iso, months) {
+  const a = parseDate(iso);
+  if (!a || !Number.isFinite(months)) return null;
+  const whole = Math.floor(months);
+  const days = Math.round((months - whole) * DAYS_PER_MONTH);
+  const index = a.m - 1 + whole;
+  const y = a.y + Math.floor(index / 12);
+  const m = (index % 12 + 12) % 12 + 1;
+  const base = new Date(Date.UTC(y, m - 1, Math.min(a.d, daysInMonth(y, m))));
+  base.setUTCDate(base.getUTCDate() + days);
+  return formatDate({ y: base.getUTCFullYear(), m: base.getUTCMonth() + 1, d: base.getUTCDate() });
+}
+function rowType(a) {
+  if (a.unit === "date") return "date";
+  if (/^ratio/.test(a.unit || "")) return "share";
+  return "number";
+}
 function resolveAssumptions(data, scenario, overrides = {}) {
   if (!SCENARIOS.includes(scenario)) throw new Error(`unknown scenario: ${scenario}`);
   const out = {};
   for (const [key, a] of Object.entries(data.assumptions)) {
-    const o = overrides[key];
-    out[key] = o != null && Number.isFinite(Number(o)) ? Number(o) : a[a.scenario_varies ? scenario : "typical"];
+    const o = Object.hasOwn(overrides, key) ? overrides[key] : null;
+    const base = a[a.scenario_varies ? scenario : "typical"];
+    if (rowType(a) === "date") out[key] = isDate(o) ? o : base;
+    else out[key] = o != null && Number.isFinite(Number(o)) ? Number(o) : base;
   }
   return out;
 }
 function cleanOverrides(data, overrides = {}) {
   const out = {};
   for (const [key, v] of Object.entries(overrides)) {
-    if (!(key in data.assumptions)) continue;
+    if (!Object.hasOwn(data.assumptions, key)) continue;
+    const a = data.assumptions[key];
+    if (rowType(a) === "date") {
+      if (!isDate(v) || v === a.typical) continue;
+      out[key] = String(v);
+      continue;
+    }
     const n = Number(v);
     if (!Number.isFinite(n) || n < 0) continue;
-    if (n === data.assumptions[key].typical) continue;
+    if (n === a.typical) continue;
     out[key] = n;
   }
   return out;
@@ -824,6 +872,18 @@ function teamFactor(team, v) {
   if (team === "more") return v.team_factor_more;
   return null;
 }
+function complianceFactor(team, v) {
+  if (team === "one") return v.compliance_tier_factor_one;
+  if (team === "ten") return v.compliance_tier_factor_ten;
+  if (team === "fifty") return v.compliance_tier_factor_fifty;
+  return v.compliance_tier_factor_more;
+}
+function breachLoss(team, v) {
+  if (team === "one") return v.breach_loss_one;
+  if (team === "ten") return v.breach_loss_ten;
+  if (team === "fifty") return v.breach_loss_fifty;
+  return v.breach_loss_more;
+}
 function kindEgress(kind, v) {
   if (kind === "messaging") return v.kind_messaging_egress_gb;
   if (kind === "feed") return v.kind_feed_egress_gb;
@@ -842,12 +902,12 @@ function applyKind(v, kind, overrides = {}) {
   const out = { ...v };
   const set = {};
   const egress = kindEgress(kind, v);
-  if (egress != null && !("egress_gb_per_mau_month" in overrides)) {
+  if (egress != null && !Object.hasOwn(overrides, "egress_gb_per_mau_month")) {
     out.egress_gb_per_mau_month = egress;
     set.egress_gb_per_mau_month = "kind";
   }
   const compute = kindCompute(kind, v);
-  if (compute != null && !("compute_per_mau_year" in overrides)) {
+  if (compute != null && !Object.hasOwn(overrides, "compute_per_mau_year")) {
     out.compute_per_mau_year = compute;
     set.compute_per_mau_year = "kind";
   }
@@ -943,7 +1003,7 @@ function accounts(inputs, v) {
     // Age assurance becomes a layer the app reads (store, wallet) rather than buys; a share remains.
     part("verify", verify, verify * v.verify_remains_share, { rate: verifyShare }),
     // Signer login, the recovery hand-off and sessions still need building and keeping.
-    part("engineering", eng.cost, eng.cost * v.accounts_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
+    part("engineering", eng.cost, eng.cost * v.accounts_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly, from: eng.from }),
     part("key_handoff", 0, mau * v.reset_rate_per_mau_year * handoff, { rate: v.reset_rate_per_mau_year, contact: handoff })
   ];
   return { parts };
@@ -955,7 +1015,7 @@ function graph(inputs, v) {
   const parts = [
     part("database", dbGb * v.db_gb_month * 12, 0, { gb: dbGb, posts: posts(inputs) }),
     part("feed_compute", mau * v.compute_per_mau_year * v.feed_compute_share, 0),
-    part("engineering", eng.cost, eng.cost * v.graph_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
+    part("engineering", eng.cost, eng.cost * v.graph_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly, from: eng.from }),
     part("ranking", 0, mau * v.ranking_fee_per_mau_year)
   ];
   return { parts };
@@ -973,7 +1033,7 @@ function storage(inputs, v) {
     part("egress", egress, egress * v.media_sponsor_share, { gb: egressGb }),
     part("serving", mau * v.compute_per_mau_year * (1 - v.feed_compute_share), mau * v.cache_per_mau_year, { share: 1 - v.feed_compute_share }),
     // Relay connections, caching and media handling still need engineering time.
-    part("engineering", eng.cost, eng.cost * v.infra_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly }),
+    part("engineering", eng.cost, eng.cost * v.infra_eng_remains_share, { defaulted: eng.defaulted, hours: eng.hours, hourly: eng.hourly, from: eng.from }),
     // Relay capacity for the users who don't bring their own, rented from a
     // provider who carries the hosting duties; never below one managed relay.
     part("relay", 0, Math.max(v.relay_floor_year, sponsored), { sponsored: v.relay_sponsored_share, minimum: sponsored < v.relay_floor_year })
@@ -985,9 +1045,10 @@ function compliance(inputs, v) {
   const eu = has(inputs, "eu");
   const uk = has(inputs, "uk");
   const us = has(inputs, "us");
-  const gdpr = eu || uk ? v.gdpr_program_year : 0;
-  const osa = uk ? v.uk_osa_year : 0;
-  const dsa = eu ? v.dsa_year : 0;
+  const factor = complianceFactor(inputs.team, v);
+  const gdpr = eu || uk ? v.gdpr_program_year * factor : 0;
+  const osa = uk ? v.uk_osa_year * factor : 0;
+  const dsa = eu ? v.dsa_year * (inputs.team === "more" ? factor : v.compliance_tier_factor_one) : 0;
   const shares = jurShares(inputs, v);
   const usTier = us ? ccpaApplies(inputs, v, shares) ? "large" : "small" : null;
   const usp = us ? usTier === "large" ? v.us_privacy_year_large : v.us_privacy_year_small : 0;
@@ -1005,15 +1066,15 @@ function compliance(inputs, v) {
   const legal = engineering("legal", inputs, v);
   const dsarUsers = mau * (shares.eu + shares.uk + (usTier === "large" ? shares.us : 0));
   const dsar = dsarUsers * v.dsar_rate_per_mau_year * v.dsar_cost;
-  const breach = v.breach_prob_year * Math.min(v.breach_cost_cap, mau * v.breach_cost_per_user);
-  const breachRemains = v.breach_prob_year * Math.min(v.breach_cost_cap, mau * v.retained_data_share * v.breach_cost_per_user);
+  const loss = breachLoss(inputs.team, v);
+  const breach = v.breach_prob_year * loss;
+  const breachRemains = breach * v.retained_data_share;
   const parts = [
-    part("privacy_programs", programs, programsRemain, { us_tier: usTier, reported: reported != null && reported > 0, gdpr, osa, dsa, usp, content_law: contentLaw, us_share: shares.us, ca_consumers: caConsumers(inputs, v, shares) }),
-    part("legal_labour", legal.cost, legal.cost * v.privacy_remains_share, { defaulted: legal.defaulted, hours: legal.hours, hourly: legal.hourly }),
+    part("privacy_programs", programs, programsRemain, { us_tier: usTier, reported: reported != null && reported > 0, gdpr, osa, dsa, usp, content_law: contentLaw, us_share: shares.us, ca_consumers: caConsumers(inputs, v, shares), factor, team: inputs.team }),
+    part("legal_labour", legal.cost, legal.cost * v.privacy_remains_share, { defaulted: legal.defaulted, hours: legal.hours, hourly: legal.hourly, from: legal.from }),
     part("dsar", dsar, dsar * v.retained_data_share, { users: dsarUsers }),
     part("insurance", v.cyber_insurance_year, v.cyber_insurance_year * v.insurance_remains_share),
-    // An expected loss, not a bill: probability times severity. The page shows it apart from the cash costs.
-    part("breach", breach, breachRemains, { kind: "risk" })
+    part("breach", breach, breachRemains, { kind: "risk", loss, team: inputs.team, policy: v.cyber_insurance_year })
   ];
   return { parts };
 }
@@ -1062,19 +1123,22 @@ function payments(inputs, v) {
   const share = 1 / rails.length;
   const proceeds = annual * share;
   const small = proceeds < v.store_small_threshold;
-  const fee = (id, custodial, noncustodial, extra = {}) => part(id, custodial, noncustodial, { kind: "fees", ...extra });
+  const conv = Math.min(1, Math.max(0, v.p2p_conversion_share));
+  const fee = (id, custodial, noncustodial, extra = {}) => part(id, custodial, noncustodial, { kind: "fees", conversion: conv, ...extra });
   const parts = [];
   for (const rail of rails) {
     const rev = proceeds;
     if (rail === "apple" || rail === "google") {
       const rate = rail === "apple" ? small ? v.apple_rate_small : v.apple_rate_standard : small ? v.google_rate_small : v.google_rate_standard;
-      parts.push(fee(`store_${rail}`, rev * rate, rev * rate * v.p2p_store_fee_remains_share + rev * v.lightning_rate, { rate, tier: small ? "small" : "standard", revenue: rev }));
+      const custodial = rev * rate;
+      const converted = rev * conv * (rate * v.p2p_store_fee_remains_share + v.lightning_rate);
+      parts.push(fee(`store_${rail}`, custodial, converted + rev * (1 - conv) * rate, { rate, tier: small ? "small" : "standard", revenue: rev }));
     } else if (rail === "processor") {
       const cost = rev * v.processor_rate + rev / v.avg_ticket * v.processor_fixed;
-      parts.push(fee("processor", cost, rev * v.lightning_rate, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev, tickets: rev / v.avg_ticket }));
+      parts.push(fee("processor", cost, rev * conv * v.lightning_rate + (1 - conv) * cost, { rate: v.processor_rate, fixed: v.processor_fixed, revenue: rev, tickets: rev / v.avg_ticket }));
     } else if (rail === "reseller") {
       const cost = rev * v.reseller_rate + rev / v.avg_ticket * v.reseller_fixed;
-      parts.push(fee("reseller", cost, rev * v.lightning_rate, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev, tickets: rev / v.avg_ticket }));
+      parts.push(fee("reseller", cost, rev * conv * v.lightning_rate + (1 - conv) * cost, { rate: v.reseller_rate, fixed: v.reseller_fixed, revenue: rev, tickets: rev / v.avg_ticket }));
     } else {
       const cost = rev * v.lightning_rate;
       parts.push(fee("p2p", cost, cost, { rate: v.lightning_rate, revenue: rev }));
@@ -1096,6 +1160,8 @@ function derivedAssumptions(key, from, inputs) {
 }
 var PEOPLE = ["eng_base_salary", "loaded_multiplier", "overhead_multiplier"];
 var WEIGHTS = ["jur_weight_eu", "jur_weight_uk", "jur_weight_us", "jur_weight_other"];
+var TIERS = TEAMS.map((t2) => `compliance_tier_factor_${t2}`);
+var LOSSES = TEAMS.map((t2) => `breach_loss_${t2}`);
 var PART_ASSUMPTIONS = {
   "accounts.auth": ["auth_per_mau_month"],
   "accounts.resets": ["reset_rate_per_mau_year", "reset_cost"],
@@ -1111,21 +1177,21 @@ var PART_ASSUMPTIONS = {
   "storage.serving": ["compute_per_mau_year", "feed_compute_share", "cache_per_mau_year"],
   "storage.engineering": [...PEOPLE, "default_hours_infra", "infra_eng_remains_share"],
   "storage.relay": ["relay_per_mau_year", "relay_sponsored_share", "relay_floor_year"],
-  "compliance.privacy_programs": ["gdpr_program_year", "uk_osa_year", "dsa_year", "us_privacy_year_small", "us_privacy_year_large", "ccpa_consumer_threshold", "annual_users_per_mau", "ca_share_of_us_users", ...WEIGHTS, "content_law_remains_share", "privacy_remains_share"],
+  "compliance.privacy_programs": ["gdpr_program_year", "uk_osa_year", "dsa_year", ...TIERS, "us_privacy_year_small", "us_privacy_year_large", "ccpa_consumer_threshold", "annual_users_per_mau", "ca_share_of_us_users", ...WEIGHTS, "content_law_remains_share", "privacy_remains_share"],
   "compliance.legal_labour": [...PEOPLE, "default_hours_legal", "privacy_remains_share"],
   "compliance.dsar": ["dsar_rate_per_mau_year", "dsar_cost", "retained_data_share", "ccpa_consumer_threshold", "annual_users_per_mau", "ca_share_of_us_users", ...WEIGHTS],
   "compliance.insurance": ["cyber_insurance_year", "insurance_remains_share"],
-  "compliance.breach": ["breach_prob_year", "breach_cost_cap", "breach_cost_per_user", "retained_data_share"],
+  "compliance.breach": ["breach_prob_year", ...LOSSES, "retained_data_share", "cyber_insurance_year"],
   "moderation.labour": ["ts_base_salary", "moderator_base_salary", "moderator_seat_outsourced", "mods_per_million_mau", "loaded_multiplier", "overhead_multiplier", "moderation_remains_share"],
   "moderation.appeals": ["appeals_share", "moderation_remains_share"],
   "moderation.tooling": ["ts_tooling_per_mau_year", "tooling_remains_share"],
   "moderation.labels": ["label_provider_per_mau_year"],
-  "payments.store_apple": ["apple_rate_standard", "apple_rate_small", "store_small_threshold", "p2p_store_fee_remains_share", "lightning_rate"],
-  "payments.store_google": ["google_rate_standard", "google_rate_small", "store_small_threshold", "p2p_store_fee_remains_share", "lightning_rate"],
-  "payments.processor": ["processor_rate", "processor_fixed", "avg_ticket", "lightning_rate"],
-  "payments.reseller": ["reseller_rate", "reseller_fixed", "avg_ticket", "lightning_rate"],
-  "payments.p2p": ["lightning_rate"],
-  "payments.money_transmitter": ["mt_avoidance_year", "mt_remains_share"]
+  "payments.store_apple": ["apple_rate_standard", "apple_rate_small", "store_small_threshold", "p2p_store_fee_remains_share", "p2p_conversion_share", "lightning_rate"],
+  "payments.store_google": ["google_rate_standard", "google_rate_small", "store_small_threshold", "p2p_store_fee_remains_share", "p2p_conversion_share", "lightning_rate"],
+  "payments.processor": ["processor_rate", "processor_fixed", "avg_ticket", "p2p_conversion_share", "lightning_rate"],
+  "payments.reseller": ["reseller_rate", "reseller_fixed", "avg_ticket", "p2p_conversion_share", "lightning_rate"],
+  "payments.p2p": ["lightning_rate", "p2p_conversion_share"],
+  "payments.money_transmitter": ["mt_avoidance_year", "mt_remains_share", "p2p_conversion_share"]
 };
 function evaluate(inputs, v) {
   const shares = nostrShares(inputs);
@@ -1133,12 +1199,13 @@ function evaluate(inputs, v) {
   let custodial = 0;
   let noncustodial = 0;
   let fees = 0;
-  let risk = 0;
+  const breach = { custodial: 0, noncustodial: 0 };
   for (const name of LINES) {
     const r = LINE_FN[name](inputs, v);
-    const nc = sum(r.parts, "noncustodial");
-    const full2 = sum(r.parts, "custodial");
     const share = Math.min(1, Math.max(0, shares[name]));
+    const cash = r.parts.filter((p) => p.kind !== "risk");
+    const nc = sum(cash, "noncustodial");
+    const full2 = sum(cash, "custodial");
     const c = full2 - share * (full2 - nc);
     const kindSaving = (kind) => {
       const parts = r.parts.filter((p) => p.kind === kind);
@@ -1147,12 +1214,14 @@ function evaluate(inputs, v) {
       return kindFull - share * (kindFull - kindNc) - kindNc;
     };
     const feesSaving = kindSaving("fees");
-    const riskSaving = kindSaving("risk");
-    lines[name] = { ...r, custodial: c, noncustodial: nc, full: full2, share, already: share >= 0.999, partly: share > 0 && share < 0.999, saving: c - nc, saving_cash: c - nc - feesSaving - riskSaving, saving_fees: feesSaving, saving_risk: riskSaving };
+    for (const p of r.parts.filter((q) => q.kind === "risk")) {
+      breach.custodial += p.custodial - share * (p.custodial - p.noncustodial);
+      breach.noncustodial += p.noncustodial;
+    }
+    lines[name] = { ...r, custodial: c, noncustodial: nc, full: full2, share, already: share >= 0.999, partly: share > 0 && share < 0.999, saving: c - nc, saving_cash: c - nc - feesSaving, saving_fees: feesSaving };
     custodial += c;
     noncustodial += nc;
     fees += feesSaving;
-    risk += riskSaving;
   }
   const { mau } = inputs;
   return {
@@ -1162,35 +1231,39 @@ function evaluate(inputs, v) {
       custodial,
       noncustodial,
       saving: custodial - noncustodial,
-      saving_cash: custodial - noncustodial - fees - risk,
+      saving_cash: custodial - noncustodial - fees,
       saving_fees: fees,
-      saving_risk: risk,
+      breach_custodial: breach.custodial,
+      breach_noncustodial: breach.noncustodial,
+      breach_saving: breach.custodial - breach.noncustodial,
       per_mau_custodial: custodial / mau,
       per_mau_noncustodial: noncustodial / mau
     }
   };
 }
-var YEARS = 5;
-var MARKER_YEAR = 3;
-function calendarYear(startYear, year) {
-  return startYear + year;
+function networkShare(date2, v) {
+  const T = monthsBetween(v.network_mature_start, v.network_mature_end);
+  if (!(T > 0)) return 1;
+  const t2 = monthsBetween(v.network_mature_start, date2);
+  const u = Math.min(1, Math.max(0, t2 / T));
+  return 1 - (1 - u) ** 2;
 }
-function networkShare(m, p, M) {
-  if (!(M > 0)) return 1;
-  const u = Math.min(1, (m - 0.5) / M);
-  return p + (1 - p) * (1 - (1 - u) ** 2);
-}
-function rampShare(year, p, M) {
-  let s = 0;
-  for (let m = year * 12 + 1; m <= year * 12 + 12; m++) s += networkShare(m, p, M);
-  return s / 12;
-}
-function project(inputs, v, today = evaluate(inputs, v)) {
+function usersAt(months, inputs, v) {
   const given = num(inputs.growth);
   let rate = given != null ? given : v.growth_default;
-  const p = v.scale_progress_today;
-  const M = v.scale_months;
-  const perLine = (r, share) => Object.fromEntries(
+  const years = [inputs.mau];
+  const last2 = Math.ceil(months / 12);
+  for (let year = 1; year <= last2; year++) {
+    if (year > 1) rate *= v.growth_decay;
+    years.push(Math.max(1, Math.round(years[year - 1] * (1 + rate))));
+  }
+  const whole = Math.floor(months / 12);
+  const frac = months / 12 - whole;
+  if (frac === 0) return years[whole];
+  return years[whole] * (years[whole + 1] / years[whole]) ** frac;
+}
+function perLine(r, share) {
+  return Object.fromEntries(
     LINES.map((name) => {
       const l = r.lines[name];
       const parts = l.parts.map((q) => {
@@ -1200,30 +1273,39 @@ function project(inputs, v, today = evaluate(inputs, v)) {
       return [name, { custodial: l.custodial, noncustodial: l.noncustodial, gap: (l.custodial - l.noncustodial) * share, parts }];
     })
   );
-  const point = (year, users2, r) => {
-    const share = rampShare(year, p, M);
-    const T = r.totals;
-    return { year, users: users2, rate, custodial: T.custodial, noncustodial: T.noncustodial, nostr: T.custodial - T.saving * share, saving: T.saving, saving_cash: T.saving_cash, saving_fees: T.saving_fees, saving_risk: T.saving_risk, share, realised: T.saving * share, lines: perLine(r, share) };
+}
+function pointAt(months, inputs, v, today2, base = null, date2 = addMonths(today2, months)) {
+  const users = usersAt(months, inputs, v);
+  const r = months === 0 && base ? base : evaluate(months === 0 ? inputs : { ...inputs, mau: users, rev: inputs.rev * users / inputs.mau }, v);
+  const share = networkShare(date2, v);
+  const T = r.totals;
+  return {
+    months,
+    year: months / 12,
+    date: date2,
+    users,
+    share,
+    custodial: T.custodial,
+    noncustodial: T.noncustodial,
+    nostr: T.custodial - T.saving * share,
+    saving: T.saving,
+    saving_cash: T.saving_cash,
+    saving_fees: T.saving_fees,
+    realised: T.saving * share,
+    breach: { custodial: T.breach_custodial, noncustodial: T.breach_noncustodial, reduction: T.breach_saving * share },
+    lines: perLine(r, share)
   };
-  const points = [point(0, inputs.mau, today)];
-  let users = inputs.mau;
-  for (let year = 1; year <= YEARS; year++) {
-    if (year > 1) rate *= v.growth_decay;
-    users = Math.max(1, Math.round(users * (1 + rate)));
-    const scaled = { ...inputs, mau: users, rev: inputs.rev * users / inputs.mau };
-    points.push(point(year, users, evaluate(scaled, v)));
-  }
-  let cumulative = 0;
-  for (const q of points) {
-    cumulative += q.realised;
-    q.cumulative = cumulative;
-  }
+}
+function project(inputs, v, today2, base = evaluate(inputs, v)) {
+  const points = [];
+  for (let year = 0; year <= YEARS; year++) points.push(pointAt(year * 12, inputs, v, today2, base));
   return points;
 }
-function calculate(rawInputs, data, rawOverrides = {}) {
+function calculate(rawInputs, data, rawOverrides = {}, { today: today2 } = {}) {
+  if (!isDate(today2)) throw new Error("calculate: today must be an ISO date (YYYY-MM-DD)");
   const inputs = normalizeInputs(rawInputs);
   const overrides = cleanOverrides(data, rawOverrides);
-  const out = { version: data.version, start_year: data.start_year, inputs, overrides };
+  const out = { version: data.version, today: today2, inputs, overrides };
   for (const s of SCENARIOS) {
     const resolved = resolveAssumptions(data, s, overrides);
     const { values: v, set } = applyKind(resolved, inputs.kind, overrides);
@@ -1233,30 +1315,40 @@ function calculate(rawInputs, data, rawOverrides = {}) {
     r.effective = eff;
     r.derived = eff.derived;
     r.values = v;
-    r.projection = project(eff, v, r);
-    const scale = r.projection[MARKER_YEAR];
-    r.totals.five_year = r.projection[YEARS].cumulative;
-    r.totals.marker_year = scale.cumulative;
-    r.totals.at_scale = scale.custodial - scale.nostr;
-    r.totals.at_scale_cash = scale.saving_cash * scale.share;
-    r.totals.at_scale_fees = scale.saving_fees * scale.share;
-    r.totals.at_scale_risk = scale.saving_risk * scale.share;
-    r.totals.scale_custodial = scale.custodial;
-    r.totals.scale_nostr = scale.nostr;
-    r.totals.scale_users = scale.users;
-    r.totals.scale_per_mau_custodial = scale.custodial / scale.users;
-    r.totals.scale_per_mau_nostr = scale.nostr / scale.users;
+    r.projection = project(eff, v, today2, r);
+    const payback = Math.max(0, v.integration_payback_months);
+    const estimatedAt = payback + Math.max(0, v.estimated_savings_months);
+    const matureIn = monthsBetween(today2, v.network_mature_end);
+    r.markers = {
+      // The integration wedge ends here: nothing in it is summed or estimated.
+      payback: { months: payback, point: pointAt(payback, eff, v, today2, r) },
+      // The headline instant.
+      estimated: { months: estimatedAt, point: pointAt(estimatedAt, eff, v, today2, r) },
+      // The network's date, on the app's timeline: before today it is "since".
+      mature: { date: v.network_mature_end, months: matureIn, since: !(matureIn > 0), point: matureIn > 0 ? pointAt(matureIn, eff, v, today2, r, v.network_mature_end) : null }
+    };
+    const E = r.markers.estimated.point;
+    r.totals.estimated = E.realised;
+    r.totals.estimated_cash = E.saving_cash * E.share;
+    r.totals.estimated_fees = E.saving_fees * E.share;
+    r.totals.estimated_custodial = E.custodial;
+    r.totals.estimated_nostr = E.nostr;
+    r.totals.estimated_users = E.users;
+    r.totals.estimated_months = E.months;
+    r.totals.estimated_after_payback = estimatedAt - payback;
+    r.totals.estimated_date = E.date;
+    r.totals.breach_reduction = E.breach.reduction;
+    r.totals.today_nostr = r.projection[0].nostr;
     for (const name of LINES) {
       const line = r.lines[name];
-      line.five_year = r.projection.reduce((acc, q) => acc + q.lines[name].gap, 0);
-      const at = scale.lines[name];
-      line.scale_custodial = at.custodial;
-      line.scale_noncustodial = at.custodial - at.gap;
-      line.at_scale = at.gap;
-      for (const part2 of line.parts) {
-        const q = at.parts.find((x) => x.id === part2.id);
-        part2.scale_custodial = q ? q.custodial : 0;
-        part2.scale_noncustodial = q ? q.custodial - q.gap : 0;
+      const at = E.lines[name];
+      line.estimated = at.gap;
+      line.estimated_custodial = at.custodial;
+      line.estimated_noncustodial = at.custodial - at.gap;
+      for (const p of line.parts) {
+        const q = at.parts.find((x) => x.id === p.id);
+        p.estimated_custodial = q ? q.custodial : 0;
+        p.estimated_noncustodial = q ? q.custodial - q.gap : 0;
       }
     }
     out[s] = r;
@@ -1268,48 +1360,72 @@ function calculate(rawInputs, data, rawOverrides = {}) {
 var full = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 var cents = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 var plain = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
+var DASH = "\u2014";
+function clean(n) {
+  const x = typeof n === "number" ? n : Number(n);
+  if (!Number.isFinite(x)) return NaN;
+  return Math.abs(x) < 0.5 ? 0 : x;
+}
 function money(n) {
-  return full.format(Math.round(n));
+  const x = clean(n);
+  return Number.isNaN(x) ? DASH : full.format(Math.round(x));
 }
 function compact(n) {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? "-" : "";
+  const x = clean(n);
+  if (Number.isNaN(x)) return DASH;
+  const abs = Math.abs(x);
+  const sign = x < 0 ? "-" : "";
   if (abs >= 1e9) return `${sign}$${trim(abs / 1e9)}B`;
   if (abs >= 1e6) return `${sign}$${trim(abs / 1e6)}M`;
   if (abs >= 1e3) return `${sign}$${trim(abs / 1e3)}k`;
-  return full.format(Math.round(n));
+  return full.format(Math.round(x));
+}
+function approx(n) {
+  const x = clean(n);
+  if (Number.isNaN(x)) return DASH;
+  if (x === 0) return compact(0);
+  const magnitude = 10 ** (Math.floor(Math.log10(Math.abs(x))) - 1);
+  return compact(Math.round(x / magnitude) * magnitude);
 }
 function trim(x) {
   const s = x >= 100 ? x.toFixed(0) : x >= 10 ? x.toFixed(1) : x.toFixed(2);
   return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
 }
 function compactNumber(n) {
-  const abs = Math.abs(n);
-  if (abs >= 1e9) return `${trim(abs / 1e9)}B`;
-  if (abs >= 1e6) return `${trim(abs / 1e6)}M`;
-  if (abs >= 1e3) return `${trim(abs / 1e3)}k`;
-  return String(Math.round(n));
+  const x = clean(n);
+  if (Number.isNaN(x)) return DASH;
+  const abs = Math.abs(x);
+  const sign = x < 0 ? "-" : "";
+  if (abs >= 1e9) return `${sign}${trim(abs / 1e9)}B`;
+  if (abs >= 1e6) return `${sign}${trim(abs / 1e6)}M`;
+  if (abs >= 1e3) return `${sign}${trim(abs / 1e3)}k`;
+  return `${sign}${Math.round(abs)}`;
 }
 function perMau(n) {
-  return cents.format(n);
+  const x = clean(n);
+  return Number.isNaN(x) ? DASH : cents.format(x);
 }
 function percent(r) {
-  return `${plain.format(r * 100)}%`;
+  const x = typeof r === "number" ? r : Number(r);
+  return Number.isFinite(x) ? `${plain.format(x * 100)}%` : DASH;
 }
 function number(n) {
-  return plain.format(n);
+  const x = typeof n === "number" ? n : Number(n);
+  return Number.isFinite(x) ? plain.format(x) : DASH;
+}
+function date(iso) {
+  return iso ? String(iso) : DASH;
 }
 
 // assets/js/calculator/src/chart.js
 var NS2 = "http://www.w3.org/2000/svg";
 var PAD = { top: 44, right: 20, bottom: 30, left: 64 };
 var HEIGHT = { wide: 300, narrow: 240 };
-var CUMULATIVE = "chart-cumulative-savings";
 var VERSUS = "chart-custodial-cost-vs-nostr";
 var charts = /* @__PURE__ */ new Map();
 var last = null;
-function yearLabel(startYear, year, today = t("chart.today")) {
-  return year === 0 ? today : String(calendarYear(startYear, year));
+function yearLabel(year) {
+  return year === 0 ? t("chart.today") : fmt(t("chart.year"), { n: year });
 }
 function node(name, attrs = {}, children = []) {
   const n = document.createElementNS(NS2, name);
@@ -1317,66 +1433,54 @@ function node(name, attrs = {}, children = []) {
   for (const c of children) n.append(c);
   return n;
 }
-function drawCharts(projections) {
-  last = projections;
-  if (!projections) return;
-  const { typical, low, start_year, marker } = projections;
-  const label = (year) => yearLabel(start_year, year);
-  draw(CUMULATIVE, {
-    series: [
-      { key: "low", cls: "chart__lowcase", points: low.map((p) => p.cumulative) },
-      { key: "typical", cls: "chart__line", points: typical.map((p) => p.cumulative), markers: [MARKER_YEAR, YEARS] }
-    ],
-    band: ["typical", "low"],
-    labels: [
-      ...[MARKER_YEAR, YEARS].map((year) => ({ key: "typical", year, cls: "chart__label", dy: -12, text: fmt(t("chart.marker"), { amount: compact(typical[year].cumulative), n: label(year) }) })),
-      { key: "low", year: YEARS, cls: "chart__lowcase-label", dy: -8, text: fmt(t("chart.low_case"), { amount: compact(low[YEARS].cumulative) }) }
-    ],
-    title: fmt(t("chart.aria"), { end: compact(typical[YEARS].cumulative), low: compact(low[YEARS].cumulative) }),
-    tip: (year) => {
-      const p = typical[year];
-      return [
-        fmt(t("chart.tip.users"), { n: number(p.users) }),
-        fmt(t("chart.tip.custodial"), { amount: compact(p.custodial) }),
-        fmt(t("chart.tip.noncustodial"), { amount: compact(p.nostr) }),
-        fmt(t("chart.tip.realised"), { amount: compact(p.realised) }),
-        fmt(t("chart.tip.cumulative"), { amount: compact(p.cumulative) })
-      ];
+function valueAt(points, x) {
+  if (x <= points[0].x) return points[0].y;
+  for (let i = 1; i < points.length; i++) {
+    if (x <= points[i].x) {
+      const a = points[i - 1];
+      const b = points[i];
+      return b.x === a.x ? b.y : a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x);
     }
-  });
-  const end = typical[YEARS];
-  const scale = typical[MARKER_YEAR];
+  }
+  return points[points.length - 1].y;
+}
+function slice(points, from, to) {
+  const inner = points.filter((p) => p.x > from && p.x < to);
+  return [{ x: from, y: valueAt(points, from) }, ...inner, { x: to, y: valueAt(points, to) }];
+}
+function drawCharts(input) {
+  last = input;
+  if (!input) return;
+  const { projection, markers, headline } = input;
+  const instants = [...projection.map((p) => p), markers.payback.point, markers.estimated.point].filter(Boolean).filter((p) => p.year <= YEARS).sort((a, b) => a.year - b.year);
+  const dedup = instants.filter((p, i) => i === 0 || p.year !== instants[i - 1].year);
+  const series = (key) => dedup.map((p) => ({ x: p.year, y: p[key] }));
+  const estimatedX = Math.min(YEARS, markers.estimated.months / 12);
+  const paybackX = Math.min(YEARS, markers.payback.months / 12);
   draw(VERSUS, {
     series: [
-      // The year the network is at scale gets a gold dot on each line.
-      { key: "custodial", cls: "chart__line chart__line--custodial", marker: "chart__marker chart__marker--custodial", points: typical.map((p) => p.custodial), markers: [0, 1, 2, 3, 4, 5], special: { year: MARKER_YEAR, cls: "chart__marker chart__marker--scale", r: 7 } },
-      { key: "nostr", cls: "chart__line", marker: "chart__marker", points: typical.map((p) => p.nostr), markers: [0, 1, 2, 3, 4, 5], special: { year: MARKER_YEAR, cls: "chart__marker chart__marker--scale", r: 7 } }
+      { key: "custodial", cls: "chart__line chart__line--custodial", marker: "chart__marker chart__marker--custodial", points: series("custodial") },
+      { key: "nostr", cls: "chart__line", marker: "chart__marker", points: series("nostr") }
     ],
     band: ["custodial", "nostr"],
-    // No labels on the dots: the gold figure beside the rule between them is what they say.
-    labels: [],
-    // A dotted segment from today's custody dot to the first Nostr dot: a
-    // rough picture of an app's integration ramp, with no figure on it.
-    ramp: { from: ["custodial", 0], to: ["nostr", 1] },
-    // A gold rule from dot to dot, and beside it, hero-sized and gold, its
-    // length: what the app saves a year from the year the network is at scale.
-    // The figure is the cash saving that year, apart from the fees and the risk; the rule is the whole gap.
-    watermark: { year: MARKER_YEAR, between: ["custodial", "nostr"], text: marker || compact(scale.custodial - scale.nostr), sub: t("chart.versus.band_sub") },
-    title: fmt(t("chart.versus.aria"), { year: label(MARKER_YEAR), custodial: compact(scale.custodial), noncustodial: compact(scale.nostr), saving: compact(scale.custodial - scale.nostr), total: compact(end.cumulative) }),
-    // Two horizontal axes: the calendar along the top, from the start, since
-    // the ramp is the network's; projected users along the bottom, first and
-    // last, with the axis named between them.
+    // The integration wedge: from today's custody dot to the Nostr line at
+    // the end of the payback window. No figure on it, nothing summed into it.
+    wedge: paybackX > 0 ? { to: paybackX, label: t("chart.wedge") } : null,
+    // The estimated-savings instant: a gold rule from line to line, a gold
+    // dot on each, and beside it, hero-sized and gold, its length.
+    rule: { x: estimatedX, text: headline.text, sub: headline.sub },
+    title: input.title,
     rows: [
-      { at: "top", values: (year) => year === 0 ? t("chart.versus.start") : label(year) },
-      { at: "bottom", ends: true, middle: t("chart.versus.users"), values: (year) => compactNumber(typical[year].users) }
+      { at: "top", values: (year) => yearLabel(year) },
+      { at: "bottom", ends: true, middle: t("chart.versus.users"), values: (year) => compactNumber(projection[year].users) }
     ],
     tip: (year) => {
-      const p = typical[year];
+      const p = projection[year];
       return [
         fmt(t("chart.tip.users"), { n: number(p.users) }),
         fmt(t("chart.versus.tip_custody"), { amount: compact(p.custodial) }),
-        fmt(t("chart.versus.tip_nostr"), { amount: compact(p.nostr) }),
-        fmt(t("chart.versus.tip_cumulative"), { amount: compact(p.cumulative) })
+        fmt(t(year === 0 ? "chart.versus.tip_nostr_today" : "chart.versus.tip_nostr"), { amount: compact(p.nostr) }),
+        fmt(t("chart.versus.tip_saving"), { amount: compact(p.realised) })
       ];
     }
   });
@@ -1389,7 +1493,7 @@ function draw(id, spec) {
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("height", String(height));
   while (svg.lastChild && svg.lastChild.tagName !== "title") svg.removeChild(svg.lastChild);
-  const all = spec.series.flatMap((s) => s.points);
+  const all = spec.series.flatMap((s) => s.points.map((p) => p.y));
   const top = Math.max(1, ...all);
   const bottom = Math.min(0, ...all);
   const right = PAD.right;
@@ -1398,7 +1502,8 @@ function draw(id, spec) {
   const x = (year) => PAD.left + plotW * year / YEARS;
   const y = (value) => PAD.top + plotH - plotH * (value - bottom) / (top - bottom);
   const by = Object.fromEntries(spec.series.map((s) => [s.key, s.points]));
-  const at = (key, year) => key === "gap" ? (y(by[spec.band[0]][year]) + y(by[spec.band[1]][year])) / 2 : y(by[key][year]);
+  const at = (key, year) => valueAt(by[key], year);
+  const px = (p) => `${x(p.x).toFixed(1)},${y(p.y).toFixed(1)}`;
   const grid = node("g", { class: "chart__grid" });
   const axis = node("g", { class: "chart__axis" });
   for (let i = 0; i <= 3; i++) {
@@ -1406,53 +1511,84 @@ function draw(id, spec) {
     grid.append(node("line", { x1: PAD.left, x2: width - right, y1: y(value), y2: y(value), class: i === 0 ? "chart__baseline" : null }));
     if (i > 0) axis.append(node("text", { x: PAD.left - 8, y: y(value) + 4, "text-anchor": "end" }, [compact(value)]));
   }
-  if (bottom < 0) grid.append(node("line", { x1: PAD.left, x2: width - right, y1: y(0), y2: y(0), class: "chart__baseline" }));
   const narrow = width < 520;
-  const rows = spec.rows || [{ at: "bottom", values: (year) => yearLabel(last?.start_year ?? 0, year) }];
-  for (const row of rows) {
+  for (const row of spec.rows) {
     const g = node("g", { class: `chart__axis chart__axis--${row.at}` });
     const baseline = row.at === "top" ? PAD.top - 18 : height - 8;
-    const ticks = row.ends ? [0, YEARS] : narrow ? [0, MARKER_YEAR, YEARS] : [0, 1, 2, 3, 4, 5];
+    const ticks = row.ends ? [0, YEARS] : narrow ? [0, Math.round(YEARS / 2), YEARS] : [0, 1, 2, 3, 4, 5];
     for (const year of ticks) {
       g.append(node("text", { x: x(year), y: baseline, "text-anchor": year === 0 ? "start" : year === YEARS ? "end" : "middle" }, [row.values(year)]));
     }
     if (row.middle) g.append(node("text", { x: x(YEARS / 2), y: baseline, "text-anchor": "middle", class: "chart__axis-name" }, [row.middle]));
     axis.append(g);
   }
-  const pts = (points) => points.map((v, year) => `${x(year).toFixed(1)},${y(v).toFixed(1)}`);
-  const band2 = node("path", { class: "chart__band", d: `M${pts(by[spec.band[0]]).join("L")}L${pts(by[spec.band[1]]).reverse().join("L")}Z` });
+  const [upperKey, lowerKey] = spec.band;
+  const upper = by[upperKey];
+  const lower = by[lowerKey];
+  const fills = node("g", { class: "chart__fills" });
   const lines = node("g");
   const marks = node("g", { class: "chart__marks" });
-  let watermarkFit = null;
-  if (spec.ramp) {
-    const [fromKey, fromYear] = spec.ramp.from;
-    const [toKey, toYear] = spec.ramp.to;
-    lines.append(node("line", { class: "chart__ramp", x1: x(fromYear), y1: y(by[fromKey][fromYear]), x2: x(toYear), y2: y(by[toKey][toYear]) }));
+  const polygon = (cls, pts) => node("path", { class: cls, d: `M${pts.map(px).join("L")}Z` });
+  if (spec.wedge) {
+    const to = spec.wedge.to;
+    const start = { x: 0, y: upper[0].y };
+    const end = { x: to, y: valueAt(lower, to) };
+    const hatch = `wedge-hatch-${id}`;
+    const defs = node("defs", {}, [
+      node("pattern", { id: hatch, patternUnits: "userSpaceOnUse", width: 6, height: 6, patternTransform: "rotate(45)" }, [
+        node("rect", { class: "chart__hatch-bg", width: 6, height: 6 }),
+        node("line", { class: "chart__hatch-line", x1: 0, y1: 0, x2: 0, y2: 6 })
+      ])
+    ]);
+    fills.append(defs);
+    const wedge = polygon("chart__wedge", [start, end, ...slice(lower, 0, to).reverse().slice(1)]);
+    wedge.setAttribute("fill", `url(#${hatch})`);
+    fills.append(wedge);
+    fills.append(polygon("chart__band", [...slice(upper, 0, to), end]));
+    if (to < YEARS) fills.append(polygon("chart__band", [...slice(upper, to, YEARS), ...slice(lower, to, YEARS).reverse()]));
+    lines.append(node("line", { class: "chart__ramp", x1: x(0), y1: y(start.y), x2: x(to), y2: y(end.y) }));
+    const ex1 = x(0);
+    const ey1 = y(start.y);
+    const ex2 = x(to);
+    const ey2 = y(end.y);
+    const len = Math.hypot(ex2 - ex1, ey2 - ey1) || 1;
+    const ux = (ex2 - ex1) / len;
+    const uy = (ey2 - ey1) / len;
+    const along = narrow ? 0.04 : 0.06;
+    const inward = narrow ? 15 : 18;
+    const lx = ex1 + ux * len * along - uy * inward;
+    const ly = ey1 + uy * len * along + ux * inward;
+    const angle = Math.atan2(ey2 - ey1, ex2 - ex1) * 180 / Math.PI;
+    const label = node("text", { class: "chart__wedge-label", x: lx, y: ly, "text-anchor": "start", transform: `rotate(${angle.toFixed(2)} ${lx.toFixed(1)} ${ly.toFixed(1)})` });
+    const words = spec.wedge.label.split(" ");
+    const rows = narrow && words.length > 1 ? [words.slice(0, Math.ceil(words.length / 2)).join(" "), words.slice(Math.ceil(words.length / 2)).join(" ")] : [spec.wedge.label];
+    rows.forEach((row, i) => label.append(node("tspan", { x: lx, dy: i === 0 ? rows.length > 1 ? -5 : 0 : 12 }, [row])));
+    marks.append(label);
+  } else {
+    fills.append(polygon("chart__band", [...upper, ...[...lower].reverse()]));
   }
   for (const s of spec.series) {
-    lines.append(node("polyline", { class: s.cls, points: pts(s.points).join(" ") }));
-    for (const year of s.markers || []) marks.append(node("circle", { class: s.marker || "chart__marker", cx: x(year), cy: y(s.points[year]), r: 5 }));
-    if (s.special) marks.append(node("circle", { class: s.special.cls, cx: x(s.special.year), cy: y(s.points[s.special.year]), r: s.special.r }));
+    lines.append(node("polyline", { class: s.cls, points: s.points.map(px).join(" ") }));
+    for (let year = 0; year <= YEARS; year++) marks.append(node("circle", { class: s.marker, cx: x(year), cy: y(at(s.key, year)), r: 5 }));
   }
-  for (const l of spec.labels) {
-    if (l.minGap && Math.abs(y(by[spec.band[0]][l.year]) - y(by[spec.band[1]][l.year])) < l.minGap) continue;
-    const py = at(l.key, l.year);
-    const dy = l.above != null && py + l.dy > PAD.top + plotH - 2 ? l.above : l.dy;
-    marks.append(node("text", { class: l.cls, x: x(l.year) + (l.dx ?? -8), y: py + dy, "text-anchor": l.anchor || "end" }, [l.text]));
-  }
-  if (spec.watermark) {
-    const w = spec.watermark;
-    const top2 = y(by[w.between[0]][w.year]);
-    const bottom2 = y(by[w.between[1]][w.year]);
-    const mid = (top2 + bottom2) / 2;
-    lines.append(node("line", { class: "chart__scale-rule", x1: x(w.year), x2: x(w.year), y1: Math.min(top2, bottom2), y2: Math.max(top2, bottom2) }));
+  let watermarkFit = null;
+  if (spec.rule) {
+    const rx = spec.rule.x;
+    const ry1 = y(at(upperKey, rx));
+    const ry2 = y(at(lowerKey, rx));
+    const mid = (ry1 + ry2) / 2;
+    lines.append(node("line", { class: "chart__scale-rule", x1: x(rx), x2: x(rx), y1: Math.min(ry1, ry2), y2: Math.max(ry1, ry2) }));
+    marks.append(node("circle", { class: "chart__marker chart__marker--scale", cx: x(rx), cy: ry1, r: 7 }));
+    marks.append(node("circle", { class: "chart__marker chart__marker--scale", cx: x(rx), cy: ry2, r: 7 }));
     const gap = narrow ? 12 : 16;
-    const left = x(w.year) + gap;
-    const figure = node("text", { class: "chart__watermark", x: left, y: mid + (narrow ? 4 : 10), "text-anchor": "start" }, [w.text]);
+    const flip = x(rx) > width * 0.72;
+    const left = flip ? x(rx) - gap : x(rx) + gap;
+    const anchor = flip ? "end" : "start";
+    const figure = node("text", { class: "chart__watermark", x: left, y: mid + (narrow ? 4 : 10), "text-anchor": anchor }, [spec.rule.text]);
     marks.append(figure);
-    const words = w.sub.split(" ");
-    const subLines = narrow && w.sub.length > 12 ? [words.slice(0, Math.ceil(words.length / 2)).join(" ") + " ", words.slice(Math.ceil(words.length / 2)).join(" ")] : [w.sub];
-    const sub = node("text", { class: "chart__watermark-sub", x: left, y: mid + (narrow ? 20 : 32), "text-anchor": "start" });
+    const words = spec.rule.sub.split(" ");
+    const subLines = narrow && spec.rule.sub.length > 12 ? [words.slice(0, Math.ceil(words.length / 2)).join(" ") + " ", words.slice(Math.ceil(words.length / 2)).join(" ")] : [spec.rule.sub];
+    const sub = node("text", { class: "chart__watermark-sub", x: left, y: mid + (narrow ? 20 : 32), "text-anchor": anchor });
     subLines.forEach((line, i) => sub.append(node("tspan", { x: left, dy: i === 0 ? 0 : 14 }, [line])));
     marks.append(sub);
     watermarkFit = () => {
@@ -1462,7 +1598,7 @@ function draw(id, spec) {
       } catch {
         wide = 0;
       }
-      const room = width - 4 - left;
+      const room = flip ? left - PAD.left - 4 : width - 4 - left;
       if (!wide || wide <= room) return;
       const size = parseFloat(getComputedStyle(figure).fontSize) || 36;
       figure.style.fontSize = `${Math.max(20, Math.floor(size * room / wide))}px`;
@@ -1479,11 +1615,11 @@ function draw(id, spec) {
     rect.addEventListener("pointerenter", () => focusYear(id, year));
     hits.append(rect);
   }
-  svg.append(grid, band2, lines, axis, marks, hover, hits);
+  svg.append(grid, fills, lines, axis, marks, hover, hits);
   watermarkFit?.();
   const title = svg.querySelector("title");
   if (title) title.textContent = spec.title;
-  charts.set(id, { spec, layout: { x, y, width, height, by }, active: null });
+  charts.set(id, { spec, layout: { x, y, width, height, at }, active: null });
   hideTip(id);
 }
 function focusYear(id, year) {
@@ -1492,14 +1628,14 @@ function focusYear(id, year) {
   const tip = document.getElementById(`tip-${id}`);
   if (!chart || !svg || !tip) return;
   chart.active = year;
-  const { x, y, by, width, height } = chart.layout;
+  const { x, y, at, width, height } = chart.layout;
   const cross = svg.querySelector(".chart__cross");
   cross.setAttribute("x1", x(year));
   cross.setAttribute("x2", x(year));
   cross.removeAttribute("hidden");
   let anchor = 0;
   for (const dot of svg.querySelectorAll(".chart__dot")) {
-    const v = by[dot.dataset.key][year];
+    const v = at(dot.dataset.key, year);
     dot.setAttribute("cx", x(year));
     dot.setAttribute("cy", y(v));
     dot.removeAttribute("hidden");
@@ -1507,7 +1643,7 @@ function focusYear(id, year) {
   }
   tip.replaceChildren();
   const head = document.createElement("b");
-  head.textContent = yearLabel(last?.start_year ?? 0, year);
+  head.textContent = yearLabel(year);
   tip.append(head);
   for (const text2 of chart.spec.tip(year)) {
     const row = document.createElement("span");
@@ -1534,30 +1670,24 @@ function wireCharts() {
   const redraw = () => {
     clearTimeout(timer);
     timer = setTimeout(() => {
-      const shown = [CUMULATIVE, VERSUS].map((id) => document.getElementById(id)).find(Boolean);
+      const shown = document.getElementById(VERSUS);
       if (last && shown && shown.getBoundingClientRect().width > 0) drawCharts(last);
     }, 80);
   };
-  let observed = false;
-  for (const id of [CUMULATIVE, VERSUS]) {
-    const svg = document.getElementById(id);
-    if (!svg) continue;
-    svg.addEventListener("pointerleave", () => hideTip(id));
-    svg.addEventListener("blur", () => hideTip(id));
-    svg.addEventListener("keydown", (e) => {
-      const active = charts.get(id)?.active;
-      if (e.key === "ArrowRight") focusYear(id, Math.min(YEARS, (active ?? -1) + 1));
-      else if (e.key === "ArrowLeft") focusYear(id, Math.max(0, (active ?? YEARS + 1) - 1));
-      else if (e.key === "Escape") hideTip(id);
-      else return;
-      e.preventDefault();
-    });
-    if (!observed && "ResizeObserver" in window) {
-      new ResizeObserver(redraw).observe(svg.parentElement);
-      observed = true;
-    }
-  }
-  if (!observed) window.addEventListener("resize", redraw);
+  const svg = document.getElementById(VERSUS);
+  if (!svg) return;
+  svg.addEventListener("pointerleave", () => hideTip(VERSUS));
+  svg.addEventListener("blur", () => hideTip(VERSUS));
+  svg.addEventListener("keydown", (e) => {
+    const active = charts.get(VERSUS)?.active;
+    if (e.key === "ArrowRight") focusYear(VERSUS, Math.min(YEARS, (active ?? -1) + 1));
+    else if (e.key === "ArrowLeft") focusYear(VERSUS, Math.max(0, (active ?? YEARS + 1) - 1));
+    else if (e.key === "Escape") hideTip(VERSUS);
+    else return;
+    e.preventDefault();
+  });
+  if ("ResizeObserver" in window) new ResizeObserver(redraw).observe(svg.parentElement);
+  else window.addEventListener("resize", redraw);
 }
 
 // assets/js/calculator/src/codec.js
@@ -1939,7 +2069,7 @@ function aoutput(out, instance) {
     throw new Error('"digestInto() output" expected to be of length >=' + min);
   }
 }
-function clean(...arrays) {
+function clean2(...arrays) {
   for (let i = 0; i < arrays.length; i++) {
     arrays[i].fill(0);
   }
@@ -2037,7 +2167,7 @@ var HashMD = class {
     const { buffer, view, blockLen, isLE } = this;
     let { pos } = this;
     buffer[pos++] = 128;
-    clean(this.buffer.subarray(pos));
+    clean2(this.buffer.subarray(pos));
     if (this.padOffset > blockLen - pos) {
       this.process(view, 0);
       pos = 0;
@@ -2214,11 +2344,11 @@ var SHA2_32B = class extends HashMD {
     this.set(A, B, C, D, E, F, G, H);
   }
   roundClean() {
-    clean(SHA256_W);
+    clean2(SHA256_W);
   }
   destroy() {
     this.set(0, 0, 0, 0, 0, 0, 0, 0);
-    clean(this.buffer);
+    clean2(this.buffer);
   }
 };
 var _SHA256 = class extends SHA2_32B {
@@ -2430,10 +2560,11 @@ function composeLead({ inputs, result, link, contact, fieldLabels, open }) {
     lines.push(`${fieldLabels[key]?.label || key}: ${Array.isArray(v) ? v.join(", ") : v}`);
   }
   lines.push("");
+  if (result.date) lines.push(fmt(t("compose.date"), { date: result.date }));
   lines.push(fmt(t("compose.results"), { custodial: result.custodial, noncustodial: result.noncustodial }));
-  if (result.at_scale) lines.push(fmt(t("compose.at_scale"), { at_scale: result.at_scale }));
-  if (result.five_year) lines.push(fmt(t("compose.five_year"), { five_year: result.five_year, low: result.low }));
+  if (result.estimated) lines.push(fmt(t("compose.estimated"), { amount: result.estimated, low: result.low, high: result.high }));
   if (result.fees) lines.push(fmt(t("compose.fees"), { amount: result.fees }));
+  if (result.breach) lines.push(fmt(t("compose.breach"), { amount: result.breach }));
   lines.push(fmt(t("compose.link"), { link }));
   if (open) lines.push(fmt(t("compose.open"), { link: open }));
   lines.push("");
@@ -2463,6 +2594,7 @@ function fill(template, vars) {
   return String(template).replace(/\{([a-z]\.[a-z_0-9]+)\}/g, (m, key) => vars[key] == null ? m : String(vars[key]));
 }
 function formatValue(v, unit = "") {
+  if (unit === "date") return date(v);
   if (/^ratio/.test(unit)) return percent(v);
   if (unit === "multiplier") return `${number(v)}\xD7`;
   if (/^USD/.test(unit)) return v < 100 ? perMau(v) : money(v);
@@ -2476,8 +2608,8 @@ function variant(line, part2) {
   if (part2.id === "money_transmitter") return part2.holds ? "money_transmitter_holds" : "money_transmitter";
   return part2.id;
 }
-var MONEY = /* @__PURE__ */ new Set(["custodial", "noncustodial", "revenue", "loaded", "gdpr", "osa", "dsa", "usp", "content_law"]);
-var PERCENT = /* @__PURE__ */ new Set(["rate", "share", "us_share", "sponsored"]);
+var MONEY = /* @__PURE__ */ new Set(["custodial", "noncustodial", "revenue", "loaded", "gdpr", "osa", "dsa", "usp", "content_law", "loss", "policy"]);
+var PERCENT = /* @__PURE__ */ new Set(["rate", "share", "us_share", "sponsored", "factor", "conversion"]);
 var CENTS = /* @__PURE__ */ new Set(["hourly", "fixed", "contact"]);
 function partVars(part2) {
   const out = {};
@@ -2505,6 +2637,7 @@ function relevantKeys(line, part2, inputs) {
   if (part2.id === "egress" && derived.egress_gb_per_mau_month) keys.push(...derivedAssumptions("egress_gb_per_mau_month", "kind", inputs));
   if ((part2.id === "serving" || part2.id === "feed_compute") && derived.compute_per_mau_year) keys.push(...derivedAssumptions("compute_per_mau_year", "kind", inputs));
   const jur = inputs.jur || [];
+  const team = TEAMS.includes(inputs.team) ? inputs.team : "more";
   return keys.filter((key) => {
     const m = key.match(/^verify_share_(\w+)$/);
     if (m) return jur.includes(m[1]);
@@ -2515,6 +2648,10 @@ function relevantKeys(line, part2, inputs) {
     if (key === "gdpr_program_year") return jur.includes("eu") || jur.includes("uk");
     if (key === "uk_osa_year") return jur.includes("uk");
     if (key === "dsa_year") return jur.includes("eu");
+    const tier = key.match(/^compliance_tier_factor_(\w+)$/);
+    if (tier) return !part2.reported && (tier[1] === team || tier[1] === "one" && team !== "more" && jur.includes("eu"));
+    const loss = key.match(/^breach_loss_(\w+)$/);
+    if (loss) return loss[1] === team;
     if (key === "us_privacy_year_small") return part2.us_tier === "small";
     if (key === "us_privacy_year_large") return part2.us_tier === "large";
     if (key === "ccpa_consumer_threshold") return jur.includes("us");
@@ -2528,6 +2665,7 @@ function relevantKeys(line, part2, inputs) {
     if (key === "moderator_base_salary" || key === "mods_per_million_mau") return Boolean(part2.implied);
     if (part2.id === "labour" && (key === "loaded_multiplier" || key === "overhead_multiplier")) return part2.who !== "vendor";
     if (key === "mt_avoidance_year" || key === "mt_remains_share") return Boolean(part2.holds);
+    if (key === "p2p_conversion_share") return part2.id !== "money_transmitter" && part2.id !== "p2p";
     return true;
   });
 }
@@ -2542,11 +2680,11 @@ function describe(keys, { values, overrides = {}, data }) {
       low: formatValue(a.low, a.unit),
       high: formatValue(a.high, a.unit),
       confidence: a.confidence,
-      changed: key in overrides
+      changed: Object.hasOwn(overrides, key)
     };
   });
 }
-function explain(line, part2, { inputs, values, overrides = {}, data, scale = {} }) {
+function explain(line, part2, { inputs, values, overrides = {}, data, estimated = {} }) {
   const v = values;
   const vars = {
     ...partVars(part2),
@@ -2558,10 +2696,12 @@ function explain(line, part2, { inputs, values, overrides = {}, data, scale = {}
     "d.weeks": number(WEEKS_PER_YEAR),
     "d.retention": number(RETENTION_MONTHS),
     "d.rev_year": money((inputs.rev || 0) * 12),
-    "d.scale_year": scale.year != null && data.start_year != null ? String(calendarYear(data.start_year, scale.year)) : "",
-    "d.scale_users": scale.users != null ? number(scale.users) : "",
+    "d.estimated_months": estimated.months != null ? number(estimated.months) : "",
+    "d.estimated_users": estimated.users != null ? number(Math.round(estimated.users)) : "",
+    "d.estimated_date": estimated.date ? date(estimated.date) : "",
     "p.users": part2.users != null ? number(Math.round(part2.users)) : "",
     "d.tier": part2.tier ? t(`details.tier_${part2.tier}`) : "",
+    "d.team": part2.team ? t(`whose.team.${part2.team}`) : "",
     "d.programs": programsList(part2)
   };
   for (const [key, a] of Object.entries(data.assumptions)) vars[`a.${key}`] = formatValue(v[key], a.unit);
@@ -2572,8 +2712,8 @@ function explain(line, part2, { inputs, values, overrides = {}, data, scale = {}
     label: t(`parts.${part2.id}`, part2.id),
     today: fill(f.today || "", vars),
     nostr: fill(f.nostr || "", vars),
-    // What the savings list shows: the same part in the year the network is at scale, at that year's users.
-    at_scale: part2.scale_custodial != null ? fill(t("how.at_scale"), { ...vars, "p.custodial": money(part2.scale_custodial), "p.noncustodial": money(part2.scale_noncustodial) }) : "",
+    // What the savings list shows: the same part at the instant the headline is read, at that instant's users.
+    estimated: part2.estimated_custodial != null ? fill(t("how.estimated"), { ...vars, "p.custodial": money(part2.estimated_custodial), "p.noncustodial": money(part2.estimated_noncustodial) }) : "",
     assumptions: describe(relevantKeys(line, part2, inputs), { values, overrides, data })
   };
 }
@@ -2589,9 +2729,9 @@ function programsList(part2) {
 
 // assets/js/calculator/src/ui.js
 var ordered = (a, b) => a <= b ? [a, b] : [b, a];
-var range = (a, b) => {
+var range = (a, b, f = approx) => {
   const [low, high] = ordered(a, b);
-  return fmt(t("range_short"), { low: compact(low), high: compact(high) });
+  return fmt(t("range_short"), { low: f(low), high: f(high) });
 };
 var rangeFull = (a, b, f = compact) => {
   const [low, high] = ordered(a, b);
@@ -2600,26 +2740,18 @@ var rangeFull = (a, b, f = compact) => {
 function renderResults(result, { own = false } = {}) {
   const { typical, low, high, inputs } = result;
   const T = typical.totals;
-  const year = calendarYear(result.start_year, MARKER_YEAR);
   renderWhose(result, own);
   const link = $("#r-whose-link");
   if (link) link.textContent = t("whose.link");
-  for (const id of ["r-permau-c-label", "r-permau-nc-label", "r-scale-nostr-label"]) {
-    const node2 = $(`#${id}`);
-    if (node2?.dataset.template) node2.textContent = fmt(node2.dataset.template, { year });
-  }
-  text("#r-permau-c", perMau(T.scale_per_mau_custodial));
-  text("#r-permau-c-range", rangeFull(low.totals.scale_per_mau_custodial, high.totals.scale_per_mau_custodial, perMau));
-  text("#r-permau-nc", perMau(T.scale_per_mau_nostr));
-  text("#r-permau-nc-range", rangeFull(low.totals.scale_per_mau_nostr, high.totals.scale_per_mau_nostr, perMau));
-  text("#r-scale-nostr", compact(T.scale_nostr));
-  text("#r-scale-nostr-range", rangeFull(low.totals.scale_nostr, high.totals.scale_nostr));
-  text("#r-cumulative", fmt(t("cumulative_note"), { amount: compact(T.five_year) }));
-  text("#r-version", fmt(t("version"), { version: result.version }));
-  const caption = $("#caption-chart-custodial-cost-vs-nostr");
-  if (caption?.dataset.template) caption.textContent = fmt(caption.dataset.template, { year });
-  drawCharts({ typical: typical.projection, low: low.projection, start_year: result.start_year, marker: compact(T.at_scale_cash) });
-  renderYears(typical.projection, result.start_year);
+  text("#r-permau-c", perMau(T.estimated_custodial / T.estimated_users));
+  text("#r-permau-c-range", rangeFull(low.totals.estimated_custodial / low.totals.estimated_users, high.totals.estimated_custodial / high.totals.estimated_users, perMau));
+  text("#r-permau-nc", perMau(T.estimated_nostr / T.estimated_users));
+  text("#r-permau-nc-range", rangeFull(low.totals.estimated_nostr / low.totals.estimated_users, high.totals.estimated_nostr / high.totals.estimated_users, perMau));
+  text("#r-scale-nostr", approx(T.estimated_nostr));
+  text("#r-scale-nostr-range", rangeFull(low.totals.estimated_nostr, high.totals.estimated_nostr, approx));
+  text("#r-version", fmt(t("version"), { version: result.version, date: date(result.today) }));
+  renderChart(result);
+  renderYears(typical.projection);
   const cut = (c, nc) => c > 0 ? Math.min(1, Math.max(0, 1 - nc / c)) : 0;
   for (const name of LINES) {
     const line = typical.lines[name];
@@ -2640,14 +2772,36 @@ function renderResults(result, { own = false } = {}) {
     }
     const saving = $(".lt-saving", row);
     const rangeNode = $(".lt-saving-range", row);
-    saving.textContent = line.none ? "" : money(line.at_scale);
-    rangeNode.textContent = line.none ? "" : range(low.lines[name].at_scale, high.lines[name].at_scale);
+    saving.textContent = line.none ? "" : approx(line.estimated);
+    rangeNode.textContent = line.none ? "" : range(low.lines[name].estimated, high.lines[name].estimated);
     show(saving, !line.none);
     const share = line.none ? 0 : cut(line.custodial, line.noncustodial);
     $(".share", row).style.setProperty("--w", `${100 * share}%`);
     text(`.lt-row[data-line="${name}"] .share__pct`, line.none ? "" : percent(share));
     renderParts(name, line, inputs);
   }
+}
+function renderChart(result) {
+  const { typical } = result;
+  const T = typical.totals;
+  const M = typical.markers;
+  const months = T.estimated_after_payback;
+  const matureVars = { date: date(M.mature.date) };
+  const mature = M.mature.since ? fmt(t("chart.caption_mature_since"), matureVars) : M.mature.months > YEARS * 12 ? fmt(t("chart.caption_mature_beyond"), matureVars) : fmt(t("chart.caption_mature"), matureVars);
+  const caption = $(`#caption-${"chart-custodial-cost-vs-nostr"}`);
+  if (caption) caption.textContent = [caption.dataset.template, t("chart.caption_window"), fmt(t("chart.caption_estimated"), { months: number(months) }), mature].filter(Boolean).join(" ");
+  const first = typical.projection[0];
+  const end = typical.projection[YEARS];
+  const title = fmt(t("chart.versus.aria"), {
+    custodial: approx(first.custodial),
+    nostr: approx(first.nostr),
+    end_custodial: approx(end.custodial),
+    end_nostr: approx(end.nostr),
+    saving: approx(T.estimated),
+    months: number(months),
+    mature
+  });
+  drawCharts({ projection: typical.projection, markers: M, headline: { text: approx(T.estimated), sub: t("chart.versus.band_sub") }, title });
 }
 function renderWhose(result, own) {
   const host = $("#r-whose-text");
@@ -2673,12 +2827,12 @@ function renderWhose(result, own) {
     host.append(m ? pieces[m[1]] || document.createTextNode(token) : document.createTextNode(token));
   }
 }
-function renderYears(projection, startYear) {
+function renderYears(projection) {
   const head = $("#r-years-head");
   if (!head) return;
   for (const extra of $$("th[data-year]", head)) extra.remove();
-  for (let year = 0; year <= YEARS; year++) head.append(el("th", { scope: "col", class: "years-num", "data-year": year, text: yearLabel(startYear, year) }));
-  const cell = { users: (p) => number(p.users), custodial: (p) => money(p.custodial), nostr: (p) => money(p.nostr), realised: (p) => money(p.realised), cumulative: (p) => money(p.cumulative) };
+  for (let year = 0; year <= YEARS; year++) head.append(el("th", { scope: "col", class: "years-num", "data-year": year, text: yearLabel(year) }));
+  const cell = { users: (p) => number(Math.round(p.users)), custodial: (p) => money(p.custodial), nostr: (p) => money(p.nostr), realised: (p) => money(p.realised) };
   for (const row of $$("#r-years tbody tr[data-row]")) {
     const value = cell[row.dataset.row];
     if (!value) continue;
@@ -2689,8 +2843,8 @@ function renderYears(projection, startYear) {
 function renderParts(name, line, inputs) {
   const host = $(`.lt-parts[data-line="${name}"] .parts`);
   if (!host) return;
-  text(`.lt-parts[data-line="${name}"] .parts__total-c`, money(line.scale_custodial));
-  text(`.lt-parts[data-line="${name}"] .parts__total-nc`, money(line.scale_noncustodial));
+  text(`.lt-parts[data-line="${name}"] .parts__total-c`, money(line.estimated_custodial));
+  text(`.lt-parts[data-line="${name}"] .parts__total-nc`, money(line.estimated_noncustodial));
   clear(host);
   const item = (p) => {
     const meta = partMeta(p, inputs);
@@ -2701,19 +2855,18 @@ function renderParts(name, line, inputs) {
           meta ? el("span", { class: "part__meta", text: meta }) : null
         ])
       ]),
-      el("td", { class: "parts-num", text: money(p.scale_custodial) }),
-      el("td", { class: "parts-num" }, [el("b", { text: money(p.scale_noncustodial) })])
+      el("td", { class: "parts-num", text: money(p.estimated_custodial) }),
+      el("td", { class: "parts-num" }, [el("b", { text: money(p.estimated_noncustodial) })])
     ]);
   };
   const subtotal = (label, parts) => el("tr", { class: "parts__subtotal" }, [
     el("th", { scope: "row", text: label }),
-    el("td", { class: "parts-num", text: money(parts.reduce((a, p) => a + p.scale_custodial, 0)) }),
-    el("td", { class: "parts-num" }, [el("b", { text: money(parts.reduce((a, p) => a + p.scale_noncustodial, 0)) })])
+    el("td", { class: "parts-num", text: money(parts.reduce((a, p) => a + p.estimated_custodial, 0)) }),
+    el("td", { class: "parts-num" }, [el("b", { text: money(parts.reduce((a, p) => a + p.estimated_noncustodial, 0)) })])
   ]);
   const groups = [
     ["cash", line.parts.filter((p) => !p.kind)],
-    ["fees", line.parts.filter((p) => p.kind === "fees")],
-    ["risk", line.parts.filter((p) => p.kind === "risk")]
+    ["fees", line.parts.filter((p) => p.kind === "fees")]
   ].filter(([, parts]) => parts.length);
   const labelled = groups.some(([kind]) => kind !== "cash");
   for (const [kind, parts] of groups) {
@@ -2726,13 +2879,14 @@ var howLabel = "";
 function openHow(line, partId, result, data) {
   const part2 = result.typical.lines[line]?.parts.find((p) => p.id === partId);
   if (!part2) return;
-  const info = explain(line, part2, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, scale: { year: MARKER_YEAR, users: result.typical.totals.scale_users } });
+  const T = result.typical.totals;
+  const info = explain(line, part2, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, estimated: { months: T.estimated_months, users: T.estimated_users, date: T.estimated_date } });
   fillHow({
     label: info.label,
     line: $(`.lt-row[data-line="${line}"] .lt-title`)?.textContent.trim() || line,
     heads: [t("details.today"), t("details.on_nostr")],
     rows: [info.today, info.nostr],
-    foot: info.at_scale,
+    foot: info.estimated,
     assumptions: info.assumptions
   });
 }
@@ -2891,14 +3045,18 @@ function setError2(code, fieldLabel) {
   node2.textContent = message;
   show(node2, Boolean(message));
 }
+var isDateInput = (input) => input.dataset.unit === "date" || input.type === "date";
 function readOverrides() {
   const out = {};
   for (const input of $$(".assume-input")) {
-    const typical = Number(input.dataset.typical);
     const v = input.value.trim();
     if (v === "") continue;
+    if (isDateInput(input)) {
+      if (isDate(v) && v !== input.dataset.typical) out[input.dataset.key] = v;
+      continue;
+    }
     const n = Number(v);
-    if (!Number.isFinite(n) || n < 0 || n === typical) continue;
+    if (!Number.isFinite(n) || n < 0 || n === Number(input.dataset.typical)) continue;
     out[input.dataset.key] = n;
   }
   return out;
@@ -2906,13 +3064,14 @@ function readOverrides() {
 function writeOverrides(overrides = {}) {
   for (const input of $$(".assume-input")) {
     const key = input.dataset.key;
-    input.value = key in overrides ? String(overrides[key]) : input.dataset.typical;
+    input.value = Object.hasOwn(overrides, key) ? String(overrides[key]) : input.dataset.typical;
   }
   markChanged();
 }
 function markChanged() {
   for (const input of $$(".assume-input")) {
-    const changed = input.value.trim() !== "" && Number(input.value) !== Number(input.dataset.typical);
+    const v = input.value.trim();
+    const changed = v !== "" && (isDateInput(input) ? v !== input.dataset.typical : Number(v) !== Number(input.dataset.typical));
     input.closest("tr")?.classList.toggle("is-changed", changed);
   }
 }
@@ -2927,6 +3086,12 @@ var snapshot = readJson("page-form");
 var map = readJson("page-map");
 var form = prepareForm(snapshot, map);
 var current = null;
+var today = localDate();
+function localDate() {
+  const d = /* @__PURE__ */ new Date();
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
 var dirty = false;
 var test = null;
 var openedAt = Date.now();
@@ -2944,7 +3109,7 @@ function labelFor(key) {
 function run(raw, overrides, { focus = true, show: show2 = true, scroll = true } = {}) {
   let result;
   try {
-    result = calculate(raw, assumptions, overrides);
+    result = calculate(raw, assumptions, overrides, { today });
   } catch (err) {
     if (err instanceof InputError) {
       if (!show2) return null;
@@ -3099,8 +3264,8 @@ function valuesFor(result, contact) {
     distribution: i.distribution,
     result_custodial: Math.round(T.custodial),
     result_noncustodial: Math.round(T.noncustodial),
-    // The fees saved a year at scale travel too (map.yml).
-    fees_saved: Math.round(T.at_scale_fees),
+    // The fees saved a year at the estimated instant travel too (map.yml).
+    fees_saved: Math.round(T.estimated_fees),
     link: result.link,
     overrides: Object.keys(result.overrides).length ? JSON.stringify(result.overrides) : "",
     version: String(result.version),
@@ -3208,15 +3373,18 @@ async function tell(signer, result, contact, open) {
     return;
   }
   if (!recipient) return;
+  const T = result.typical.totals;
   const content = composeLead({
     inputs: result.inputs,
     result: {
-      custodial: compact(result.typical.totals.custodial),
-      noncustodial: compact(result.typical.totals.noncustodial),
-      at_scale: compact(result.typical.totals.at_scale),
-      five_year: compact(result.typical.totals.five_year),
-      low: compact(result.low.totals.five_year),
-      fees: result.typical.totals.at_scale_fees >= 1 ? compact(result.typical.totals.at_scale_fees) : ""
+      date: result.today,
+      custodial: approx(T.custodial),
+      noncustodial: approx(T.noncustodial),
+      estimated: approx(T.estimated),
+      low: approx(result.low.totals.estimated),
+      high: approx(result.high.totals.estimated),
+      breach: T.breach_reduction >= 1 ? approx(T.breach_reduction) : "",
+      fees: T.estimated_fees >= 1 ? approx(T.estimated_fees) : ""
     },
     link: result.link,
     contact,
