@@ -3,7 +3,8 @@ The sign dialog: how a response is signed. Three doors, then, for the
 remote signer, the same connect panel the contact page shows in its own
 dialog, with the same ids, so the shared sign-in flow wires both.
 
-  copy   the `modal.sign` block of the page's copy
+  copy        the `modal.sign` block of the page's copy
+  no_session  true → no one-time-key door (a page only the form's key can use)
 {%- endcomment -%}
 {%- assign c = include.copy -%}
 {%- assign m = site.data.blocks.bunker_modal -%}
@@ -21,10 +22,12 @@ dialog, with the same ids, so the shared sign-in flow wires both.
       {% include lib/icon.html name="key" class="sign-option__icon" %}
       <span class="sign-option__text"><b>{{ c.bunker }}</b><span>{{ c.bunker_note }}</span></span>
     </button>
+    {%- unless include.no_session -%}
     <button type="button" class="sign-option" id="sign-session">
       {% include lib/icon.html name="lock" class="sign-option__icon" %}
       <span class="sign-option__text"><b>{{ c.session }}</b><span>{{ c.session_note }}</span></span>
     </button>
+    {%- endunless -%}
     <p class="sendrow__status" id="sign-status" hidden role="status"></p>
     <p class="contact__error contact__error--small" id="sign-error" hidden role="alert"></p>
   </div>

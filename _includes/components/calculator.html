@@ -352,6 +352,7 @@ simply stack.
 
     <div class="results__actions">
       <button type="button" class="btn btn--secondary results__edit" id="r-edit">{{ r.actions.edit.label }}</button>
+      {%- if r.actions.responses %}<a class="results__responses" href="{{ r.actions.responses.href | relative_url }}">{{ r.actions.responses.label }}</a>{% endif -%}
     </div>
     <p class="results__status" id="r-status" role="status"></p>
     <p class="results__version"><span id="r-version"></span> · <span id="r-sourcing"></span>{% if s.strings.disclaimer %} · <span class="results__disclaimer">{{ s.strings.disclaimer }}</span>{% endif %}</p>

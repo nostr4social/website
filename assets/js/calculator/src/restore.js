@@ -50,7 +50,7 @@ export async function fetchResponse(pointer, snapshot) {
 }
 
 /** The holder's route: their My Forms list, decrypted by their signer, names the form's secret. */
-async function secretAsHolder(signer, snapshot) {
+export async function secretAsHolder(signer, snapshot) {
   const pool = new SimplePool()
   try {
     const relays = discoveryRelays()

@@ -59,6 +59,14 @@ export const targets = {
     minify: false,
     external: ['/assets/js/vendor/*'],
   },
+  calculator_results: {
+    group: 'calculator_results',
+    name: 'app',
+    entry: 'assets/js/calculator-results/src/app.js',
+    out: 'assets/js/calculator-results/results.js',
+    minify: false,
+    external: ['/assets/js/vendor/*'],
+  },
   // The proof-of-work miner runs in a Web Worker, so it is its own file and
   // carries its own copy of sha256: a worker cannot share the page's modules.
   // No SRI attribute exists for workers; same-origin CSP and the byte-compare

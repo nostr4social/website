@@ -1,0 +1,107 @@
+# The calculator's responses, read in the browser by whoever holds the
+# form's key. Private and static: not in the nav, not indexed, nothing
+# sent anywhere. Responses are NIP-44 encrypted to the form's key, so the
+# page is empty until that key signs in (an extension or a remote signer,
+# or hello's own key through the formstr My Forms list). Decrypted content
+# lives in memory only.
+
+meta:
+  title: Calculator responses
+  description: >-
+    The Non-Custodial Savings Calculator's saved responses, for the form's key holder.
+
+sections:
+  - type: hero
+    tight: true
+    wide: true
+    head:
+      eyebrow: Private
+      eyebrow_tone: gold
+      title: Calculator responses
+      lede: >-
+        Every calculation saved through the Non-Custodial Savings Calculator, read straight from the site's relays and decrypted here, in this tab, by the form's key. Nothing leaves the browser.
+
+  - type: calculator-results
+    id: results
+    flush: true
+    signin:
+      button: Sign in with the form's key
+      note: >-
+        Responses are encrypted to the form's key. Sign in with that key, or with the hello key that holds it, and they are decrypted here.
+      switch: Switch
+    filters:
+      version: Assumptions
+      # The oldest version this page recomputes (the first file from 4 on) and up: the default.
+      version_recent: "v{n} and up"
+      version_all: All versions
+      version_one: "v{n} only"
+      mode: Show
+      mode_live: Live only
+      mode_test: Tests only
+      mode_all: Live and tests
+      tier: Signer
+      tier_all: Any signer
+      tier_signed: Signed in
+      tier_unverified: Unverified
+      contact: Only with contact details
+      # On by default: an unverified key's response must carry the page's proof of work (pow.response in nostr_config.yml); off, those below it are shown too, still labelled unverified.
+      pow: Proof of work required
+      sort: Sort by
+      sort_date: Newest first
+      sort_savings: Largest savings first
+      csv: Download CSV
+    columns:
+      date: Date
+      version: Version
+      test: Test
+      tier: Signer
+      name: Name
+      email: Email
+      kind: App
+      mau: Users
+      team: Team
+      regions: Regions
+      volume: Volume a month
+      savings: Estimated savings
+      link: Results
+    strings:
+      status:
+        signed_out: Sign in to read the responses.
+        connecting: Reading the relays…
+        wrong_key: "That key is neither the form's nor one that holds it. Nothing to show."
+        none: No responses yet.
+        count: "{shown} of {kept} shown · {dropped} dropped by policy"
+        dropped: Dropped by policy
+        reason: "{id} · {reason}"
+      row:
+        yes: "yes"
+        no: ""
+        signed: signed in
+        unverified: unverified
+        open: open
+        saved: "{custodial} custody · {nostr} Nostr (v{version}, as saved)"
+        none: ""
+      kind:
+        messaging: messaging
+        feed: media feed
+        community: community
+        marketplace: marketplace
+      team:
+        one: "1"
+        ten: "≤10"
+        fifty: "≤50"
+        more: ">50"
+      modal:
+        sign:
+          title: Sign in as the form's key
+          extension: With my browser extension
+          extension_note: Alby, nos2x, Amber, holding the form's key or hello's.
+          bunker: With my remote signer
+          bunker_note: nsec.app or any bunker.
+          session: ""
+          session_note: ""
+          cancel: Cancel
+      csv_name: calculator-responses.csv
+    config:
+      client:
+        name: nostr4.social

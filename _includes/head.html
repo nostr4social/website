@@ -10,6 +10,7 @@
 {% include head/csp.html %}
 <title>{{ title | escape }}</title>
 {% include head/seo.html title=title meta=data.meta %}
+{%- if page.noindex %}<meta name="robots" content="noindex, nofollow">{% endif %}
 <meta name="theme-color" content="#14111C">
 <meta name="color-scheme" content="dark">
 {% include head/icons.html %}

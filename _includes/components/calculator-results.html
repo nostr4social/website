@@ -1,0 +1,76 @@
+{%- comment -%}
+The calculator's responses, for the form's key holder. The chrome is here;
+the rows are filled by the script from the relays, after the key signs in.
+Inert data blocks carry what the script needs: the shared strings and
+config, the page's own, the form snapshot and id map, and every assumptions
+version from 4 on, so an old response is recomputed as the person saw it.
+{%- endcomment -%}
+{%- assign s = include.section -%}
+{%- assign shared = site.data.assets.shared -%}
+{%- assign a = site.data.assets.calculator_results -%}
+<div class="inbox" id="inbox">
+  <div class="inbox__signin" id="inbox-signin">
+    <p class="inbox__note">{{ s.signin.note }}</p>
+    <button type="button" class="btn btn--primary" id="inbox-sign-open">{{ s.signin.button }}</button>
+    <div class="identity" id="sign-signed" hidden>
+      <span class="identity__avatar">{% include lib/icon.html name="face" class="identity__glyph" %}</span>
+      <div class="identity__text">
+        <span class="identity__who"><b class="identity__name" id="identity-name"></b> <span class="identity__key code" id="identity-key"></span></span>
+        <span class="identity__note"><span id="identity-note"></span> <button type="button" class="linkbutton" id="sign-out">{{ s.signin.switch }}</button></span>
+      </div>
+    </div>
+  </div>
+  <p class="inbox__status" id="inbox-status" role="status"></p>
+  <div class="inbox__tools" id="inbox-tools" hidden>
+    <label class="inbox__tool"><span>{{ s.filters.version }}</span>
+      <select class="field__input field__input--small" id="inbox-version" data-recent="{{ s.filters.version_recent }}" data-all="{{ s.filters.version_all }}" data-one="{{ s.filters.version_one }}"></select></label>
+    <label class="inbox__tool"><span>{{ s.filters.mode }}</span>
+      <select class="field__input field__input--small" id="inbox-mode">
+        <option value="live">{{ s.filters.mode_live }}</option>
+        <option value="test">{{ s.filters.mode_test }}</option>
+        <option value="all">{{ s.filters.mode_all }}</option>
+      </select></label>
+    <label class="inbox__tool"><span>{{ s.filters.tier }}</span>
+      <select class="field__input field__input--small" id="inbox-tier">
+        <option value="all">{{ s.filters.tier_all }}</option>
+        <option value="signed-in">{{ s.filters.tier_signed }}</option>
+        <option value="unverified">{{ s.filters.tier_unverified }}</option>
+      </select></label>
+    <label class="choice inbox__tool"><input type="checkbox" id="inbox-contact"><span class="choice__label">{{ s.filters.contact }}</span></label>
+    <label class="choice inbox__tool"><input type="checkbox" id="inbox-pow" checked><span class="choice__label">{{ s.filters.pow }}</span></label>
+    <label class="inbox__tool"><span>{{ s.filters.sort }}</span>
+      <select class="field__input field__input--small" id="inbox-sort">
+        <option value="date">{{ s.filters.sort_date }}</option>
+        <option value="savings">{{ s.filters.sort_savings }}</option>
+      </select></label>
+    <button type="button" class="btn btn--secondary btn--compact" id="inbox-csv">{{ s.filters.csv }}</button>
+  </div>
+  <p class="inbox__count" id="inbox-count" hidden></p>
+  <table class="inbox-table" id="inbox-table" hidden>
+    <thead>
+      <tr>
+        {%- for col in s.columns -%}<th scope="col" data-col="{{ col[0] }}">{{ col[1] }}</th>{%- endfor -%}
+      </tr>
+    </thead>
+    <tbody id="inbox-rows"></tbody>
+  </table>
+  <details class="inbox__dropped" id="inbox-dropped" hidden>
+    <summary id="inbox-dropped-summary"></summary>
+    <ul id="inbox-dropped-list"></ul>
+  </details>
+
+  {% include lib/sign-modal.html copy=s.strings.modal.sign no_session=true %}
+
+  {%- comment -%} Inert data, not executable. {%- endcomment -%}
+  <script type="application/json" id="page-shared-strings">{{ site.data.blocks.signin_strings | jsonify }}</script>
+  <script type="application/json" id="page-shared-config">{{ site.data.blocks.nostr_config | jsonify }}</script>
+  <script type="application/json" id="page-strings">{{ s.strings | jsonify }}</script>
+  <script type="application/json" id="page-config">{{ s.config | jsonify }}</script>
+  <script type="application/json" id="page-form">{{ site.data.forms.calculator | jsonify }}</script>
+  <script type="application/json" id="page-map">{{ site.data.forms.map | jsonify }}</script>
+  {%- assign first = true -%}
+  <script type="application/json" id="page-assumptions-all">{ {% for v in site.data.assumptions %}{% if v[1].version >= 4 %}{% unless first %},{% endunless %}"{{ v[1].version }}": {{ v[1] | jsonify }}{% assign first = false %}{% endif %}{% endfor %} }</script>
+</div>
+<link rel="modulepreload" href="{{ shared.nostr_tools.path }}" integrity="{{ shared.nostr_tools.integrity }}" crossorigin>
+<link rel="modulepreload" href="{{ shared.uqr.path }}" integrity="{{ shared.uqr.integrity }}" crossorigin>
+<script type="module" src="{{ a.app.path }}" integrity="{{ a.app.integrity }}" crossorigin></script>

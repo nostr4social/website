@@ -637,6 +637,23 @@
   text-decoration: underline;
 }
 
+// Under the savings table: the way back to the form, centred, with the
+// quiet link to the responses page at the row's right edge.
+.results__responses {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  position: absolute;
+  right: 0;
+  text-decoration: none;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.results__responses:hover {
+  color: var(--ink-2);
+  text-decoration: underline;
+}
+
 // Whose estimate this is, under the title: a sentence and a link.
 .whose {
   color: var(--ink-2);
@@ -1422,6 +1439,7 @@
   display: flex;
   justify-content: center;
   padding: var(--s-7) 0;
+  position: relative;
 }
 
 .results__edit {
@@ -2006,6 +2024,18 @@ tr.is-changed .assume-input {
 // ── breakpoints ──────────────────────────────────────────────────────────────
 
 @include below($bp-mid) {
+  // The quiet link stacks under the button where there is no room beside it.
+  .results__actions {
+    align-items: center;
+    flex-direction: column;
+    gap: var(--s-3);
+  }
+
+  .results__responses {
+    position: static;
+    transform: none;
+  }
+
   .chart__watermark {
     font-size: 36px;
   }

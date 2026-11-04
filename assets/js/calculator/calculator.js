@@ -75,6 +75,7 @@ import {
   getPublicKey,
   finalizeEvent,
   getEventHash,
+  verifyEvent,
   SimplePool,
   decodeNip19,
   npubEncode,

@@ -1,0 +1,98 @@
+// /calculator/responses/: the responses, as a table under a sign-in row.
+@use "../breakpoints" as *;
+
+.inbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding-block: var(--s-4) var(--band-y);
+}
+
+.inbox__signin {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+}
+
+.inbox__note {
+  color: var(--ink-2);
+  flex: 1 1 320px;
+  font-size: var(--fs-s);
+  line-height: var(--lh-card);
+  margin: 0;
+}
+
+.inbox__status {
+  color: var(--ink-2);
+  font-size: var(--fs-s);
+  margin: 0;
+}
+
+.inbox__tools {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+}
+
+.inbox__tool {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.inbox__tool > span {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+
+.inbox__count {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  margin: 0;
+}
+
+.inbox-table {
+  border-collapse: collapse;
+  display: block;
+  font-size: var(--fs-s);
+  overflow-x: auto;
+  width: 100%;
+}
+
+.inbox-table th,
+.inbox-table td {
+  border-bottom: 1px solid var(--line);
+  padding: var(--s-2) var(--s-3);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.inbox-table th {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inbox-table td.is-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.inbox-table tr.is-test td {
+  color: var(--ink-3);
+}
+
+.inbox__dropped {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+
+.inbox__dropped ul {
+  margin: var(--s-2) 0 0;
+  padding-left: var(--s-5);
+}

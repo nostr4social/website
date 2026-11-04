@@ -293,6 +293,10 @@ sections:
       actions:
         edit:
           label: Customize App Details
+        # A quiet link to the responses page, for the form's key holder.
+        responses:
+          label: Saved responses
+          href: /calculator/responses/
 
     # ── the assumptions panel ────────────────────────────────────────────────
     assumptions:
