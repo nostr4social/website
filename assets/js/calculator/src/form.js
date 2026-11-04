@@ -3,6 +3,7 @@
 // this is a straight mapping with no table of its own.
 
 import { $, $$ } from '../../shared/src/dom.js'
+import { fmt, t } from '../../shared/src/config.js'
 import { INPUTS } from './inputs.js'
 
 export const CONTACT_KEYS = ['app_name', 'company', 'contact_name', 'email']
@@ -30,10 +31,10 @@ export function setSlider(slider, value) {
   announceSlider(slider)
 }
 
-/** Name the band in the output beside the slider and for assistive tech. */
+/** Name the band in the output beside the slider and for assistive tech; a suggestion is announced as one, not as an answer. */
 export function announceSlider(slider) {
   const label = bands(slider).labels[Number(slider.value)] ?? ''
-  slider.setAttribute('aria-valuetext', label)
+  slider.setAttribute('aria-valuetext', slider.dataset.suggested ? fmt(t('suggested_valuetext'), { label }) : label)
   const out = slider.closest('.slider-row')?.querySelector('output')
   if (out) out.textContent = label
 }
@@ -126,8 +127,8 @@ export function suggest(form, effective, derived = {}) {
   for (const key of Object.keys(derived)) {
     const slider = $(`input[type="range"][name="${key}"]`, form)
     if (!slider || slider.dataset.touched) continue
-    setSlider(slider, effective[key])
     slider.dataset.suggested = '1'
+    setSlider(slider, effective[key])
     slider.classList.add('is-suggested')
     slider.closest('.slider-row')?.classList.add('is-suggested')
   }
@@ -195,9 +196,18 @@ export function revealDetails(form) {
 
 export function markInvalid(form, key) {
   for (const node of $$('.is-invalid', form)) node.classList.remove('is-invalid')
+  for (const node of $$('[aria-invalid]', form)) {
+    node.removeAttribute('aria-invalid')
+    node.removeAttribute('aria-describedby')
+  }
   if (!key) return
   const wrap = $(`#field-${key}`, form)
   if (wrap) wrap.classList.add('is-invalid')
   const input = $(`#f-${key}`, form) || $(`input[name="${key}"]`, form)
-  input?.focus({ preventScroll: false })
+  if (input) {
+    // The field says it is invalid and points at the message that says why.
+    input.setAttribute('aria-invalid', 'true')
+    input.setAttribute('aria-describedby', 'calc-error')
+    input.focus({ preventScroll: false })
+  }
 }

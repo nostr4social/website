@@ -91,9 +91,11 @@ sections:
 
   - title: Payments
     questions:
-      # Gross monthly volume of the in-app payments the app facilitates, not its own revenue.
-      - key: rev
-        label: What is the approximate monthly volume of in-app payments (purchases, subscriptions, and p2p tips or sales in USD)?
+      # Version 4: payments between users only; the app's own sales are not a
+      # custody cost and are not counted. The bracketed clause is the help
+      # text, drawn as the inline hint. To be reworded in the builder.
+      - key: p2p_volume
+        label: "Payments that flow between your users: tips, creator payments, sales between users, per month in USD (Your own sales, subscriptions and premium features aren't a custody cost and aren't counted)"
         type: number
       - key: rails
         label: Which rails carry those payments today?

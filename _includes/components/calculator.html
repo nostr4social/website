@@ -399,15 +399,16 @@ simply stack.
         <button type="button" class="btn btn--primary" id="save-submit" disabled>{{ s.modal.save }}</button>
         {%- comment -%}
           The test marker, as the form's own checkbox question beside the
-          button: on by default for now, so a send is recorded as a test
-          unless the box is cleared. Its words are the form's.
+          button: on while `calculator_mode` in _data/blocks/nostr_config.yml
+          is `test`, so a send is recorded as a test unless the box is
+          cleared; off once the mode is `live`. Its words are the form's.
         {%- endcomment -%}
         {%- assign test_field = nil -%}
         {%- for q in form.fields -%}{%- if q.id == map.fields.test.id -%}{%- assign test_field = q -%}{%- endif -%}{%- endfor -%}
         {%- if test_field -%}
         {%- for opt in test_field.options -%}{%- if opt.id == map.fields.test.options.yes -%}
         <label class="choice choice--test" title="{{ test_field.label }}">
-          <input type="checkbox" name="test" value="yes" id="f-test" form="calc-form" checked>
+          <input type="checkbox" name="test" value="yes" id="f-test" form="calc-form"{% unless site.data.blocks.nostr_config.calculator_mode == "live" %} checked{% endunless %}>
           <span class="choice__label">{{ opt.label }}</span>
         </label>
         {%- endif -%}{%- endfor -%}

@@ -28,10 +28,10 @@ const test = async (name, fn) => {
   }
 }
 
-const base = { mau: 50000, posts_per_user: 20, team: 'ten', eng_accounts: '5', eng_content: '25', eng_infra: '25', mod_who: 'team', mod_heads: '3', rails: ['apple', 'google', 'processor'], rev: 20000, jur: ['eu', 'uk', 'us'] }
+const base = { mau: 50000, posts_per_user: 20, team: 'ten', eng_accounts: '5', eng_content: '25', eng_infra: '25', mod_who: 'team', mod_heads: '3', rails: ['apple', 'google', 'processor'], p2p_volume: 20000, jur: ['eu', 'uk', 'us'] }
 const min = (extra = {}) => ({ mau: 50000, jur: ['us'], team: 'ten', ...extra })
 // The illustrative app the page opens on: the form's starting answers.
-const illustrative = { mau: 50000, jur: ['us'], team: 'ten', growth: '0.5', kind: 'messaging', rev: 5000 }
+const illustrative = { mau: 50000, jur: ['us'], team: 'ten', growth: '0.5', kind: 'messaging', p2p_volume: 5000 }
 const finite = (r) => {
   for (const s of SCENARIOS) {
     for (const l of LINES) {
@@ -112,7 +112,7 @@ await test('the non-custodial column is never zero where an obligation remains',
 })
 
 await test('payments are zero in both columns only when there are no in-app payments', () => {
-  const r = calculate({ ...base, rails: [], rev: 0 }, data)
+  const r = calculate({ ...base, rails: [], p2p_volume: 0 }, data)
   assert.equal(r.typical.lines.payments.custodial, 0)
   assert.equal(r.typical.lines.payments.noncustodial, 0)
   assert.equal(r.typical.lines.payments.none, true)
@@ -140,8 +140,8 @@ await test('custodial exceeds non-custodial for the baseline', () => {
 })
 
 await test('store tiers step at the small-business threshold', () => {
-  const small = calculate({ ...base, rev: 50000, rails: ['apple'] }, data).typical.lines.payments
-  const big = calculate({ ...base, rev: 200000, rails: ['apple'] }, data).typical.lines.payments
+  const small = calculate({ ...base, p2p_volume: 50000, rails: ['apple'] }, data).typical.lines.payments
+  const big = calculate({ ...base, p2p_volume: 200000, rails: ['apple'] }, data).typical.lines.payments
   assert.equal(small.parts.find((p) => p.id === 'store_apple').rate, data.assumptions.apple_rate_small.typical)
   assert.equal(big.parts.find((p) => p.id === 'store_apple').rate, data.assumptions.apple_rate_standard.typical)
 })
@@ -163,7 +163,7 @@ await test('on Nostr a store rail keeps only the commission the precedent leaves
 })
 
 await test('payments are the fee stack on in-app volume: a feed app at 500k users with 50,000 a month on Apple and Google', () => {
-  const inputs = { mau: 500000, kind: 'feed', jur: ['us'], team: 'ten', rev: 50000, rails: ['apple', 'google'] }
+  const inputs = { mau: 500000, kind: 'feed', jur: ['us'], team: 'ten', p2p_volume: 50000, rails: ['apple', 'google'] }
   const r = calculate(inputs, data)
   const volume = 50000 * 12
   for (const [s, remains, commission] of [['typical', 0.5, 45000], ['low', 1, 90000], ['high', 0.1, 9000]]) {
@@ -188,7 +188,11 @@ await test('payments are the fee stack on in-app volume: a feed app at 500k user
   // A version-2 link carries the same volume under the same key.
   const link = decode('?mau=500000&rev=50000&rails=apple%2Cgoogle&jur=us&team=ten&v=2')
   assert.equal(link.version, 2)
-  assert.equal(calculate(link.inputs, data).inputs.rev, 50000)
+  assert.equal(link.inputs.p2p_volume, '50000', 'an older link\'s rev is read as the volume')
+  assert.equal(calculate(link.inputs, data).inputs.p2p_volume, 50000)
+  assert.equal(decode('?mau=1&rev=10&p2p_volume=20&v=4').inputs.p2p_volume, '20', 'the current key wins over the old one')
+  assert.ok(!encode(normalizeInputs({ mau: 50000, jur: ['us'], team: 'ten' })).includes('p2p_volume'), 'a link carries no zero volume')
+  assert.ok(encode(normalizeInputs({ mau: 50000, jur: ['us'], team: 'ten', p2p_volume: 5000 })).includes('p2p_volume=5000'))
   // The conversion share: at half, the unconverted half stays on the store rail at the full rate.
   const half = calculate(inputs, data, { p2p_conversion_share: 0.5 }).typical.lines.payments
   const vh = calculate(inputs, data, { p2p_conversion_share: 0.5 }).typical.values
@@ -306,11 +310,11 @@ await test('the openers set the defaults; what was derived is listed and stays o
   const nobody = deriveInputs(normalizeInputs(min({ mod_who: 'nobody' })), v)
   assert.equal(nobody.mod_heads, null)
 
-  const rails = deriveInputs(normalizeInputs(min({ rev: 5000, distribution: ['apple', 'web'] })), v)
+  const rails = deriveInputs(normalizeInputs(min({ p2p_volume: 5000, distribution: ['apple', 'web'] })), v)
   assert.deepEqual(rails.rails, ['apple', 'processor'])
-  const everywhere = deriveInputs(normalizeInputs(min({ rev: 5000 })), v)
+  const everywhere = deriveInputs(normalizeInputs(min({ p2p_volume: 5000 })), v)
   assert.deepEqual(everywhere.rails, ['apple', 'google', 'processor'])
-  const none = deriveInputs(normalizeInputs(min({ rev: 0 })), v)
+  const none = deriveInputs(normalizeInputs(min({ p2p_volume: 0 })), v)
   assert.deepEqual(none.rails, [])
 
   const nostr = deriveInputs(normalizeInputs(min({ nostr_now: '1', n_feeds: '0.5' })), v)
@@ -581,7 +585,7 @@ await test('fixed program fees do not scale with users; per-user costs do', () =
   const inputs = normalizeInputs({ ...base, growth: '1', jur: ['uk'] })
   const v = typicalV({ growth_decay: 1 })
   const now = evaluate(inputs, v)
-  const later = evaluate({ ...inputs, mau: inputs.mau * 2, rev: inputs.rev * 2 }, v)
+  const later = evaluate({ ...inputs, mau: inputs.mau * 2, p2p_volume: inputs.p2p_volume * 2 }, v)
   const osaNow = now.lines.compliance.parts.find((x) => x.id === 'privacy_programs').custodial
   const osaLater = later.lines.compliance.parts.find((x) => x.id === 'privacy_programs').custodial
   assert.equal(osaNow, osaLater)
@@ -792,13 +796,13 @@ await test('the kind of app sets egress and compute per user, unless the visitor
 await test('the part → assumptions map says exactly which assumptions each line reads', () => {
   // Inputs that walk every branch: all regions, every rail, balances held, given and defaulted bands, reported spend or not, above and below the CCPA threshold, every moderation state, every team tier.
   const variants = [
-    normalizeInputs({ ...base, jur: ['eu', 'uk', 'us', 'other'], rails: ['p2p', 'apple', 'google', 'processor', 'reseller'], rev: 50000, balances: ['yes'], mod_who: 'team', mod_heads: '15' }),
+    normalizeInputs({ ...base, jur: ['eu', 'uk', 'us', 'other'], rails: ['p2p', 'apple', 'google', 'processor', 'reseller'], p2p_volume: 50000, balances: ['yes'], mod_who: 'team', mod_heads: '15' }),
     normalizeInputs({ ...base, mod_who: 'vendor', mod_heads: '3' }),
     normalizeInputs({ ...base, mod_who: 'nobody', mod_heads: null }),
     normalizeInputs({ ...base, mod_who: null, mod_heads: null }),
-    normalizeInputs({ mau: 10000000, jur: ['us'], team: 'more', rails: ['apple'], rev: 200000, legal_usd: 50000 }),
+    normalizeInputs({ mau: 10000000, jur: ['us'], team: 'more', rails: ['apple'], p2p_volume: 200000, legal_usd: 50000 }),
     normalizeInputs({ mau: 1000, jur: ['other'], team: 'one' }),
-    normalizeInputs({ mau: 1000, jur: ['eu'], team: 'fifty', rails: ['google'], rev: 200000 }),
+    normalizeInputs({ mau: 1000, jur: ['eu'], team: 'fifty', rails: ['google'], p2p_volume: 200000 }),
     normalizeInputs({ mau: 1000, jur: ['eu', 'uk'], team: 'more' }),
   ]
   const v = resolveAssumptions(data, 'typical')
@@ -824,15 +828,15 @@ await test('growth is a band, starts on Steady on the form, and an unknown band 
   assert.equal(normalizeInputs({ ...base, growth: '0.25' }).growth, '0.25')
   assert.equal(normalizeInputs(base).growth, null, 'blank until answered: the model holds an unanswered app flat')
   assert.equal(INPUTS.growth.start, '0.5', "the form's starting answer is Fast")
-  assert.equal(INPUTS.rev.start, 5000, "the form's starting payment volume is 5,000 a month, so the illustrative app shows the line")
+  assert.equal(INPUTS.p2p_volume.start, 5000, "the form's starting payment volume is 5,000 a month, so the illustrative app shows the line")
   assert.equal(INPUTS.kind.start, 'messaging', 'the illustrative app is a messaging app')
   assert.equal(INPUTS.kind.default, null, 'but a link that says nothing means an app')
   assert.deepEqual(INPUTS.jur.default, ['us'], 'in the US')
   // For the bitcoiners: the illustrative app's headline prints $210k.
   assert.equal(approx(calculate(illustrative).typical.totals.estimated), '$210k', String(calculate(illustrative).typical.totals.estimated))
   assert.equal(normalizeInputs(min({ kind: null })).kind, null)
-  assert.equal(INPUTS.rev.default, 0, 'but a link that says nothing means no payments')
-  assert.equal(normalizeInputs(min()).rev, 0)
+  assert.equal(INPUTS.p2p_volume.default, 0, 'but a link that says nothing means no payments')
+  assert.equal(normalizeInputs(min()).p2p_volume, 0)
   assert.equal(INPUTS.growth.default, null)
   assert.equal(INPUTS.growth.required, false)
   assert.throws(() => normalizeInputs({ ...base, growth: '0.3' }), (e) => e instanceof InputError && e.key === 'growth')

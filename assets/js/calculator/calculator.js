@@ -696,8 +696,8 @@ var INPUTS = {
   // legal and compliance
   legal_usd: { type: "number", required: false, default: null, min: 0, max: 1e12, omit: "0" },
   // 0 means not given
-  // Payments: the opener, the gross monthly volume of in-app payments the app facilitates in USD (0 means no payments; the form starts on 5,000 so the illustrative app shows the line), then the rails (blank means derived from distribution) and balances
-  rev: { type: "number", required: false, default: 0, min: 0, max: 1e12, start: 5e3 },
+  // Payments: the opener, the gross monthly volume of payments between the app's users in USD (tips, creator payments, sales between users; the app's own sales are not a custody cost and are not counted; 0 means none; the form starts on 5,000 so the illustrative app shows the line), then the rails (blank means derived from distribution) and balances. Links made before version 4 call it `rev`; the codec reads that too.
+  p2p_volume: { type: "number", required: false, default: 0, min: 0, max: 1e12, start: 5e3, omit: "0" },
   rails: { type: "multi", required: false, default: [], options: ["p2p", "apple", "google", "processor", "reseller"] },
   balances: { type: "multi", required: false, default: [], options: ["yes"] },
   // Reach: the opener (the form starts on the US), then distribution
@@ -956,7 +956,7 @@ function deriveInputs(inputs, v) {
     eff.mod_heads = v.mod_heads_default;
     derived.mod_heads = "default";
   }
-  if (eff.rev > 0 && !inputs.rails.length) {
+  if (eff.p2p_volume > 0 && !inputs.rails.length) {
     const places = inputs.distribution.length ? inputs.distribution : ["apple", "google", "web"];
     eff.rails = [...new Set(places.map((d) => RAIL_FOR[d]))];
     derived.rails = "distribution";
@@ -1129,8 +1129,8 @@ function moderation(inputs, v) {
 }
 function payments(inputs, v) {
   const rails = inputs.rails;
-  if (!rails.length || !(inputs.rev > 0)) return { parts: [], none: true };
-  const annual = inputs.rev * 12;
+  if (!rails.length || !(inputs.p2p_volume > 0)) return { parts: [], none: true };
+  const annual = inputs.p2p_volume * 12;
   const share = 1 / rails.length;
   const proceeds = annual * share;
   const small = proceeds < v.store_small_threshold;
@@ -1287,7 +1287,7 @@ function perLine(r, share) {
 }
 function pointAt(months, inputs, v, today2, base = null, date2 = addMonths(today2, months)) {
   const users = usersAt(months, inputs, v);
-  const r = months === 0 && base ? base : evaluate(months === 0 ? inputs : { ...inputs, mau: users, rev: inputs.rev * users / inputs.mau }, v);
+  const r = months === 0 && base ? base : evaluate(months === 0 ? inputs : { ...inputs, mau: users, p2p_volume: inputs.p2p_volume * users / inputs.mau }, v);
   const share = networkShare(date2, v);
   const T = r.totals;
   return {
@@ -1705,6 +1705,7 @@ function wireCharts() {
 var VERSION_KEY = "v";
 var OVERRIDE_PREFIX = "a.";
 var TEST_KEY = "test";
+var RENAMED = { rev: "p2p_volume" };
 function encode2(inputs, overrides = {}, version = 1) {
   const p = new URLSearchParams();
   for (const [key, spec] of Object.entries(INPUTS)) {
@@ -1727,8 +1728,9 @@ function decode(search) {
   const overrides = {};
   let present = false;
   for (const [key, v] of p.entries()) {
-    if (key in INPUTS) {
-      inputs[key] = v;
+    const name = Object.hasOwn(RENAMED, key) ? RENAMED[key] : key;
+    if (Object.hasOwn(INPUTS, name)) {
+      if (!Object.hasOwn(inputs, name) || name === key) inputs[name] = v;
       present = true;
     } else if (key.startsWith(OVERRIDE_PREFIX)) {
       overrides[key.slice(OVERRIDE_PREFIX.length)] = v;
@@ -1760,7 +1762,7 @@ function setSlider(slider, value) {
 }
 function announceSlider(slider) {
   const label = bands(slider).labels[Number(slider.value)] ?? "";
-  slider.setAttribute("aria-valuetext", label);
+  slider.setAttribute("aria-valuetext", slider.dataset.suggested ? fmt(t("suggested_valuetext"), { label }) : label);
   const out = slider.closest(".slider-row")?.querySelector("output");
   if (out) out.textContent = label;
 }
@@ -1828,8 +1830,8 @@ function suggest(form2, effective, derived = {}) {
   for (const key of Object.keys(derived)) {
     const slider = $(`input[type="range"][name="${key}"]`, form2);
     if (!slider || slider.dataset.touched) continue;
-    setSlider(slider, effective[key]);
     slider.dataset.suggested = "1";
+    setSlider(slider, effective[key]);
     slider.classList.add("is-suggested");
     slider.closest(".slider-row")?.classList.add("is-suggested");
   }
@@ -1883,11 +1885,19 @@ function revealDetails(form2) {
 }
 function markInvalid(form2, key) {
   for (const node2 of $$(".is-invalid", form2)) node2.classList.remove("is-invalid");
+  for (const node2 of $$("[aria-invalid]", form2)) {
+    node2.removeAttribute("aria-invalid");
+    node2.removeAttribute("aria-describedby");
+  }
   if (!key) return;
   const wrap = $(`#field-${key}`, form2);
   if (wrap) wrap.classList.add("is-invalid");
   const input = $(`#f-${key}`, form2) || $(`input[name="${key}"]`, form2);
-  input?.focus({ preventScroll: false });
+  if (input) {
+    input.setAttribute("aria-invalid", "true");
+    input.setAttribute("aria-describedby", "calc-error");
+    input.focus({ preventScroll: false });
+  }
 }
 
 // assets/js/shared/src/forms.js
@@ -2541,6 +2551,7 @@ function responseRelays() {
 }
 async function submitResponse(form2, { signer, values, pow = 0, onProgress }) {
   const responses = buildResponses(form2.mapping, values);
+  if (values.consent) responses.push(["consent", String(values.consent), (/* @__PURE__ */ new Date()).toISOString()]);
   const content = await signer.nip44Encrypt(form2.snapshot.pubkey, JSON.stringify(responses));
   let template = {
     pubkey: signer.pubkey,
@@ -2702,11 +2713,11 @@ function explain(line, part2, { inputs, values, overrides = {}, data, estimated 
     "i.mau": number(inputs.mau),
     "i.mb": number(inputs.mb),
     "i.posts_per_user": number(inputs.posts_per_user),
-    "i.rev": money(inputs.rev || 0),
+    "i.p2p_volume": money(inputs.p2p_volume || 0),
     "i.legal_usd": money(inputs.legal_usd || 0),
     "d.weeks": number(WEEKS_PER_YEAR),
     "d.retention": number(RETENTION_MONTHS),
-    "d.rev_year": money((inputs.rev || 0) * 12),
+    "d.volume_year": money((inputs.p2p_volume || 0) * 12),
     "d.estimated_months": estimated.months != null ? number(estimated.months) : "",
     "d.estimated_users": estimated.users != null ? number(Math.round(estimated.users)) : "",
     "d.estimated_date": estimated.date ? date(estimated.date) : "",
@@ -2851,7 +2862,7 @@ function renderWhose(result, own) {
     growth: piece(t("whose.growth")?.[eff.growth] ?? "", inputs.growth != null),
     team: piece(t(`whose.team.${eff.team}`), inputs.team != null),
     moderation: piece(t(`whose.moderation.${inputs.mod_who || "benchmark"}`), inputs.mod_who != null),
-    payments: piece(inputs.rev > 0 ? fmt(t("whose.payments.some"), { rev: compact(inputs.rev) }) : t("whose.payments.none"), inputs.rev > 0),
+    payments: piece(inputs.p2p_volume > 0 ? fmt(t("whose.payments.some"), { volume: compact(inputs.p2p_volume) }) : t("whose.payments.none"), inputs.p2p_volume > 0),
     reach: piece(fmt(t("whose.reach.in"), { list: regions.join(t("whose.reach.join")) }), true),
     // The Nostr bands are "0", "0.5" and "1": a key with a dot in it is looked up on the block, not by path.
     nostr: piece(t("whose.nostr")?.[eff.nostr_now] ?? "", inputs.nostr_now != null)
@@ -3295,7 +3306,7 @@ function valuesFor(result, contact) {
     team: i.team ?? "",
     engineering: grid("engineering", "eng_"),
     legal_usd: i.legal_usd ?? "",
-    rev: i.rev,
+    p2p_volume: i.p2p_volume,
     rails: i.rails,
     balances: i.balances,
     jur: i.jur,
@@ -3309,7 +3320,9 @@ function valuesFor(result, contact) {
     version: String(result.version),
     ...contact,
     // The test checkbox beside Send: a send marked as a test is sent as the form's own option.
-    test: $("#f-test")?.checked ? ["yes"] : []
+    test: $("#f-test")?.checked ? ["yes"] : [],
+    // Consent to email, recorded in the response as the consent text's version (submit.js adds the time).
+    consent: $("#f-consent")?.checked ? String(config.consent_version || "1") : ""
   };
 }
 function signerForSave() {
@@ -3464,7 +3477,7 @@ async function restore(pointer, signer) {
     posts_per_user: v.posts_per_user,
     mb: v.mb,
     legal_usd: v.legal_usd,
-    rev: v.rev,
+    p2p_volume: v.p2p_volume ?? v.rev,
     rails: v.rails,
     balances: v.balances,
     distribution: v.distribution,

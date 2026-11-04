@@ -96,7 +96,7 @@ try {
   const bad = m.prepareForm({ ...snapshot, fields: snapshot.fields.slice(1) }, map)
   check('a template missing a mapped question is refused', bad === null)
 
-  const values = { mau: 50000, posts_per_user: 20, rails: ['apple', 'processor'], rev: 20000, jur: ['eu', 'us'], growth: '0.5', balances: [], engineering: { accounts: 5, infra: 25 }, mod_who: 'team', mod_heads: '3', team: 'ten', kind: 'feed', nostr_now: '0.5', nostr: { keys: 1, media_storage: 0.5 }, legal_usd: '', result_custodial: 967914, result_noncustodial: 266254, fees_saved: 4200, link: 'https://nostr4.social/calculator/?mau=50000', overrides: '', version: '1', email: 'founder@example.com', test: '' }
+  const values = { mau: 50000, posts_per_user: 20, rails: ['apple', 'processor'], p2p_volume: 20000, consent: '1', jur: ['eu', 'us'], growth: '0.5', balances: [], engineering: { accounts: 5, infra: 25 }, mod_who: 'team', mod_heads: '3', team: 'ten', kind: 'feed', nostr_now: '0.5', nostr: { keys: 1, media_storage: 0.5 }, legal_usd: '', result_custodial: 967914, result_noncustodial: 266254, fees_saved: 4200, link: 'https://nostr4.social/calculator/?mau=50000', overrides: '', version: '1', email: 'founder@example.com', test: '' }
   const signer = m.createGuestSigner()
   const started = Date.now()
   const { event, relays, ok } = await m.submitResponse(form, { signer, values, pow: 12 })
@@ -113,10 +113,13 @@ try {
   const answers = JSON.parse(decrypt(got.content, key))
   const byId = Object.fromEntries(snapshot.fields.map((f) => [f.id, f]))
   const byLabel = {}
-  for (const [, id, value] of answers) byLabel[byId[id].label] = value
-  check('the form secret decrypts the answers', answers.length > 0 && answers.every((a) => a[0] === 'response' && a[3] === '{}'))
+  for (const [, id, value] of answers.filter((a) => a[0] === 'response')) byLabel[byId[id].label] = value
+  check('the form secret decrypts the answers', answers.length > 0 && answers.filter((a) => a[0] === 'response').every((a) => a[3] === '{}'))
+  const consent = answers.find((a) => a[0] === 'consent')
+  check('consent is recorded inside the encrypted list: the consent text\'s version and the time', consent && consent[1] === '1' && /^\d{4}-\d\d-\d\dT/.test(consent[2]), JSON.stringify(consent))
   const label = (key) => byId[map.fields[key].id].label
   check('numbers come back as given', byLabel[label('mau')] === '50000' && byLabel[label('result_custodial')] === '967914', JSON.stringify(byLabel))
+  check('the volume question carries the payments between users', byLabel[label('p2p_volume')] === '20000', byLabel[label('p2p_volume')])
   check('the fees saved travel as their own question', byLabel[label('fees_saved')] === '4200', byLabel[label('fees_saved')])
   const railIds = byLabel[label('rails')].split(';')
   check('a multi-choice answer is option ids joined by ;', railIds.join(';') === `${map.fields.rails.options.apple};${map.fields.rails.options.processor}`)
@@ -126,6 +129,8 @@ try {
   check('a half answer maps to the Somewhat column', nostr[map.fields.nostr.rows.media_storage] === map.fields.nostr.columns['0.5'])
   check('a single-choice answer is its option id', byLabel[label('growth')] === map.fields.growth.options['0.5'], byLabel[label('growth')])
   check('blank values are left out', !(label('app_name') in byLabel) && !(label('test') in byLabel) && !(label('legal_usd') in byLabel) && !(label('balances') in byLabel))
+  const { event: noConsent } = await m.submitResponse(form, { signer, values: { ...values, consent: '' }, pow: 0 })
+  check('without the box, no consent tag', !JSON.parse(decrypt(noConsent.content, getConversationKey(formSecret, noConsent.pubkey))).some((a) => a[0] === 'consent'))
   check('a stranger cannot decrypt it', (() => { try { decrypt(got.content, getConversationKey(generateSecretKey(), got.pubkey)); return false } catch { return true } })())
 
   // ── the lead message ──────────────────────────────────────────────────────
@@ -134,7 +139,7 @@ try {
 
   // ── reading a response back ───────────────────────────────────────────────
   const back = m.readResponses(map, answers)
-  check('response tags read back into values keyed like the map', back.mau === '50000' && back.growth.join() === '0.5' && back.mod_who.join() === 'team' && back.mod_heads.join() === '3' && back.kind.join() === 'feed' && back.rails.join() === 'apple,processor' && back.engineering.accounts === '5' && back.engineering.infra === '25' && back.nostr.media_storage === '0.5' && back.email === 'founder@example.com', JSON.stringify(back))
+  check('response tags read back into values keyed like the map', back.mau === '50000' && back.p2p_volume === '20000' && back.growth.join() === '0.5' && back.mod_who.join() === 'team' && back.mod_heads.join() === '3' && back.kind.join() === 'feed' && back.rails.join() === 'apple,processor' && back.engineering.accounts === '5' && back.engineering.infra === '25' && back.nostr.media_storage === '0.5' && back.email === 'founder@example.com', JSON.stringify(back))
 
   // The responder opens it with the key that sent it.
   const asResponder = await m.restore.openResponse(got, { signer, snapshot, map })

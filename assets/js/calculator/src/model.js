@@ -320,7 +320,7 @@ export function deriveInputs(inputs, v) {
     derived.mod_heads = 'default'
   }
   // Payments: rails follow where the app is distributed (everywhere, if unsaid).
-  if (eff.rev > 0 && !inputs.rails.length) {
+  if (eff.p2p_volume > 0 && !inputs.rails.length) {
     const places = inputs.distribution.length ? inputs.distribution : ['apple', 'google', 'web']
     eff.rails = [...new Set(places.map((d) => RAIL_FOR[d]))]
     derived.rails = 'distribution'
@@ -542,7 +542,7 @@ function moderation(inputs, v) {
 }
 
 // The payments line is the fee stack custody puts on payments between users:
-// `rev` is the gross monthly volume of tips, creator payments and sales
+// `p2p_volume` is the gross monthly volume of tips, creator payments and sales
 // between users (the app's own sales are not a custody cost and are not
 // counted, on any rail), split evenly across the rails given, each at its
 // sourced rate, a store's tier by the proceeds through that store. Once the
@@ -554,9 +554,9 @@ function moderation(inputs, v) {
 // so the page keeps the line apart from operating cost.
 function payments(inputs, v) {
   const rails = inputs.rails
-  if (!rails.length || !(inputs.rev > 0)) return { parts: [], none: true }
+  if (!rails.length || !(inputs.p2p_volume > 0)) return { parts: [], none: true }
   // (rails_from marks rails the openers derived from distribution)
-  const annual = inputs.rev * 12
+  const annual = inputs.p2p_volume * 12
   const share = 1 / rails.length
   const proceeds = annual * share
   const small = proceeds < v.store_small_threshold
@@ -757,7 +757,7 @@ function perLine(r, share) {
  */
 export function pointAt(months, inputs, v, today, base = null, date = addMonths(today, months)) {
   const users = usersAt(months, inputs, v)
-  const r = months === 0 && base ? base : evaluate(months === 0 ? inputs : { ...inputs, mau: users, rev: (inputs.rev * users) / inputs.mau }, v)
+  const r = months === 0 && base ? base : evaluate(months === 0 ? inputs : { ...inputs, mau: users, p2p_volume: (inputs.p2p_volume * users) / inputs.mau }, v)
   const share = networkShare(date, v)
   const T = r.totals
   return {

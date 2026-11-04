@@ -11,16 +11,12 @@ description: "calculator available online at https://nostr4.social/calculator"
 encrypted: false
 anonymous_allowed: true
 relays:
-  - wss://nostr.lol/
   - wss://relay.primal.net/
   - wss://relay.formstr.app
   - wss://relay.damus.io/
   - wss://nos.lol
-  - wss://relay.nostr.wirednet.jp/
   - wss://nostr-01.yakihonne.com
   - wss://relay.snort.social
-  - wss://relay.nostr.band
-  - wss://nostr21.com
 sections:
   - id: hr87rqI9
     title: "Nostr"
@@ -93,7 +89,7 @@ fields:
     type: number
     render: number
     required: false
-    label: "What is the approximate monthly volume of in-app payments (purchases, subscriptions, and p2p tips or sales in USD)?"
+    label: "What is the approximate monthly volume in USD of payments between users? (The sum of all tips, creator payments, sales between users ect should be included. Your own sales, subscriptions and premium features should not be included)"
     options: []
   - id: 88UlKt
     type: option
@@ -290,7 +286,7 @@ fields:
     type: text
     render: shortText
     required: false
-    label: "Fees saved (at scale)"
+    label: "Fees saved (estimated)"
     options: []
   - id: 3fzgOc
     type: text

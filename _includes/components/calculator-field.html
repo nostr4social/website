@@ -110,6 +110,6 @@ Save & Share modal, so a question is drawn the same way wherever it sits.
 {%- else -%}
   <label class="field" id="field-{{ key }}">
     <span class="field__label">{% include lib/label.html text=field.label %}{% if field.required %} <span class="field__required" aria-hidden="true">*</span>{% endif %}</span>
-    <input class="field__input" id="f-{{ key }}" name="{{ key }}" type="{% if key == "email" %}email{% else %}text{% endif %}" autocomplete="off"{% if field.type == "number" %} inputmode="decimal"{% endif %}{% if key == "email" %} inputmode="email"{% endif %}{% if field.required %} required aria-required="true"{% endif %}{% if include.form_id %} form="{{ include.form_id }}"{% endif %}>
+    <input class="field__input" id="f-{{ key }}" name="{{ key }}" type="{% if key == "email" %}email{% else %}text{% endif %}" autocomplete="{% if key == "email" %}email{% elsif key == "contact_name" %}name{% else %}off{% endif %}"{% if field.type == "number" %} inputmode="decimal"{% endif %}{% if key == "email" %} inputmode="email"{% endif %}{% if field.required %} required aria-required="true"{% endif %}{% if include.form_id %} form="{{ include.form_id }}"{% endif %}>
   </label>
 {%- endif -%}

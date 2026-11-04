@@ -10,7 +10,7 @@
 # The opener of each section: the page draws it first and folds the rest of
 # the section under "Add more details". Answering it sets the section's
 # defaults in the model; the hidden questions stay unanswered until touched.
-openers: [nostr_now, mau, kind, mod_who, team, rev, jur]
+openers: [nostr_now, mau, kind, mod_who, team, p2p_volume, jur]
 
 fields:
   # ── Nostr ─────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ fields:
   legal_usd: { id: 05IgYp }                # Legal, privacy and compliance, USD per year
 
   # ── Payments ──────────────────────────────────────────────────────────────
-  rev: { id: YdT6dC }                      # gross monthly in-app revenue, USD
+  p2p_volume: { id: YdT6dC }               # payments between users, gross monthly volume, USD (version 3 called it rev)
   rails:
     id: 88UlKt
     options: { p2p: Q9rNXl, apple: sO56FE, google: pQBEbj, processor: vp18O4, reseller: mlhsBh }

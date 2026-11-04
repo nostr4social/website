@@ -47,6 +47,9 @@ export function responseRelays() {
  */
 export async function submitResponse(form, { signer, values, pow = 0, onProgress }) {
   const responses = buildResponses(form.mapping, values)
+  // Consent to email travels inside the encrypted list, as its own tag: the
+  // consent text's version and the time it was given, so there is a trail.
+  if (values.consent) responses.push(['consent', String(values.consent), new Date().toISOString()])
   const content = await signer.nip44Encrypt(form.snapshot.pubkey, JSON.stringify(responses))
   let template = {
     pubkey: signer.pubkey,

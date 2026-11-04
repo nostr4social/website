@@ -274,7 +274,7 @@ function valuesFor(result, contact) {
     team: i.team ?? '',
     engineering: grid('engineering', 'eng_'),
     legal_usd: i.legal_usd ?? '',
-    rev: i.rev,
+    p2p_volume: i.p2p_volume,
     rails: i.rails,
     balances: i.balances,
     jur: i.jur,
@@ -289,6 +289,8 @@ function valuesFor(result, contact) {
     ...contact,
     // The test checkbox beside Send: a send marked as a test is sent as the form's own option.
     test: $('#f-test')?.checked ? ['yes'] : [],
+    // Consent to email, recorded in the response as the consent text's version (submit.js adds the time).
+    consent: $('#f-consent')?.checked ? String(config.consent_version || '1') : '',
   }
 }
 
@@ -458,7 +460,7 @@ async function restore(pointer, signer) {
   const v = opened.values
   const one = (x) => (Array.isArray(x) ? x[0] : x)
   const inputs = {
-    mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, rev: v.rev,
+    mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, p2p_volume: v.p2p_volume ?? v.rev,
     rails: v.rails, balances: v.balances, distribution: v.distribution, jur: v.jur,
     growth: one(v.growth), nostr_now: one(v.nostr_now), kind: one(v.kind), mod_who: one(v.mod_who), mod_heads: one(v.mod_heads), team: one(v.team),
   }

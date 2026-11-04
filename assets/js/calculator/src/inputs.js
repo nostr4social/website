@@ -62,8 +62,8 @@ export const INPUTS = {
   eng_legal: band(HOURS), // legal and compliance
   legal_usd: { type: 'number', required: false, default: null, min: 0, max: 1e12, omit: '0' }, // 0 means not given
 
-  // Payments: the opener, the gross monthly volume of in-app payments the app facilitates in USD (0 means no payments; the form starts on 5,000 so the illustrative app shows the line), then the rails (blank means derived from distribution) and balances
-  rev: { type: 'number', required: false, default: 0, min: 0, max: 1e12, start: 5000 },
+  // Payments: the opener, the gross monthly volume of payments between the app's users in USD (tips, creator payments, sales between users; the app's own sales are not a custody cost and are not counted; 0 means none; the form starts on 5,000 so the illustrative app shows the line), then the rails (blank means derived from distribution) and balances. Links made before version 4 call it `rev`; the codec reads that too.
+  p2p_volume: { type: 'number', required: false, default: 0, min: 0, max: 1e12, start: 5000, omit: '0' },
   rails: { type: 'multi', required: false, default: [], options: ['p2p', 'apple', 'google', 'processor', 'reseller'] },
   balances: { type: 'multi', required: false, default: [], options: ['yes'] },
 
@@ -73,7 +73,7 @@ export const INPUTS = {
 }
 
 /** The first question of each section: answering it sets the section's defaults. */
-export const OPENERS = ['nostr_now', 'mau', 'kind', 'mod_who', 'team', 'rev', 'jur']
+export const OPENERS = ['nostr_now', 'mau', 'kind', 'mod_who', 'team', 'p2p_volume', 'jur']
 
 /** The keys that are grid rows, by grid, for the submission and the form. */
 export const GRIDS = {

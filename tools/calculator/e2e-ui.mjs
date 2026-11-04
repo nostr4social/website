@@ -52,7 +52,7 @@ await withBrowser(async (api) => {
   const names = await api.eval(`[...document.querySelectorAll('#save-modal [name]')].map(i => i.name).join(' ') + ' | ' + [...document.querySelectorAll('#calc-form .group__legend')].map(l => l.textContent.trim().replace(/^\\d+/, '')).join(', ')`)
   check('the modal holds the section\'s questions, plus the test box, and no section of that name is on the tab', names === 'email consent contact_name company app_name test | Nostr, Users, Content, Moderation, Team, Payments, Reach', names)
   const testBox = await api.eval(`(() => { const box = document.getElementById('f-test'); const label = box.closest('label'); return { checked: box.checked, form: box.getAttribute('form'), text: label.textContent.trim(), title: label.title, beside: label.previousElementSibling?.id, row: label.parentElement.className } })()`)
-  check('the test checkbox sits beside Send, on by default, in the form\'s own words', testBox.checked && testBox.form === 'calc-form' && testBox.text === 'test' && testBox.title.startsWith('test submission') && testBox.beside === 'save-submit' && testBox.row === 'modal__send' && testBox.row !== 'modal__actions', JSON.stringify(testBox))
+  check('the test checkbox sits beside Send, on while calculator_mode is test, in the form\'s own words', testBox.checked && testBox.form === 'calc-form' && testBox.text === 'test' && testBox.title.startsWith('test submission') && testBox.beside === 'save-submit' && testBox.row === 'modal__send' && testBox.row !== 'modal__actions', JSON.stringify(testBox))
   const first = await api.eval(`({
     whose: document.getElementById('r-whose-text').textContent, link: document.getElementById('r-whose-link').textContent,
     hero: document.querySelector('#chart-custodial-cost-vs-nostr .chart__watermark').textContent, sub: document.querySelector('#chart-custodial-cost-vs-nostr .chart__watermark-sub').textContent,
@@ -181,8 +181,10 @@ await withBrowser(async (api) => {
       title: document.getElementById('app-title')?.textContent.trim() + ':' + Boolean(document.querySelector('#calc-form #app-title')),
     }
   })()`)
-  check('each section opens with its opener, whatever order the event lists, and the rest fold under a toggle', openers.first.join(' ') === 'nostr_now mau kind mod_who team rev jur' && openers.folded.every(Boolean) && openers.toggles.every(t => t === 'Add more details'), `${openers.first.join(' ')} | ${openers.folded.join(' ')}`)
+  check('each section opens with its opener, whatever order the event lists, and the rest fold under a toggle', openers.first.join(' ') === 'nostr_now mau kind mod_who team p2p_volume jur' && openers.folded.every(Boolean) && openers.toggles.every(t => t === 'Add more details'), `${openers.first.join(' ')} | ${openers.folded.join(' ')}`)
   check('the scale questions are sliders, the lists run inline, the cards are numbered', openers.scales.join(' ') === 'nostr_now:3 growth:4 mod_heads:6 team:4' && openers.inline.join(' ') === 'field-kind field-mod_who field-jur' && openers.steps === '1234567' && openers.intro === 'Seven' && openers.title === 'Your App Details:false', `${openers.scales.join(' ')} | ${openers.inline.join(' ')} | ${openers.steps}`)
+  check('a suggested slider announces itself as a suggestion, not an answer, and an answered one by its band', (await api.eval(`document.querySelector('input[name=mb]').getAttribute('aria-valuetext') + ' | ' + document.querySelector('input[name=team]').getAttribute('aria-valuetext')`)) === 'Suggested: 5 MB | up to 10', await api.eval(`document.querySelector('input[name=mb]').getAttribute('aria-valuetext')`))
+  check('the contact fields carry their autocomplete tokens', (await api.eval(`document.getElementById('f-contact_name').getAttribute('autocomplete') + ':' + document.getElementById('f-email').getAttribute('autocomplete') + ':' + document.getElementById('f-company').getAttribute('autocomplete')`)) === 'name:email:off')
   check('a fresh page shows the derived defaults as suggestions on the untouched sliders, openers included; the team size and growth are answers, not suggestions', openers.suggested === 'eng_accounts eng_content eng_infra eng_legal mb n_algos n_event_storage n_feeds n_keys n_labels n_media_storage n_nips n_p2p n_raw_keys n_signed_events nostr_now posts_per_user' && Number(openers.hint) < 1 && (await api.eval(`['team', 'growth'].map(n => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.touched + ':' + s.dataset.values.split(',')[s.value] }).join(' ')`)) === '1:ten 1:0.5', `${openers.suggested} | opacity ${openers.hint}`)
   check('the inline choices are pills, the toggle is gold, and Calculate sits right', openers.pills === '11:999px' && openers.toggle === openers.gold && openers.submit === 'space-between', `${openers.pills} | ${openers.toggle} vs ${openers.gold} | ${openers.submit}`)
   await api.eval(`document.querySelector('#calc-form .group__toggle').click()`)
@@ -224,7 +226,7 @@ await withBrowser(async (api) => {
 
   check('number sliders start on their defaults', (await api.eval(`(() => {
     const v = (n) => { const s = document.querySelector('input[name=' + n + ']'); return s.dataset.values.split(',')[s.value] + '=' + s.closest('.slider-row').querySelector('output').textContent }
-    return [v('mau'), v('posts_per_user'), v('mb'), v('rev'), v('legal_usd')].join(' ')
+    return [v('mau'), v('posts_per_user'), v('mb'), v('p2p_volume'), v('legal_usd')].join(' ')
   })()`)) === '50000=50k 200=200 5=5 MB 5000=$5k 0=0')
 
   // ── a tab named in the address ───────────────────────────────────────────
@@ -250,6 +252,7 @@ await withBrowser(async (api) => {
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
   const err = await api.eval(`({ text: document.getElementById('calc-error').textContent, hidden: document.getElementById('calc-error').hidden, invalid: document.querySelector('.is-invalid')?.id })`)
   check('a bad value in a link is refused and named with the form\'s own words', !err.hidden && err.text.includes('How many Monthly Active Users') && err.invalid === 'field-mau', JSON.stringify(err))
+  check('…and the field says so to assistive tech, pointing at the message', (await api.eval(`(() => { const i = document.querySelector('input[name=mau]'); return i.getAttribute('aria-invalid') + ':' + i.getAttribute('aria-describedby') })()`)) === 'true:calc-error')
   check('…and the results stay hidden', await api.eval(`document.getElementById('calc-results').hidden`))
   await api.goto(`${BASE}/calculator/`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
@@ -258,7 +261,7 @@ await withBrowser(async (api) => {
   await api.eval(`(() => {
     const f = document.getElementById('calc-form')
     const slide = (name, value) => { const s = f.querySelector('input[name=' + name + ']'); s.value = s.dataset.values.split(',').indexOf(value); s.dispatchEvent(new Event('input', { bubbles: true })) }
-    slide('mau', '50000'); slide('rev', '20000')
+    slide('mau', '50000'); slide('p2p_volume', '20000')
     slide('eng_accounts', '5'); slide('eng_content', '25'); slide('eng_infra', '25')
     f.querySelector('input[name=mod_who][value=team]').checked = true
     slide('mod_heads', '3')
@@ -473,7 +476,7 @@ await withBrowser(async (api) => {
   await api.eval(`document.getElementById('tab-cost').click()`)
 
   // Every part of every line explains itself without a blank: two input sets walk every branch.
-  for (const query of ['mau=50000&posts_per_user=20&eng_accounts=5&mod_who=team&mod_heads=15&team=ten&rails=p2p%2Capple%2Cgoogle%2Cprocessor%2Creseller&rev=50000&balances=yes&jur=eu%2Cuk%2Cus%2Cother&v=2', 'mau=10000000&rails=apple&rev=200000&legal_usd=50000&jur=us&v=1', 'mau=20000&mod_who=vendor&mod_heads=3&team=one&kind=messaging&nostr_now=0.5&jur=eu&v=2']) {
+  for (const query of ['mau=50000&posts_per_user=20&eng_accounts=5&mod_who=team&mod_heads=15&team=ten&rails=p2p%2Capple%2Cgoogle%2Cprocessor%2Creseller&p2p_volume=50000&balances=yes&jur=eu%2Cuk%2Cus%2Cother&v=2', 'mau=10000000&rails=apple&rev=200000&legal_usd=50000&jur=us&v=1', 'mau=20000&mod_who=vendor&mod_heads=3&team=one&kind=messaging&nostr_now=0.5&jur=eu&v=2']) {
     await api.goto(`${BASE}/calculator/?${query}`)
     await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
     if (query.includes('nostr_now=0.5')) check('a partly integrated app is named in full in the frame', (await api.eval(`document.getElementById('r-whose-text').textContent`)).includes('partially Nostr integrated'), await api.eval(`document.getElementById('r-whose-text').textContent`))
@@ -657,9 +660,11 @@ await withBrowser(async (api) => {
         const stored = await api.eval(`sessionStorage.getItem('nostr4.session-key')`)
         check('the response is signed by the tab\'s disposable key', Boolean(stored) && ev.pubkey === getPublicKey(hexToBytes(stored)), ev.pubkey.slice(0, 12))
         check('the computed figures and the link travel with the inputs', /^\d+$/.test(byLabel['Annual custodial cost (USD, typical)'] || '') && (byLabel['Results link'] || '').includes('mau=10000'), byLabel['Results link'])
-        check('the fees saved travel as their own question; nothing about payback or integration does', /^\d+$/.test(byLabel['Fees saved (at scale)'] || '') && !('Payback month' in byLabel) && !('Integration weeks (typical)' in byLabel), JSON.stringify([byLabel['Fees saved (at scale)'], byLabel['Payback month'], byLabel['Integration weeks (typical)']]))
+        check('the fees saved travel as their own question; nothing about payback or integration does', /^\d+$/.test(byLabel['Fees saved (estimated)'] || '') && !('Payback month' in byLabel) && !('Integration weeks (typical)' in byLabel), JSON.stringify([byLabel['Fees saved (estimated)'], byLabel['Payback month'], byLabel['Integration weeks (typical)']]))
         const testField = snapshot.fields.find((f) => f.id === 'XU5x6e')
         check('the test marker travels as the form\'s own option while the box is on', byLabel[testField.label] === testField.options[0].id, JSON.stringify(byLabel[testField.label]))
+        const consentTag = answers.find((a) => a[0] === 'consent')
+        check('consent is recorded in the response with the consent text\'s version and the time', consentTag && consentTag[1] === '1' && /^\d{4}-\d\d-\d\dT/.test(consentTag[2]), JSON.stringify(consentTag))
         const engLabel = 'How many developer hours per week spent on the following:'
         const nostrLabel = 'Your app uses Nostr for the following:'
         const eng = JSON.parse(byLabel[engLabel] || '{}')

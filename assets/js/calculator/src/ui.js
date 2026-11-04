@@ -167,7 +167,7 @@ function renderWhose(result, own) {
     growth: piece(t('whose.growth')?.[eff.growth] ?? '', inputs.growth != null),
     team: piece(t(`whose.team.${eff.team}`), inputs.team != null),
     moderation: piece(t(`whose.moderation.${inputs.mod_who || 'benchmark'}`), inputs.mod_who != null),
-    payments: piece(inputs.rev > 0 ? fmt(t('whose.payments.some'), { rev: compact(inputs.rev) }) : t('whose.payments.none'), inputs.rev > 0),
+    payments: piece(inputs.p2p_volume > 0 ? fmt(t('whose.payments.some'), { volume: compact(inputs.p2p_volume) }) : t('whose.payments.none'), inputs.p2p_volume > 0),
     reach: piece(fmt(t('whose.reach.in'), { list: regions.join(t('whose.reach.join')) }), true),
     // The Nostr bands are "0", "0.5" and "1": a key with a dot in it is looked up on the block, not by path.
     nostr: piece(t('whose.nostr')?.[eff.nostr_now] ?? '', inputs.nostr_now != null),
