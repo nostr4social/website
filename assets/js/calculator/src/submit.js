@@ -97,6 +97,11 @@ export function composeLead({ inputs, result, link, contact, fieldLabels, open }
   return lines.join('\n').trim()
 }
 
+/** The lead's subject: marked [TEST] while the calculator is in test mode, or the response is flagged test. */
+export function leadSubject({ mode, test }) {
+  return `${mode === 'test' || test ? t('compose.subject_test') : ''}${t('compose.subject')}`
+}
+
 /** One NIP-17 message to one recipient, as the contact form sends it. */
 export async function sendLead({ signer, recipient, subject, content, pow = 0, onProgress }) {
   const pool = new SimplePool()

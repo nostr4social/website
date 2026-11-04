@@ -1817,9 +1817,6 @@ function readContact(form2) {
   }
   return out;
 }
-function writeContact(form2, contact = {}) {
-  for (const key of CONTACT_KEYS) if (form2.elements[key] && contact[key] != null) form2.elements[key].value = String(contact[key]);
-}
 function writeInputs(form2, inputs) {
   for (const [key, spec] of Object.entries(INPUTS)) {
     if (!(key in inputs) || inputs[key] == null) continue;
@@ -2066,12 +2063,20 @@ async function secretAsHolder(signer, snapshot2) {
     pool.destroy();
   }
 }
+function isOurs(event, snapshot2) {
+  return Boolean(event && event.kind === KIND_RESPONSE && Array.isArray(event.tags) && event.tags.some((tag) => tag[0] === "a" && tag[1] === formAddress(snapshot2)) && typeof event.content === "string" && event.content.length > 0);
+}
+function parseList(json) {
+  const list = JSON.parse(json);
+  if (!Array.isArray(list) || !list.every((tag) => Array.isArray(tag) && typeof tag[0] === "string")) throw new Error("malformed");
+  return list;
+}
 async function openResponse(event, { signer, snapshot: snapshot2, map: map2 }) {
-  if (!event.content) return { tags: event.tags, values: readResponses(map2, event.tags), how: "plain" };
+  if (!isOurs(event, snapshot2)) return { error: "restore_not_ours" };
   if (signer) {
     if (signer.pubkey === event.pubkey) {
       try {
-        const tags = JSON.parse(await signer.nip44Decrypt(snapshot2.pubkey, event.content));
+        const tags = parseList(await signer.nip44Decrypt(snapshot2.pubkey, event.content));
         return { tags, values: readResponses(map2, tags), how: "responder" };
       } catch {
       }
@@ -2079,7 +2084,7 @@ async function openResponse(event, { signer, snapshot: snapshot2, map: map2 }) {
     const secret = await secretAsHolder(signer, snapshot2);
     if (secret) {
       try {
-        const tags = JSON.parse(nip44Decrypt(event.content, getConversationKey(hexToBytes(secret), event.pubkey)));
+        const tags = parseList(nip44Decrypt(event.content, getConversationKey(hexToBytes(secret), event.pubkey)));
         return { tags, values: readResponses(map2, tags), how: "holder" };
       } catch {
       }
@@ -2619,6 +2624,9 @@ function composeLead({ inputs, result, link, contact, fieldLabels, open }) {
   lines.push("");
   for (const key of ["app_name", "company", "contact_name", "email"]) if (contact[key]) lines.push(`${fieldLabels[key]?.label || key}: ${contact[key]}`);
   return lines.join("\n").trim();
+}
+function leadSubject({ mode, test: test2 }) {
+  return `${mode === "test" || test2 ? t("compose.subject_test") : ""}${t("compose.subject")}`;
 }
 async function sendLead({ signer, recipient, subject, content, pow = 0, onProgress }) {
   const pool = new SimplePool();
@@ -3303,6 +3311,8 @@ function gate() {
   }
   const signedNote = $("#identity-note");
   if (signedNote && own) signedNote.textContent = t("modal.signed");
+  const note = $("#save-note");
+  if (note) note.textContent = t(own ? "modal.data_note_signed" : "modal.data_note_session");
 }
 var signDialog = () => $("#sign-modal");
 function openSign() {
@@ -3450,7 +3460,7 @@ async function save(signer) {
     sends.push(Date.now());
     status.textContent = ok ? fmt(t("modal.saved"), { ok, total: relays.length, id: event.id.slice(0, 12) }) : t("status.failed");
     setStatus2(status.textContent);
-    if (ok) {
+    if (ok && Object.keys(contact).length) {
       const hint = relays.find((r) => r.ok)?.url;
       const nevent2 = neventEncode({ id: event.id, relays: hint ? [hint] : [], author: event.pubkey });
       await tell(signer, result, contact, `${location.origin}${location.pathname}?nevent=${nevent2}`);
@@ -3491,7 +3501,8 @@ async function tell(signer, result, contact, open) {
     open
   });
   try {
-    await sendLead({ signer, recipient, subject: t("compose.subject"), content, pow: dev.noPow ? 0 : signer.kind === "session" ? config.pow.anonymous : config.pow.signed });
+    const subject = leadSubject({ mode: config.calculator_mode, test: Boolean($("#f-test")?.checked) });
+    await sendLead({ signer, recipient, subject, content, pow: dev.noPow ? 0 : signer.kind === "session" ? config.pow.anonymous : config.pow.signed });
     lastLead = fingerprint;
   } catch (err) {
     console.warn("calculator: could not notify", err);
@@ -3514,11 +3525,21 @@ async function onCopyUrl() {
 }
 async function restore(pointer, signer) {
   setStatus2(t("status.opening"));
-  const event = await fetchResponse(pointer, snapshot);
+  let event = null;
+  try {
+    event = await fetchResponse(pointer, snapshot);
+  } catch {
+    event = null;
+  }
   if (!event) return setStatus2(t("errors.restore_missing"));
-  const opened = await openResponse(event, { signer, snapshot, map });
+  let opened;
+  try {
+    opened = await openResponse(event, { signer, snapshot, map });
+  } catch {
+    opened = { error: "restore_malformed" };
+  }
   if (opened.error) return setStatus2(t(`errors.${opened.error}`));
-  const v = opened.values;
+  const v = opened.values || {};
   const one = (x) => Array.isArray(x) ? x[0] : x;
   const inputs = {
     mau: v.mau,
@@ -3541,19 +3562,26 @@ async function restore(pointer, signer) {
   for (const [row, share] of Object.entries(v.nostr || {})) inputs[`n_${row}`] = share;
   let overrides = {};
   try {
-    overrides = v.overrides ? JSON.parse(v.overrides) : {};
+    const parsed = v.overrides ? JSON.parse(v.overrides) : {};
+    overrides = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch {
     overrides = {};
   }
   const formEl = $("#calc-form");
-  writeInputs(formEl, inputs);
-  revealDetails(formEl);
-  writeOverrides(overrides);
-  writeContact(formEl, Object.fromEntries(CONTACT_KEYS.map((k) => [k, v[k]])));
-  const box = $("#f-test");
-  if (box) box.checked = Array.isArray(v.test) ? v.test.length > 0 : Boolean(v.test);
-  const result = run(inputs, overrides, { focus: false });
-  if (result) setStatus2(fmt(t("status.opened"), { when: new Date(event.created_at * 1e3).toLocaleString(), how: t(`status.opened_${opened.how}`) }));
+  let result = null;
+  try {
+    writeInputs(formEl, inputs);
+    revealDetails(formEl);
+    writeOverrides(overrides);
+    const box = $("#f-test");
+    if (box) box.checked = Array.isArray(v.test) ? v.test.length > 0 : Boolean(v.test);
+    result = run(inputs, overrides, { focus: false, show: false });
+  } catch {
+    result = null;
+  }
+  if (!result) return setStatus2(t("errors.restore_malformed"));
+  showResults(true, { focus: false, scroll: false });
+  setStatus2(fmt(t("status.opened"), { when: new Date(event.created_at * 1e3).toLocaleString(), how: t(`status.opened_${opened.how}`) }));
 }
 function openFromLink(pointer) {
   if (!form) return setStatus2(t("errors.restore_missing"));

@@ -394,7 +394,8 @@ simply stack.
       {%- endfor -%}
       </div>
 
-      {%- if s.modal.data_note %}<p class="modal__note">{{ s.modal.data_note }}</p>{% endif -%}
+      {%- comment -%} What sending does: the one-time key's note until a signer of the visitor's own is chosen; the script swaps it. {%- endcomment -%}
+      <p class="modal__note" id="save-note">{{ s.modal.data_note_session }}</p>
       <div class="modal__actions">
         {%- comment -%} Send and the test marker, tucked against it, read as one control. {%- endcomment -%}
         <span class="modal__send">

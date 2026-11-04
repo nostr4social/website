@@ -9,7 +9,7 @@
 import { config, dev } from '../../shared/src/config.js'
 import { SimplePool, decodeNip19, getConversationKey, nip44Decrypt } from '../../shared/src/vendor.js'
 import { hexToBytes } from '../../shared/src/signers.js'
-import { formSecretFromList, KIND_MY_FORMS, KIND_RESPONSE, readResponses } from '../../shared/src/forms.js'
+import { formAddress, formSecretFromList, KIND_MY_FORMS, KIND_RESPONSE, readResponses } from '../../shared/src/forms.js'
 import { discoveryRelays, normalizeRelay, siteRelays } from '../../shared/src/relays.js'
 
 const HEX64 = /^[0-9a-f]{64}$/
@@ -65,16 +65,29 @@ async function secretAsHolder(signer, snapshot) {
   }
 }
 
+/** Whether an event is a response to this form: a kind 1069 carrying the form's `a` tag, with encrypted content. Anything else is not ours. */
+export function isOurs(event, snapshot) {
+  return Boolean(event && event.kind === KIND_RESPONSE && Array.isArray(event.tags) && event.tags.some((tag) => tag[0] === 'a' && tag[1] === formAddress(snapshot)) && typeof event.content === 'string' && event.content.length > 0)
+}
+
+/** The decrypted list, if it is well-formed: a JSON array of response tags. */
+function parseList(json) {
+  const list = JSON.parse(json)
+  if (!Array.isArray(list) || !list.every((tag) => Array.isArray(tag) && typeof tag[0] === 'string')) throw new Error('malformed')
+  return list
+}
+
 /**
- * The response tags, or an error code: `restore_locked` when this signer
- * cannot open it. Plaintext responses need no key.
+ * The response tags, or an error code: `restore_not_ours` for an event
+ * that is not a response to this form (a plaintext event among them),
+ * `restore_locked` when this signer cannot open it.
  */
 export async function openResponse(event, { signer, snapshot, map }) {
-  if (!event.content) return { tags: event.tags, values: readResponses(map, event.tags), how: 'plain' }
+  if (!isOurs(event, snapshot)) return { error: 'restore_not_ours' }
   if (signer) {
     if (signer.pubkey === event.pubkey) {
       try {
-        const tags = JSON.parse(await signer.nip44Decrypt(snapshot.pubkey, event.content))
+        const tags = parseList(await signer.nip44Decrypt(snapshot.pubkey, event.content))
         return { tags, values: readResponses(map, tags), how: 'responder' }
       } catch {
         /* not the responder's key after all */
@@ -83,7 +96,7 @@ export async function openResponse(event, { signer, snapshot, map }) {
     const secret = await secretAsHolder(signer, snapshot)
     if (secret) {
       try {
-        const tags = JSON.parse(nip44Decrypt(event.content, getConversationKey(hexToBytes(secret), event.pubkey)))
+        const tags = parseList(nip44Decrypt(event.content, getConversationKey(hexToBytes(secret), event.pubkey)))
         return { tags, values: readResponses(map, tags), how: 'holder' }
       } catch {
         /* a secret that does not fit */

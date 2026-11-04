@@ -129,9 +129,6 @@ sections:
       # Back to the illustrative app: every answer cleared, every section folded.
       reset: Reset Values
       sign:
-        guest_note: >-
-          Saved with a one-time key, generated in this browser and discarded
-          after use.
         bunker: Sign with Remote Bunker
         extension: Sign with Browser Extension
         switch: Switch
@@ -149,8 +146,19 @@ sections:
     # this is the chrome around them. Brief on purpose.
     modal:
       consent: You may email me about these results.
-      # Under the questions: what sending does with the answers, in the page's own terms.
-      data_note: >-
+      # Under the questions: what sending does with the answers, in the page's
+      # own terms, by the signer in use. The script swaps them: the one-time
+      # key is kept in sessionStorage for the tab and says exactly that; a
+      # signed-in visitor can ask the relays to delete the event, so their
+      # note says so.
+      data_note_session: >-
+        Sending publishes your answers as a response on public Nostr relays,
+        encrypted to Nostr4, which grants Nostr4 access to them; nothing is
+        stored on Nostr4's servers. Nostr4 reads the response and uses any
+        contact details only to follow up. Saved with a one-time key kept for
+        this tab. Closing the tab discards it, and after that no one can delete
+        the event.
+      data_note_signed: >-
         Sending publishes your answers as a response on public Nostr relays,
         encrypted to Nostr4 and signed with your key, which grants Nostr4 access
         to them; nothing is stored on Nostr4's servers. Nostr4 reads the
@@ -651,6 +659,7 @@ sections:
         saved: "Saved as a Nostr form response · {ok} of {total} relays"
         failed: Could not reach a relay to save your inputs. Your results are unaffected.
         shared: Opened from a results link. Nothing was submitted.
+        # A saved response restores the calculation only, never the contact fields.
         older_version: "Opened from a results link made with assumptions version {from}; shown with version {to}. Nothing was submitted."
         opening: Opening the saved response...
         opened: "Opened a response sent {when}, {how}."
@@ -661,6 +670,8 @@ sections:
       compose:
         header: "via nostr4.social/calculator:"
         subject: Non-custodial savings lead
+        # In front of the subject while the calculator is in test mode, or the response is flagged test.
+        subject_test: "[TEST] "
         date: "Calculated as of {date}."
         results: "Custody today about {custodial} a year; the same app on Nostr about {noncustodial}."
         estimated: "Estimated savings: about {amount} a year ({low} to {high})."
@@ -677,6 +688,8 @@ sections:
         too_large: "{field} is larger than this model handles."
         too_fast: That was quick. Give it a moment and send again.
         restore_missing: That response was not found on the relays.
+        restore_not_ours: That link does not point at a response to this form. Nothing was opened.
+        restore_malformed: That response could not be read. Nothing was opened.
         restore_locked: >-
           To open a sent response, sign in with the key that sent it, or as
           Nostr4.

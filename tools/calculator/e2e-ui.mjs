@@ -309,7 +309,7 @@ await withBrowser(async (api) => {
   check('the chart\'s caption ends with the breach exposure, calculated separately, in bold, and a button to its dialog', r.noteInCaption && r.note.startsWith('Calculated separately: about $') && r.note.endsWith('a year of breach exposure that Nostr also reduces, with no passwords and little private data to lose.') && /^\$\d{1,3}(\.\d)?[kM]?$/.test(r.noteBold || '') && r.how === "Here's how we estimate this →" && !r.howHidden, r.note)
   check('nothing cumulative sits on the year-by-year summary', r.cumulative === null)
   const foot = await api.eval(`({ note: document.querySelector('#save-modal .modal__note')?.textContent.replace(/\\s+/g, ' ').trim(), disclaimer: document.querySelector('.results__disclaimer')?.textContent, measures: [...document.querySelectorAll('#r-years tbody th')].map(t => t.textContent).join(' | '), cols: [...document.querySelectorAll('#r-table > thead th')].map(t => t.textContent).join(' | ') })`)
-  check('the figures are called estimates wherever they stand, the foot of the tab says what they are not, and the modal says what sending does with the answers', foot.disclaimer === "Estimates from public benchmarks and Nostr4's assumptions; not legal, tax or financial advice." && foot.measures === 'Active users | Cost of Custody | Cost of Nostr | Estimated Saving' && foot.cols === 'Cost area | Estimated savings a year | Estimated Share Saved | Post Integration' && foot.note.startsWith('Sending publishes your answers as a response on public Nostr relays') && foot.note.includes('You can ask the relays to delete it'), JSON.stringify(foot))
+  check('the figures are called estimates wherever they stand, the foot of the tab says what they are not, and the modal says what sending does with the answers', foot.disclaimer === "Estimates from public benchmarks and Nostr4's assumptions; not legal, tax or financial advice." && foot.measures === 'Active users | Cost of Custody | Cost of Nostr | Estimated Saving' && foot.cols === 'Cost area | Estimated savings a year | Estimated Share Saved | Post Integration' && foot.note.startsWith('Sending publishes your answers as a response on public Nostr relays') && foot.note.endsWith('Saved with a one-time key kept for this tab. Closing the tab discards it, and after that no one can delete the event.') && !/discarded after use|ask the relays to delete/.test(foot.note), JSON.stringify(foot))
   const col = await api.eval(`(() => { const n = (row, i) => Number(document.querySelector('#r-years tbody tr[data-row=' + row + '] td:nth-child(' + (i + 2) + ')').textContent.replace(/[^\\d]/g, '')); return { users: n('users', 3), custodial: n('custodial', 3), nostr: n('nostr', 3) } })()`)
   check('the two per-user facts are the year-three column of the table (the estimated instant with the defaults) divided by that year\'s users, the third is its Nostr cost, and the watermark is custody less Nostr that year, all rounded', Math.abs(parseFloat(r.permauC.slice(1)) - col.custodial / col.users) < 0.01 && Math.abs(parseFloat(r.permauNC.slice(1)) - col.nostr / col.users) < 0.01 && Math.abs(money(r.scale) - col.nostr) / col.nostr < 0.06 && Math.abs(money(r.hero) - (col.custodial - col.nostr)) / (col.custodial - col.nostr) < 0.06, `${r.permauC} vs ${col.custodial}/${col.users} | ${r.permauNC} vs ${col.nostr}/${col.users} | ${r.scale} vs ${col.nostr} | ${r.hero}`)
   await api.eval(`document.getElementById('r-breach-how').click()`)
@@ -710,6 +710,15 @@ await withBrowser(async (api) => {
         check('with the test box cleared, the second response carries no test marker', !later.some(([, id, v]) => id === 'XU5x6e' && v), JSON.stringify(later.find(([, id]) => id === 'XU5x6e') || null))
       }
       check('an unchanged lead is not sent twice', wrapsAgain.length === 1, `${wrapsAgain.length} wraps`)
+      // A save with no contact details at all: a response, but no message to hello.
+      await api.eval(`{ for (const k of ['email', 'contact_name', 'company', 'app_name']) document.getElementById('f-' + k).value = ''; const c = document.getElementById('f-consent'); c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('save-submit').click() }`)
+      await sleep(200)
+      await api.eval(`document.getElementById('sign-session').click()`)
+      await api.waitFor(`/Sent · /.test(document.getElementById('save-status').textContent) && document.getElementById('save-submit').disabled === false`, { timeout: 60000 })
+      await sleep(1500)
+      const anonymous = await pool.querySync([RELAY], { kinds: [KIND_RESPONSE], '#a': [formAddress(snapshot)] }, { maxWait: 4000 })
+      const wrapsAnonymous = await pool.querySync([RELAY], { kinds: [1059] }, { maxWait: 2000 })
+      check('an anonymous save lands as a response but sends hello nothing', anonymous.length === 3 && wrapsAnonymous.length === 1, `${anonymous.length} responses, ${wrapsAnonymous.length} wraps`)
 
       // ── opening the sent response from its link, in the same tab ──────────
       const { neventEncode } = await import('nostr-tools/nip19')
@@ -722,7 +731,17 @@ await withBrowser(async (api) => {
         email: document.getElementById('f-email').value,
         tab: document.getElementById('tab-cost').getAttribute('aria-selected'),
       })`)
-      check('the tab\'s key opens the sent response and fills the page', restored.status.includes('with the key that sent it') && restored.mau === '10000' && restored.email === 'founder@example.com' && restored.tab === 'true', JSON.stringify(restored))
+      check('the tab\'s key opens the sent response and fills the calculation, never the contact fields', restored.status.includes('with the key that sent it') && restored.mau === '10000' && restored.email === '' && restored.tab === 'true', JSON.stringify(restored))
+      // A link to an event that is not a response to this form: a one-line notice, no hang, the page as it was.
+      const strangerNote = (await import('nostr-tools/pure'))
+      const noteKey = strangerNote.generateSecretKey()
+      const noteEvent = strangerNote.finalizeEvent({ kind: 1069, created_at: Math.floor(Date.now() / 1000), tags: [['a', '30168:' + 'b'.repeat(64) + ':other']], content: '', }, noteKey)
+      await Promise.allSettled(pool.publish([RELAY], noteEvent))
+      const notOurs = neventEncode({ id: noteEvent.id, relays: ['wss://attacker.invalid'], author: noteEvent.pubkey })
+      await api.goto(`${BASE}/calculator/?nevent=${notOurs}&relay=${encodeURIComponent(RELAY)}`)
+      await api.waitFor(`/does not point at a response to this form|not found/.test(document.getElementById('r-status').textContent)`, { timeout: 20000 })
+      const refused = await api.eval(`({ status: document.getElementById('r-status').textContent, hidden: document.getElementById('calc-results').hidden, hero: document.querySelector('.chart__watermark').textContent })`)
+      check('a link to an event that is not ours is refused with one line and the page shows the illustrative estimate; the link\'s relay hint is never opened', /does not point at a response to this form/.test(refused.status) && !refused.hidden && refused.hero === '$210k' && !requests.some((u) => u.includes('attacker.invalid')), JSON.stringify(refused))
       await api.eval(`sessionStorage.clear()`)
       await api.goto(`${BASE}/calculator/?nevent=${nevent}&relay=${encodeURIComponent(RELAY)}`)
       await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)

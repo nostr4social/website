@@ -50,7 +50,7 @@ try {
 
   // ── the page's submit module, bundled for node ────────────────────────────
   const dir = await mkdtemp(join(tmpdir(), 'nostr4-form-e2e-'))
-  const strings = { compose: { header: 'via test:', subject: 'lead', date: 'as of {date}', results: '{custodial} / {noncustodial}', estimated: 'estimated {amount} ({low} to {high})', fees: 'fees {amount}', breach: 'breach {amount}', link: 'link {link}', open: 'open {link}' } }
+  const strings = { compose: { header: 'via test:', subject: 'lead', subject_test: '[TEST] ', date: 'as of {date}', results: '{custodial} / {noncustodial}', estimated: 'estimated {amount} ({low} to {high})', fees: 'fees {amount}', breach: 'breach {amount}', link: 'link {link}', open: 'open {link}' } }
   const config = { relays: { fallback_dm: [RELAY], discovery: [RELAY] }, timeouts: { publish: 4000, discovery: 2000 }, pow: { response: 12 } }
   const shim = join(dir, 'shim.mjs')
   await writeFile(shim, `
@@ -147,6 +147,21 @@ try {
   const stranger = m.createGuestSigner()
   const asStranger = await m.restore.openResponse(got, { signer: stranger, snapshot, map })
   check('a stranger\'s key cannot', asStranger.error === 'restore_locked')
+  // Not ours: a plaintext event, one without the form's a tag, one of another kind, and a malformed list, each refused with its reason, never hung on.
+  const plain = { ...got, content: '' }
+  check('a plaintext event is not a response to this form', (await m.restore.openResponse(plain, { signer, snapshot, map })).error === 'restore_not_ours')
+  const elsewhere = { ...got, tags: [['a', '30168:' + 'a'.repeat(64) + ':other']] }
+  check('an event without the form\'s a tag is not ours', (await m.restore.openResponse(elsewhere, { signer, snapshot, map })).error === 'restore_not_ours' && !m.restore.isOurs(elsewhere, snapshot) && m.restore.isOurs(got, snapshot))
+  check('nor is an event of another kind', (await m.restore.openResponse({ ...got, kind: 1 }, { signer, snapshot, map })).error === 'restore_not_ours')
+  const junk = await signer.nip44Encrypt(snapshot.pubkey, JSON.stringify({ not: 'a list' }))
+  let malformed
+  try {
+    malformed = await m.restore.openResponse({ ...got, content: junk }, { signer, snapshot, map })
+  } catch (err) {
+    malformed = { error: 'threw: ' + err.message }
+  }
+  check('a response whose decrypted content is not a list of tags is refused', malformed.error === 'restore_locked' || malformed.error === 'restore_malformed', JSON.stringify(malformed))
+  check('the lead subject is marked [TEST] in test mode or for a flagged response, and plain when live', m.leadSubject({ mode: 'test', test: false }) === '[TEST] lead' && m.leadSubject({ mode: 'live', test: true }) === '[TEST] lead' && m.leadSubject({ mode: 'live', test: false }) === 'lead')
 
   // The form holder opens it through their My Forms list (kind 14083), as formstr.app would.
   const holderSecret = generateSecretKey()

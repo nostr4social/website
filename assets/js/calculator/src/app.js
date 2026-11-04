@@ -23,10 +23,10 @@ import { calculate, cleanOverrides, normalizeInputs } from './model.js'
 import { wireCharts } from './chart.js'
 import { decode, encode } from './codec.js'
 import { GRIDS, InputError } from './inputs.js'
-import { CONTACT_KEYS, markInvalid, readContact, readInputs, resetForm, revealDetails, suggest, wireDetails, wireSliders, writeContact, writeDefaults, writeInputs } from './form.js'
+import { CONTACT_KEYS, markInvalid, readContact, readInputs, resetForm, revealDetails, suggest, wireDetails, wireSliders, writeDefaults, writeInputs } from './form.js'
 import { decodePointer, fetchResponse, openResponse } from './restore.js'
 import { approx } from './format.js'
-import { composeLead, prepareForm, sendLead, submitResponse } from './submit.js'
+import { composeLead, leadSubject, prepareForm, sendLead, submitResponse } from './submit.js'
 import {
   TAB_ANCHORS,
   activateTab,
@@ -231,6 +231,9 @@ function gate() {
   }
   const signedNote = $('#identity-note')
   if (signedNote && own) signedNote.textContent = t('modal.signed')
+  // What sending does, by the signer in use: a visitor's own key can ask the relays to delete the event; the tab's one-time key cannot.
+  const note = $('#save-note')
+  if (note) note.textContent = t(own ? 'modal.data_note_signed' : 'modal.data_note_session')
 }
 
 const signDialog = () => $('#sign-modal')
@@ -398,7 +401,8 @@ async function save(signer) {
     sends.push(Date.now())
     status.textContent = ok ? fmt(t('modal.saved'), { ok, total: relays.length, id: event.id.slice(0, 12) }) : t('status.failed')
     setStatus(status.textContent)
-    if (ok) {
+    // hello hears about it only when the visitor left contact details; an anonymous save is counted from the responses on the relays.
+    if (ok && Object.keys(contact).length) {
       const hint = relays.find((r) => r.ok)?.url
       const nevent = neventEncode({ id: event.id, relays: hint ? [hint] : [], author: event.pubkey })
       await tell(signer, result, contact, `${location.origin}${location.pathname}?nevent=${nevent}`)
@@ -441,7 +445,8 @@ async function tell(signer, result, contact, open) {
     open,
   })
   try {
-    await sendLead({ signer, recipient, subject: t('compose.subject'), content, pow: dev.noPow ? 0 : signer.kind === 'session' ? config.pow.anonymous : config.pow.signed })
+    const subject = leadSubject({ mode: config.calculator_mode, test: Boolean($('#f-test')?.checked) })
+    await sendLead({ signer, recipient, subject, content, pow: dev.noPow ? 0 : signer.kind === 'session' ? config.pow.anonymous : config.pow.signed })
     lastLead = fingerprint
   } catch (err) {
     console.warn('calculator: could not notify', err)
@@ -466,14 +471,29 @@ async function onCopyUrl() {
 
 // ── opening a saved response ─────────────────────────────────────────────────
 
-/** Fetch, decrypt with this signer, and show. */
+/**
+ * Fetch from the site's relays, check it is a response to this form,
+ * decrypt with this signer, and show the calculation; never the contact
+ * fields. Anything malformed falls through to the page as it was, with
+ * one line saying so: no hang on "Opening…".
+ */
 async function restore(pointer, signer) {
   setStatus(t('status.opening'))
-  const event = await fetchResponse(pointer, snapshot)
+  let event = null
+  try {
+    event = await fetchResponse(pointer, snapshot)
+  } catch {
+    event = null
+  }
   if (!event) return setStatus(t('errors.restore_missing'))
-  const opened = await openResponse(event, { signer, snapshot, map })
+  let opened
+  try {
+    opened = await openResponse(event, { signer, snapshot, map })
+  } catch {
+    opened = { error: 'restore_malformed' }
+  }
   if (opened.error) return setStatus(t(`errors.${opened.error}`))
-  const v = opened.values
+  const v = opened.values || {}
   const one = (x) => (Array.isArray(x) ? x[0] : x)
   const inputs = {
     mau: v.mau, posts_per_user: v.posts_per_user, mb: v.mb, legal_usd: v.legal_usd, p2p_volume: v.p2p_volume ?? v.rev,
@@ -482,21 +502,29 @@ async function restore(pointer, signer) {
   }
   for (const [area, hours] of Object.entries(v.engineering || {})) inputs[`eng_${area}`] = hours
   for (const [row, share] of Object.entries(v.nostr || {})) inputs[`n_${row}`] = share
+  // The overrides must be a JSON object of key to value; anything else is no override.
   let overrides = {}
   try {
-    overrides = v.overrides ? JSON.parse(v.overrides) : {}
+    const parsed = v.overrides ? JSON.parse(v.overrides) : {}
+    overrides = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
   } catch {
     overrides = {}
   }
   const formEl = $('#calc-form')
-  writeInputs(formEl, inputs)
-  revealDetails(formEl)
-  writeOverrides(overrides)
-  writeContact(formEl, Object.fromEntries(CONTACT_KEYS.map((k) => [k, v[k]])))
-  const box = $('#f-test')
-  if (box) box.checked = Array.isArray(v.test) ? v.test.length > 0 : Boolean(v.test)
-  const result = run(inputs, overrides, { focus: false })
-  if (result) setStatus(fmt(t('status.opened'), { when: new Date(event.created_at * 1000).toLocaleString(), how: t(`status.opened_${opened.how}`) }))
+  let result = null
+  try {
+    writeInputs(formEl, inputs)
+    revealDetails(formEl)
+    writeOverrides(overrides)
+    const box = $('#f-test')
+    if (box) box.checked = Array.isArray(v.test) ? v.test.length > 0 : Boolean(v.test)
+    result = run(inputs, overrides, { focus: false, show: false })
+  } catch {
+    result = null
+  }
+  if (!result) return setStatus(t('errors.restore_malformed'))
+  showResults(true, { focus: false, scroll: false })
+  setStatus(fmt(t('status.opened'), { when: new Date(event.created_at * 1000).toLocaleString(), how: t(`status.opened_${opened.how}`) }))
 }
 
 /** ?nevent= on load: open with the tab's key if it has one, else ask for a signer. */
