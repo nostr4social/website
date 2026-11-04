@@ -815,6 +815,17 @@ function resolveAssumptions(data, scenario, overrides = {}) {
   }
   return out;
 }
+var FORM_REPLACES = /^(default_hours_|team_factor_|kind_|posts_default$|mb_default$|mod_heads_default$|growth_default$)/;
+function sourcingCounts(data) {
+  const out = { sourced: 0, replaceable: 0, thesis: 0, total: 0 };
+  for (const [key, a] of Object.entries(data.assumptions)) {
+    out.total++;
+    if (a.source) out.sourced++;
+    else if (FORM_REPLACES.test(key)) out.replaceable++;
+    else out.thesis++;
+  }
+  return out;
+}
 function cleanOverrides(data, overrides = {}) {
   const out = {};
   for (const [key, v] of Object.entries(overrides)) {
@@ -2738,7 +2749,7 @@ var rangeFull = (a, b, f = compact) => {
   const [low, high] = ordered(a, b);
   return Math.abs(high - low) < 1e-9 ? "" : fmt(t("range"), { low: f(low), high: f(high) });
 };
-function renderResults(result, { own = false } = {}) {
+function renderResults(result, { own = false, data = null } = {}) {
   const { typical, low, high, inputs } = result;
   const T = typical.totals;
   renderWhose(result, own);
@@ -2751,6 +2762,7 @@ function renderResults(result, { own = false } = {}) {
   text("#r-scale-nostr", approx(T.estimated_nostr));
   text("#r-scale-nostr-range", rangeFull(low.totals.estimated_nostr, high.totals.estimated_nostr, approx));
   text("#r-version", fmt(t("version"), { version: result.version, date: date(result.today) }));
+  if (data) text("#r-sourcing", fmt(t("sourcing"), sourcingCounts(data)));
   renderChart(result);
   renderYears(typical.projection);
   const cut = (c, nc) => c > 0 ? Math.min(1, Math.max(0, 1 - nc / c)) : 0;
@@ -2978,7 +2990,10 @@ function partMeta(p, inputs) {
     return fmt(t(p.heads_from ? `details.${which}_default` : `details.${which}`), { n: number(p.people) });
   }
   if (p.id === "money_transmitter" && p.holds) return t("details.holds");
-  if ((p.id === "engineering" || p.id === "legal_labour") && p.defaulted) return t(p.from === "team" ? "details.defaulted_team" : "details.defaulted");
+  if (p.id === "engineering" || p.id === "legal_labour") {
+    if (p.defaulted) return fmt(t(p.from === "team" ? "details.defaulted_team" : "details.defaulted"), { team: t(`whose.team.${inputs.team}`) });
+    return fmt(t("details.hours_given"), { hours: number(p.hours) });
+  }
   if ((p.id === "reseller" || p.id === "p2p") && p.rate != null) return fmt(t("details.rate"), { rate: percent(p.rate) });
   if (p.id === "database" && p.gb != null) return fmt(t("details.gb"), { gb: number(p.gb) });
   if (p.id === "breach") return t("details.expected_loss");
@@ -3149,7 +3164,7 @@ function run(raw, overrides, { focus = true, show: show2 = true, scroll = true }
   current = result;
   dirty = false;
   const own = !sameAsDefaults(result.inputs);
-  renderResults(result, { own });
+  renderResults(result, { own, data: assumptions });
   $("#tabbar")?.classList.toggle("is-illustrative", !own);
   const share = $("#save-open");
   if (share) {

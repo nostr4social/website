@@ -98,7 +98,7 @@ function run(raw, overrides, { focus = true, show = true, scroll = true } = {}) 
   current = result
   dirty = false
   const own = !sameAsDefaults(result.inputs)
-  renderResults(result, { own })
+  renderResults(result, { own, data: assumptions })
   // While the estimate is the illustrative app's, App Details is the invitation and Send & Share waits.
   $('#tabbar')?.classList.toggle('is-illustrative', !own)
   const share = $('#save-open')

@@ -6,7 +6,7 @@
 import { $, $$, clear, el, show } from '../../shared/src/dom.js'
 import { fmt, t } from '../../shared/src/config.js'
 import { approx, compact, date, money, number, percent, perMau } from './format.js'
-import { LINES, YEARS, isDate } from './model.js'
+import { LINES, YEARS, isDate, sourcingCounts } from './model.js'
 import { drawCharts, yearLabel } from './chart.js'
 import { explain } from './explain.js'
 
@@ -22,7 +22,7 @@ const rangeFull = (a, b, f = compact) => {
   return Math.abs(high - low) < 1e-9 ? '' : fmt(t('range'), { low: f(low), high: f(high) })
 }
 
-export function renderResults(result, { own = false } = {}) {
+export function renderResults(result, { own = false, data = null } = {}) {
   const { typical, low, high, inputs } = result
   const T = typical.totals
 
@@ -41,6 +41,8 @@ export function renderResults(result, { own = false } = {}) {
   text('#r-scale-nostr', approx(T.estimated_nostr))
   text('#r-scale-nostr-range', rangeFull(low.totals.estimated_nostr, high.totals.estimated_nostr, approx))
   text('#r-version', fmt(t('version'), { version: result.version, date: date(result.today) }))
+  // The sourcing line: three counts from what the rows carry, which add up to the file.
+  if (data) text('#r-sourcing', fmt(t('sourcing'), sourcingCounts(data)))
 
   renderChart(result)
   renderYears(typical.projection)
@@ -327,7 +329,11 @@ function partMeta(p, inputs) {
     return fmt(t(p.heads_from ? `details.${which}_default` : `details.${which}`), { n: number(p.people) })
   }
   if (p.id === 'money_transmitter' && p.holds) return t('details.holds')
-  if ((p.id === 'engineering' || p.id === 'legal_labour') && p.defaulted) return t(p.from === 'team' ? 'details.defaulted_team' : 'details.defaulted')
+  // Engineering says where its hours came from: a default for the team size, or the founder's own band.
+  if (p.id === 'engineering' || p.id === 'legal_labour') {
+    if (p.defaulted) return fmt(t(p.from === 'team' ? 'details.defaulted_team' : 'details.defaulted'), { team: t(`whose.team.${inputs.team}`) })
+    return fmt(t('details.hours_given'), { hours: number(p.hours) })
+  }
   if ((p.id === 'reseller' || p.id === 'p2p') && p.rate != null) return fmt(t('details.rate'), { rate: percent(p.rate) })
   if (p.id === 'database' && p.gb != null) return fmt(t('details.gb'), { gb: number(p.gb) })
   if (p.id === 'breach') return t('details.expected_loss')

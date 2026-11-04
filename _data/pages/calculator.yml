@@ -229,7 +229,7 @@ sections:
       table:
         title: Non-Custody Savings in Detail
       columns:
-        line: Value Center
+        line: Cost area
         saving: Estimated savings a year
         share: Estimated Share Saved
         remains: Post Integration
@@ -273,7 +273,7 @@ sections:
           icon: card
           title: Payments
           remains: >-
-            Payments settle on users' own rails. An app-store may still claim its commission on peer-to-peer payments until the precedent for non-custodial payments is settled. An app selling its own products in-app still pays the app-store's commission.
+            Payments between users settle on their own rails. An app-store may still claim its commission on peer-to-peer payments until the precedent for non-custodial payments is settled. An app selling its own products in-app still pays the app-store's commission. The volume you give is split evenly across the rails you name.
       # Quiet notes under a line's name, where one applies.
       already: Already on Nostr
       partly: Partly on Nostr
@@ -423,7 +423,7 @@ sections:
             today: "Nothing today."
             nostr: "Capacity for the {a.relay_sponsored_share} of users who don't bring their own: the greater of {a.relay_floor_year} a year and {i.mau} × {a.relay_sponsored_share} × {a.relay_per_mau_year} = {p.noncustodial}"
           privacy_programs:
-            today: "{d.programs} = {p.custodial}. {d.ccpa}"
+            today: "{d.programs} = {p.custodial}, the GDPR, Online Safety Act and DSA programmes scaled by {p.factor} for {d.team} (the DSA to a token below the top tier). {d.ccpa}"
             nostr: "{a.content_law_remains_share} of the content-law programs remain once the network is mature, for whatever you still host, and {a.privacy_remains_share} of the privacy programs, for whatever you still retain: {p.noncustodial}"
           privacy_programs_reported:
             today: "Your reported legal, privacy and compliance spend, {p.custodial}, replaces the estimate."
@@ -562,6 +562,8 @@ sections:
           tip_saving: "Estimated saving: {amount}"
           aria: "Today custody costs {custodial} a year against {nostr} if integrated today; in year five, {end_custodial} against {end_nostr}. The hatched wedge is the {window} integration window. The gold rule marks the estimated savings of {saving} a year in {at}, {after} after the window."
       version: "Assumptions version {version} · calculated as of {date}"
+      # Beside the version: three counts from what the rows carry.
+      sourcing: "{sourced} sourced, {replaceable} defaults you can replace, {thesis} are our thesis"
       # Beside the version, at the foot of the tab: what the figures are and are not.
       disclaimer: Estimates from public benchmarks and Nostr4's assumptions; not legal, tax or financial advice.
       contact_subject: Cost of custody estimate
@@ -592,8 +594,10 @@ sections:
         rate: "{rate} applied"
         checked: "{rate} of users checked a year"
         gb: "{gb} GB"
-        defaulted: default hours
-        defaulted_team: default hours for your team size
+        # Where an engineering part's hours came from.
+        defaulted: based on a default; enter your hours in Customize
+        defaulted_team: "based on a default for {team}; enter your hours in Customize"
+        hours_given: "based on your {hours} hours a week"
         reported: as reported
         holds: holds balances
         expected_loss: expected loss, not a bill

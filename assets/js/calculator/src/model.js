@@ -128,6 +128,26 @@ export function varyingKeys(data) {
   return Object.keys(data.assumptions).filter((key) => data.assumptions[key].scenario_varies)
 }
 
+/** The rows a form answer replaces: the openers' defaults, which deriveInputs and applyKind read only where the founder said nothing. */
+export const FORM_REPLACES = /^(default_hours_|team_factor_|kind_|posts_default$|mb_default$|mod_heads_default$|growth_default$)/
+
+/**
+ * The sourcing line's three counts, from what the rows already carry:
+ * sourced (has a source), defaults the form can replace (an unsourced row
+ * a Customize answer stands in for), and our thesis (everything else,
+ * varying by scenario or not). They add up to the file.
+ */
+export function sourcingCounts(data) {
+  const out = { sourced: 0, replaceable: 0, thesis: 0, total: 0 }
+  for (const [key, a] of Object.entries(data.assumptions)) {
+    out.total++
+    if (a.source) out.sourced++
+    else if (FORM_REPLACES.test(key)) out.replaceable++
+    else out.thesis++
+  }
+  return out
+}
+
 /** Keep only overrides that name a real assumption with a usable value: a real date for a date row, a finite non-negative number otherwise. */
 export function cleanOverrides(data, overrides = {}) {
   const out = {}

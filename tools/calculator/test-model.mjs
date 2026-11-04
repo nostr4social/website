@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const data = JSON.parse(await readFile(resolve(root, '_data/assumptions/v4.json'), 'utf8'))
-const { calculate: calculateRaw, evaluate, resolveAssumptions, cleanOverrides, varyingKeys, jurShares, ccpaApplies, caConsumers, project, pointAt, usersAt, networkShare, monthsBetween, addMonths, parseDate, isDate, deriveInputs, applyKind, complianceFactor, breachLoss, LINE_FUNCTIONS, PART_ASSUMPTIONS, LINES, SCENARIOS, JURISDICTIONS, TEAMS, YEARS, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
+const { calculate: calculateRaw, evaluate, resolveAssumptions, cleanOverrides, varyingKeys, sourcingCounts, FORM_REPLACES, jurShares, ccpaApplies, caConsumers, project, pointAt, usersAt, networkShare, monthsBetween, addMonths, parseDate, isDate, deriveInputs, applyKind, complianceFactor, breachLoss, LINE_FUNCTIONS, PART_ASSUMPTIONS, LINES, SCENARIOS, JURISDICTIONS, TEAMS, YEARS, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
 // Every test is as of one pinned date: the model never reads the clock.
 const TODAY = '2026-11-03'
 const calculate = (inputs, d = data, overrides = {}) => calculateRaw(inputs, d, overrides, { today: TODAY })
@@ -856,6 +856,16 @@ await test('one rounding for the headline, the lines and the chart: two signific
   assert.equal(money('x'), '—')
   assert.equal(compactNumber(-1500), '-1.5k', 'the sign stays')
   assert.equal(number(NaN), '—')
+})
+
+await test('the sourcing line: sourced, defaults the form can replace, and our thesis, which add up to the file', () => {
+  const c = sourcingCounts(data)
+  assert.equal(c.sourced + c.replaceable + c.thesis, c.total)
+  assert.equal(c.total, Object.keys(data.assumptions).length)
+  assert.equal(c.sourced, Object.values(data.assumptions).filter((a) => a.source).length)
+  for (const key of ['default_hours_accounts', 'kind_feed_mb', 'team_factor_ten', 'growth_default', 'kind_messaging_posts', 'mod_heads_default', 'posts_default', 'mb_default', 'kind_feed_egress_gb', 'kind_feed_compute']) assert.ok(FORM_REPLACES.test(key), key)
+  for (const key of ['eng_base_salary', 'accounts_eng_remains_share', 'network_mature_end', 'compliance_tier_factor_one', 'breach_loss_one']) assert.ok(!FORM_REPLACES.test(key), key)
+  console.log(`     ${c.sourced} sourced, ${c.replaceable} defaults you can replace, ${c.thesis} are our thesis, of ${c.total}`)
 })
 
 await test('a baseline printout, for the eye', () => {
