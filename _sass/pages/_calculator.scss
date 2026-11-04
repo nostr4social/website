@@ -619,6 +619,24 @@
   outline: none;
 }
 
+// The custom-assumptions banner: a gold-railed notice between the whose line and the picture.
+.results__custom {
+  border-left: 3px solid var(--gold);
+  color: var(--ink-1);
+  font-size: var(--fs-s);
+  margin: var(--s-2) 0 0;
+}
+
+.results__custom-reset {
+  color: var(--gold);
+  font-size: inherit;
+}
+
+.results__custom-reset:hover {
+  color: var(--gold);
+  text-decoration: underline;
+}
+
 // Whose estimate this is, under the title: a sentence and a link.
 .whose {
   color: var(--ink-2);

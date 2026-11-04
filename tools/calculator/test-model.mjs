@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const data = JSON.parse(await readFile(resolve(root, '_data/assumptions/v4.json'), 'utf8'))
-const { calculate: calculateRaw, evaluate, resolveAssumptions, cleanOverrides, varyingKeys, sourcingCounts, FORM_REPLACES, jurShares, ccpaApplies, caConsumers, project, pointAt, usersAt, networkShare, monthsBetween, addMonths, parseDate, isDate, deriveInputs, applyKind, complianceFactor, breachLoss, LINE_FUNCTIONS, PART_ASSUMPTIONS, LINES, SCENARIOS, JURISDICTIONS, TEAMS, YEARS, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
+const { calculate: calculateRaw, evaluate, resolveAssumptions, cleanOverrides, parseStrict, rowRange, DATE_MIN, DATE_MAX, varyingKeys, sourcingCounts, FORM_REPLACES, jurShares, ccpaApplies, caConsumers, project, pointAt, usersAt, networkShare, monthsBetween, addMonths, parseDate, isDate, deriveInputs, applyKind, complianceFactor, breachLoss, LINE_FUNCTIONS, PART_ASSUMPTIONS, LINES, SCENARIOS, JURISDICTIONS, TEAMS, YEARS, normalizeInputs } = await import(resolve(root, 'assets/js/calculator/src/model.js'))
 // Every test is as of one pinned date: the model never reads the clock.
 const TODAY = '2026-11-03'
 const calculate = (inputs, d = data, overrides = {}) => calculateRaw(inputs, d, overrides, { today: TODAY })
@@ -408,13 +408,60 @@ await test('access requests come from EU and UK users always, from US users only
   assert.equal(dsar(min({ mau: 50000, jur: ['other'] })).custodial, 0)
 })
 
-await test('an override applies to every scenario and an unknown or negative one is ignored', () => {
-  const r = calculate({ ...base, mb: 50 }, data, { blob_gb_month: 0.5, nonsense: 1, egress_gb: -1 })
-  assert.deepEqual(Object.keys(r.overrides), ['blob_gb_month'])
+await test('overrides are read strictly: an empty value, hex, an exponent, a word or a non-finite number is ignored, never read as 0', () => {
+  for (const bad of ['', ' ', '0x10', '1e308', '1e3', 'Infinity', 'NaN', 'abc', '12,000', '1.2.3', '--1', null, undefined, {}, [], Infinity, NaN, true]) assert.equal(parseStrict(bad), null, String(bad))
+  for (const [good, n] of [['12', 12], [' 12 ', 12], ['0.5', 0.5], ['.5', 0.5], ['12.', 12], ['-1', -1], ['0', 0], [7, 7], [0.25, 0.25]]) assert.equal(parseStrict(good), n, String(good))
+  const r = calculate(base, data, { eng_base_salary: '', blob_gb_month: '0x10', egress_gb: '1e308', db_gb_month: 'Infinity', mau: '5', constructor: '1' })
+  assert.deepEqual(r.overrides, {}, 'none of those is an override')
+  assert.deepEqual(r.clamped, [])
+  assert.ok(Number.isFinite(r.typical.totals.estimated) && r.typical.totals.custodial > 0, 'and the result is a number')
+  assert.ok(!Object.hasOwn(cleanOverrides(data, { constructor: 1, __proto__: { x: 1 }, toString: 2 }), 'constructor'), 'prototype names are not assumptions')
+})
+
+await test('overrides are clamped by row type: shares to 0..1, dates to the span, everything else to 0..ten times the row\'s largest value; the page is told what was clamped', () => {
+  assert.deepEqual(rowRange(data.assumptions.media_sponsor_share), { min: 0, max: 1 })
+  assert.deepEqual(rowRange(data.assumptions.network_mature_end), { min: DATE_MIN, max: DATE_MAX })
+  assert.deepEqual(rowRange(data.assumptions.eng_base_salary), { min: 0, max: 1800000 })
+  assert.deepEqual(rowRange(data.assumptions.relay_floor_year), { min: 0, max: 12000 }, 'ten times the largest of typical, low and high')
+  assert.deepEqual(rowRange(data.assumptions.integration_payback_months), { min: 0, max: 240 })
+  const report = []
+  const o = cleanOverrides(data, { media_sponsor_share: 5, egress_gb: -1, eng_base_salary: 1e7, network_mature_end: '2099-01-01', network_mature_start: '1999-06-01', lightning_rate: 0.5, verify_share_us: 1.5 }, report)
+  assert.deepEqual(o, { media_sponsor_share: 1, egress_gb: 0, eng_base_salary: 1800000, network_mature_end: DATE_MAX, network_mature_start: DATE_MIN, lightning_rate: 0.5, verify_share_us: 1 })
+  assert.deepEqual(report.map((c) => c.key).sort(), ['egress_gb', 'eng_base_salary', 'media_sponsor_share', 'network_mature_end', 'network_mature_start', 'verify_share_us'])
+  assert.deepEqual(report.find((c) => c.key === 'eng_base_salary'), { key: 'eng_base_salary', from: 1e7, to: 1800000 })
+  const r = calculate(base, data, { eng_base_salary: '10000000', media_sponsor_share: '5', egress_gb: '1e7' })
+  assert.deepEqual(r.overrides, { eng_base_salary: 1800000, media_sponsor_share: 1 }, 'the exponent is ignored, the other two clamped')
+  assert.equal(r.clamped.length, 2)
+  assert.ok(Number.isFinite(r.typical.totals.estimated))
+  assert.equal(approx(r.typical.totals.custodial).includes('Infinity'), false)
+  // A value clamped onto the typical is no override at all.
+  assert.deepEqual(cleanOverrides(data, { p2p_conversion_share: 7 }), {}, 'clamped to 1, which is the typical')
+})
+
+await test('the results link carries the date it was made, and a link opened later is recalculated as of that date', () => {
+  const r = calculate(base)
+  const q = encode(r.inputs, r.overrides, r.version, r.today)
+  assert.ok(q.endsWith('v=4&t=2026-11-03'), q)
+  const back = decode('?' + q)
+  assert.equal(back.today, '2026-11-03')
+  assert.equal(decode('?mau=1&t=2026-13-40').today, null, 'a malformed date is no date')
+  assert.equal(decode('?mau=1&t=tomorrow').today, null)
+  assert.equal(decode('?mau=1').today, null)
+  assert.ok(!/[?&]t=/.test('?' + encode(r.inputs, {}, 4)), 'no date, no t')
+  const later = calculateRaw(back.inputs, data, back.overrides, { today: back.today })
+  assert.equal(later.today, '2026-11-03')
+  assert.ok(Math.abs(later.typical.totals.estimated - r.typical.totals.estimated) < 1e-6, 'the same number the person saw')
+})
+
+await test('an override applies to every scenario and an unknown or negative one is ignored or clamped', () => {
+  const r = calculate({ ...base, mb: 50 }, data, { blob_gb_month: 0.2, nonsense: 1, egress_gb: -1 })
+  assert.deepEqual(Object.keys(r.overrides).sort(), ['blob_gb_month', 'egress_gb'], 'a negative is clamped to 0, an unknown dropped')
+  assert.equal(r.overrides.egress_gb, 0)
   for (const s of SCENARIOS) {
     const blob = r[s].lines.storage.parts.find((p) => p.id === 'blob').custodial
-    assert.ok(Math.abs(blob - (base.mau * 50) / 1024 * 0.5 * 12) < 1e-6, `${s} uses the override`)
+    assert.ok(Math.abs(blob - (base.mau * 50) / 1024 * 0.2 * 12) < 1e-6, `${s} uses the override`)
   }
+  assert.equal(calculate(base, data, { blob_gb_month: 0.5 }).overrides.blob_gb_month, 0.26, 'ten times the row\'s high')
 })
 
 await test('the results link round-trips inputs and overrides', () => {

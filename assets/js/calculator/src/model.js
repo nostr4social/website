@@ -148,21 +148,60 @@ export function sourcingCounts(data) {
   return out
 }
 
-/** Keep only overrides that name a real assumption with a usable value: a real date for a date row, a finite non-negative number otherwise. */
-export function cleanOverrides(data, overrides = {}) {
+// Every override is read strictly and clamped by one rule per row type, so
+// a crafted link cannot show "$InfinityB" as Nostr4's number: an empty
+// value, hex, an exponent or anything that is not a plain decimal is
+// ignored (never read as 0); a share is held to 0..1, a date to
+// DATE_MIN..DATE_MAX, and everything else to 0..ten times the row's
+// largest stated value. Out of range is clamped, not rejected, and the
+// page says so.
+export const DATE_MIN = '2015-01-01'
+export const DATE_MAX = '2050-12-31'
+const DECIMAL = /^-?(\d+(\.\d*)?|\.\d+)$/
+
+/** A plain decimal, or null: strings must be decimal digits with at most one point; numbers must be finite. */
+export function parseStrict(raw) {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+  if (typeof raw !== 'string') return null
+  const s = raw.trim()
+  if (!DECIMAL.test(s)) return null
+  const n = Number(s)
+  return Number.isFinite(n) ? n : null
+}
+
+/** The range an override of this row is held to. */
+export function rowRange(a) {
+  const type = rowType(a)
+  if (type === 'date') return { min: DATE_MIN, max: DATE_MAX }
+  if (type === 'share') return { min: 0, max: 1 }
+  return { min: 0, max: Number((10 * Math.max(...[a.typical, a.low, a.high].map(Number).filter(Number.isFinite), 0)).toPrecision(12)) }
+}
+
+/**
+ * Keep only overrides that name a real assumption with a usable value,
+ * clamped to the row's range. Returns the clean overrides; `report` also
+ * says which were clamped, and from what.
+ */
+export function cleanOverrides(data, overrides = {}, report = null) {
   const out = {}
   for (const [key, v] of Object.entries(overrides)) {
     if (!Object.hasOwn(data.assumptions, key)) continue
     const a = data.assumptions[key]
+    const { min, max } = rowRange(a)
     if (rowType(a) === 'date') {
-      if (!isDate(v) || v === a.typical) continue
-      out[key] = String(v)
+      if (!isDate(v)) continue
+      const d = v < min ? min : v > max ? max : String(v)
+      if (d !== v) report?.push({ key, from: v, to: d })
+      if (d === a.typical) continue
+      out[key] = d
       continue
     }
-    const n = Number(v)
-    if (!Number.isFinite(n) || n < 0) continue
-    if (n === a.typical) continue
-    out[key] = n
+    const n = parseStrict(v)
+    if (n == null) continue
+    const c = Math.min(max, Math.max(min, n))
+    if (c !== n) report?.push({ key, from: n, to: c })
+    if (c === a.typical) continue
+    out[key] = c
   }
   return out
 }
@@ -798,8 +837,9 @@ export function project(inputs, v, today, base = evaluate(inputs, v)) {
 export function calculate(rawInputs, data, rawOverrides = {}, { today } = {}) {
   if (!isDate(today)) throw new Error('calculate: today must be an ISO date (YYYY-MM-DD)')
   const inputs = normalizeInputs(rawInputs)
-  const overrides = cleanOverrides(data, rawOverrides)
-  const out = { version: data.version, today, inputs, overrides }
+  const clamped = []
+  const overrides = cleanOverrides(data, rawOverrides, clamped)
+  const out = { version: data.version, today, inputs, overrides, clamped }
   for (const s of SCENARIOS) {
     const resolved = resolveAssumptions(data, s, overrides)
     const { values: v, set } = applyKind(resolved, inputs.kind, overrides)

@@ -61,6 +61,7 @@ function localDate() {
 }
 let dirty = false // the form or an assumption changed since the last calculation
 let test = null // the test marker in the URL, which presets the test checkbox in the modal
+let nevent = null // the saved response the page was opened with, kept in the address bar
 let openedAt = Date.now()
 let sends = [] // timestamps, for the per-tab rate limit
 let lastLead = '' // what hello was last told, so an unchanged lead is not sent twice
@@ -97,6 +98,8 @@ function run(raw, overrides, { focus = true, show = true, scroll = true } = {}) 
   setError(null)
   current = result
   dirty = false
+  // The panel shows what applied: a value the link or the panel gave out of range is written back clamped.
+  writeOverrides(result.overrides)
   const own = !sameAsDefaults(result.inputs)
   renderResults(result, { own, data: assumptions })
   // While the estimate is the illustrative app's, App Details is the invitation and Send & Share waits.
@@ -109,9 +112,9 @@ function run(raw, overrides, { focus = true, show = true, scroll = true } = {}) 
   // What the openers imply, shown on the untouched sliders as suggestions.
   suggest($('#calc-form'), result.typical.effective, result.typical.derived)
 
-  const query = encode(result.inputs, result.overrides, result.version)
+  const query = encode(result.inputs, result.overrides, result.version, today)
   result.link = `${location.origin}${location.pathname}?${query}`
-  history.replaceState(null, '', `?${query}${test ? `&test=${encodeURIComponent(test)}` : ''}`)
+  replaceQuery(query)
 
   if (show) showResults(true, { focus, scroll })
   return result
@@ -165,10 +168,16 @@ let previewTimer = null
 function currentQuery() {
   try {
     const inputs = normalizeInputs(readInputs($('#calc-form')))
-    return encode(inputs, cleanOverrides(assumptions, readOverrides()), assumptions.version) + (test ? `&test=${encodeURIComponent(test)}` : '')
+    return encode(inputs, cleanOverrides(assumptions, readOverrides()), assumptions.version, today)
   } catch {
     return null
   }
+}
+
+/** The address bar: the query, plus the test marker, the saved response it was opened with and the tab anchor, which all survive. */
+function replaceQuery(query) {
+  const extra = `${test ? `&test=${encodeURIComponent(test)}` : ''}${nevent ? `&nevent=${encodeURIComponent(nevent)}` : ''}`
+  history.replaceState(null, '', `${query ? `?${query}${extra}` : location.pathname}${location.hash}`)
 }
 
 /** The address bar follows the form: every change rewrites the query. */
@@ -176,8 +185,15 @@ function syncUrl() {
   clearTimeout(syncTimer)
   syncTimer = setTimeout(() => {
     const query = currentQuery()
-    if (query) history.replaceState(null, '', `?${query}`)
+    if (query) replaceQuery(query)
   }, 120)
+}
+
+/** The custom-assumptions banner's reset: the inputs stay, the overrides go. */
+function onResetOverrides() {
+  writeOverrides({})
+  markChanged()
+  run(readInputs($('#calc-form')), {}, { focus: false })
 }
 
 // ── Save & Share ─────────────────────────────────────────────────────────────
@@ -501,8 +517,9 @@ function onResetForm() {
   const formEl = $('#calc-form')
   resetForm(formEl)
   setError(null)
+  today = localDate()
   const result = run(readInputs(formEl), readOverrides(), { focus: false, show: false })
-  if (result) history.replaceState(null, '', location.pathname)
+  if (result) replaceQuery('')
   formEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
@@ -515,6 +532,7 @@ function wire() {
   $('#r-whose-link')?.addEventListener('click', onEdit)
   wireCharts()
   $('#a-reset')?.addEventListener('click', onReset)
+  $('#r-custom-reset')?.addEventListener('click', onResetOverrides)
   $('#a-recalc')?.addEventListener('click', onRecalculate)
   for (const input of $$('.assume-input')) {
     input.addEventListener('change', markChanged)
@@ -586,13 +604,16 @@ async function boot() {
   const anchor = TAB_ANCHORS[location.hash.slice(1)] || null
   const opened = decode(location.search)
   test = opened.test
+  // A results link carries the date it was made; it is recalculated as of that date and says so.
+  if (opened.present && opened.today) today = opened.today
   if (test && $('#f-test')) $('#f-test').checked = true
   // A link made with an earlier version of the assumptions is shown with the
   // current one, and the page says so. Version 1 had no team question to
   // answer; its links are read as the team size it assumed.
   const older = opened.present && opened.version != null && opened.version < assumptions.version ? opened.version : null
   if (older && older < 2 && opened.inputs.team == null) opened.inputs.team = 'ten'
-  const pointer = decodePointer(new URLSearchParams(location.search).get('nevent'))
+  nevent = new URLSearchParams(location.search).get('nevent') || null
+  const pointer = decodePointer(nevent)
   if (pointer) {
     // The response's own answers win; a results link in the same address fills first.
     if (opened.present) {
@@ -610,7 +631,7 @@ async function boot() {
     else activateTab('app', { scroll: false })
   } else {
     const result = run(readInputs(formEl), readOverrides(), { focus: false, scroll: false })
-    if (result) history.replaceState(null, '', location.pathname)
+    if (result) replaceQuery('')
   }
   if (anchor) activateTab(anchor, { scroll: true, behavior: 'auto' })
   window.addEventListener('hashchange', () => {

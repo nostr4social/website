@@ -212,6 +212,10 @@ sections:
       # arithmetic and the cyber-policy cross-check side by side.
       headline:
         how: "Here's how we estimate this →"
+      # Above the results whenever an assumption was overridden.
+      custom:
+        text: This result uses custom assumptions, not Nostr4's defaults.
+        reset: "Reset to defaults →"
       # Measures down, years across from today; the script fills the year
       # heads and the cells. Every cell is the run-rate at that instant;
       # nothing is cumulative.
@@ -341,6 +345,9 @@ sections:
       range_short: "{low} to {high}"
       # A slider standing on a suggestion, for assistive tech: not an answer.
       suggested_valuetext: "Suggested: {label}"
+      # In the custom-assumptions banner, when a value in the link was out of range.
+      custom:
+        clamped: "Out-of-range values were clamped: {list}."
       # The end of the chart's caption, filled by the script: the breach
       # exposure, calculated apart from the saving. {breach} is set in bold;
       # when the reduction is zero the sentence and its button are left out.

@@ -28,6 +28,7 @@ export function renderResults(result, { own = false, data = null } = {}) {
 
   // Whose estimate this is, and the app it describes, one piece per section.
   renderWhose(result, own)
+  renderCustom(result)
   const link = $('#r-whose-link')
   if (link) link.textContent = t('whose.link')
 
@@ -83,6 +84,20 @@ export function renderResults(result, { own = false, data = null } = {}) {
 
     renderParts(name, line, inputs)
   }
+}
+
+/**
+ * The custom-assumptions banner: shown whenever any override applied, so a
+ * crafted link cannot pass as Nostr4's number; it names what was clamped.
+ */
+function renderCustom(result) {
+  const banner = $('#r-custom')
+  if (!banner) return
+  const keys = Object.keys(result.overrides || {})
+  const clamped = result.clamped || []
+  show(banner, keys.length > 0 || clamped.length > 0)
+  const detail = $('#r-custom-detail')
+  if (detail) detail.textContent = clamped.length ? fmt(t('custom.clamped'), { list: clamped.map((c) => `${c.key} ${c.from} → ${c.to}`).join(', ') }) : ''
 }
 
 /**

@@ -327,7 +327,7 @@ await withBrowser(async (api) => {
   check('there is no foot row, and the six lines, each rounded as the headline is, add up to the headline', r.footRows === 0 && r.subtitle.trim().length > 0 && Math.abs(r.sum - money(r.hero)) / money(r.hero) < 0.06, `${r.sum} vs ${r.hero}`)
   const remains = await api.eval(`document.querySelector('#r-table thead .lt-remains').textContent + ' | ' + document.querySelector('.lt-row[data-line="payments"] .lt-remains').textContent.replace(/\\s+/g, ' ').trim()`)
   check('the Post Integration column summarises what remains, in the page\'s words; the payments row keeps the app-store sentence and says the volume is split across the rails', remains.startsWith("Post Integration | Payments between users settle on their own rails.") && remains.includes("An app selling its own products in-app still pays the app-store's commission.") && remains.endsWith('The volume you give is split evenly across the rails you name.'), remains)
-  check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.includes('growth=0.5') && r.link.includes('team=ten') && r.link.endsWith('v=4'), r.link)
+  check('the page URL carries the inputs and the version', r.link.includes('mau=50000') && r.link.includes('eng_content=25') && r.link.includes('jur=eu%2Cuk%2Cus') && r.link.includes('growth=0.5') && r.link.includes('team=ten') && /v=4&t=\d{4}-\d\d-\d\d$/.test(r.link), r.link)
   check('sliders standing on "not given" or on a suggestion stay out of the link', !r.link.includes('n_keys=') && !r.link.includes('eng_legal=') && r.link.includes('kind=messaging') && r.link.includes('mod_who=team') && r.link.includes('mod_heads=3'), r.link)
   check('the version and the date are named', /^Assumptions version 4 · calculated as of \d{4}-\d\d-\d\d$/.test(r.version), r.version)
   const sourcing = await api.eval(`document.getElementById('r-sourcing').textContent`)
@@ -406,7 +406,7 @@ await withBrowser(async (api) => {
     status: document.getElementById('r-status').textContent,
   })`)
   check('Recalculate recomputes the line and opens Estimated Cost', after.storage !== before && after.tab === 'true', `${before} → ${after.storage}`)
-  check('the override travels in the link', after.link.includes('a.egress_gb_per_mau_month=5'), after.link)
+  check('the override travels in the link, and the banner says the result is not the defaults', after.link.includes('a.egress_gb_per_mau_month=5') && !(await api.eval(`document.getElementById('r-custom').hidden`)), after.link)
   await api.eval(`document.getElementById('tab-assumptions').click(); document.getElementById('a-reset').click(); document.getElementById('a-recalc').click()`)
   await sleep(200)
   check('reset then Recalculate restores the typical value', (await api.eval(`document.querySelector('.lt-row[data-line="storage"] .lt-saving').textContent`)) === before)
@@ -483,7 +483,7 @@ await withBrowser(async (api) => {
     if (query.endsWith('v=1')) {
       // A version-1 link had no team question; it opens as the team size it assumed, under the current version, and says so.
       const older = await api.eval(`({ status: document.getElementById('r-status').textContent, hidden: document.getElementById('calc-results').hidden, team: document.querySelector('input[name=team]').dataset.values.split(',')[document.querySelector('input[name=team]').value], url: location.search })`)
-      check('a results link made with version 1 opens under version 4 and says so', !older.hidden && older.status.startsWith('Opened from a results link made with assumptions version 1; shown with version 4.') && older.team === 'ten' && older.url.endsWith('v=4') && older.url.includes('team=ten'), JSON.stringify(older))
+      check('a results link made with version 1 opens under version 4 and says so', !older.hidden && older.status.startsWith('Opened from a results link made with assumptions version 1; shown with version 4.') && older.team === 'ten' && /v=4&t=\d{4}-\d\d-\d\d$/.test(older.url) && older.url.includes('team=ten'), JSON.stringify(older))
     }
     const gaps = await api.eval(`(() => {
       const problems = []
@@ -508,7 +508,22 @@ await withBrowser(async (api) => {
   await api.goto(`${BASE}/calculator/?mau=50000&jur=us&team=ten&a.key_support_per_mau_year=0.1&a.egress_gb=0.05&v=2`)
   await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
   const v2 = await api.eval(`({ hidden: document.getElementById('calc-results').hidden, status: document.getElementById('r-status').textContent, url: location.search, egress: document.getElementById('a-egress_gb').value, handoff: document.querySelector('.lt-parts[data-line="accounts"] button.part[data-part="key_handoff"]') !== null, support: document.querySelector('.lt-parts[data-line="accounts"] button.part[data-part="key_support"]') !== null })`)
-  check('a version-2 link opens under version 4, says so, keeps the override it still knows and drops the key-support one', !v2.hidden && v2.status.startsWith('Opened from a results link made with assumptions version 2; shown with version 4.') && v2.url.endsWith('v=4') && v2.url.includes('a.egress_gb=0.05') && !v2.url.includes('key_support') && v2.egress === '0.05' && v2.handoff && !v2.support, JSON.stringify(v2))
+  check('a version-2 link opens under version 4, says so, keeps the override it still knows and drops the key-support one', !v2.hidden && v2.status.startsWith('Opened from a results link made with assumptions version 2; shown with version 4.') && /v=4&t=\d{4}-\d\d-\d\d$/.test(v2.url) && v2.url.includes('a.egress_gb=0.05') && !v2.url.includes('key_support') && v2.egress === '0.05' && v2.handoff && !v2.support, JSON.stringify(v2))
+
+  // ── a crafted link: out-of-range and junk overrides, a date, an anchor ───
+  await api.goto(`${BASE}/calculator/?mau=50000&jur=us&team=ten&a.eng_base_salary=1e308&a.media_sponsor_share=5&a.blob_gb_month=&a.db_gb_month=0x10&a.egress_gb=10000000&t=2028-11-03&v=4#results`)
+  await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+  const crafted = await api.eval(`({ text: document.getElementById('panel-cost').textContent, banner: document.getElementById('r-custom').hidden, bannerText: document.getElementById('r-custom').textContent.replace(/\\s+/g, ' ').trim(), url: location.search + location.hash, version: document.getElementById('r-version').textContent, share: document.getElementById('a-media_sponsor_share').value, salary: document.getElementById('a-eng_base_salary').value, egress: document.getElementById('a-egress_gb').value })`)
+  check('junk overrides are ignored and out-of-range ones clamped: no NaN or Infinity anywhere, the share held to 1, the egress to ten times its high', !/NaN|Infinity/.test(crafted.text) && crafted.share === '1' && crafted.salary === '135980' && crafted.egress === '0.9', JSON.stringify({ share: crafted.share, salary: crafted.salary, egress: crafted.egress }))
+  check('the custom-assumptions banner says so, names what was clamped, and offers the reset', !crafted.banner && crafted.bannerText.startsWith("This result uses custom assumptions, not Nostr4's defaults. Out-of-range values were clamped: ") && crafted.bannerText.includes('media_sponsor_share 5 → 1') && crafted.bannerText.includes('egress_gb 10000000 → 0.9') && crafted.bannerText.endsWith('Reset to defaults →'), crafted.bannerText)
+  check('the link\'s date is the calculation\'s date, the address bar keeps the clamped overrides, the date and the anchor', crafted.version.endsWith('calculated as of 2028-11-03') && crafted.url.includes('a.media_sponsor_share=1') && crafted.url.includes('a.egress_gb=0.9') && !crafted.url.includes('eng_base_salary') && crafted.url.includes('t=2028-11-03') && crafted.url.endsWith('#results'), crafted.url)
+  await api.eval(`document.getElementById('r-custom-reset').click()`)
+  await sleep(300)
+  const resetTo = await api.eval(`({ banner: document.getElementById('r-custom').hidden, url: location.search, mau: document.querySelector('input[name=mau]').dataset.values.split(',')[document.querySelector('input[name=mau]').value], share: document.getElementById('a-media_sponsor_share').value })`)
+  check('Reset to defaults keeps the inputs and drops the overrides', resetTo.banner && !resetTo.url.includes('a.') && resetTo.url.includes('mau=50000') && resetTo.mau === '50000' && resetTo.share === '0.25', JSON.stringify(resetTo))
+  await api.goto(`${BASE}/calculator/`)
+  await api.waitFor(`document.documentElement.dataset.calculator === 'ready'`)
+  check('a fresh page carries no banner', await api.eval(`document.getElementById('r-custom').hidden`))
 
   // ── an app already on Nostr for keys and storage: nothing left to lose ───
   await api.goto(`${BASE}/calculator/?mau=50000&jur=us&team=ten&n_keys=1&n_event_storage=1&n_media_storage=1&v=4`)

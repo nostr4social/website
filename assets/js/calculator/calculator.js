@@ -826,20 +826,43 @@ function sourcingCounts(data) {
   }
   return out;
 }
-function cleanOverrides(data, overrides = {}) {
+var DATE_MIN = "2015-01-01";
+var DATE_MAX = "2050-12-31";
+var DECIMAL = /^-?(\d+(\.\d*)?|\.\d+)$/;
+function parseStrict(raw) {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (!DECIMAL.test(s)) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+function rowRange(a) {
+  const type = rowType(a);
+  if (type === "date") return { min: DATE_MIN, max: DATE_MAX };
+  if (type === "share") return { min: 0, max: 1 };
+  return { min: 0, max: Number((10 * Math.max(...[a.typical, a.low, a.high].map(Number).filter(Number.isFinite), 0)).toPrecision(12)) };
+}
+function cleanOverrides(data, overrides = {}, report = null) {
   const out = {};
   for (const [key, v] of Object.entries(overrides)) {
     if (!Object.hasOwn(data.assumptions, key)) continue;
     const a = data.assumptions[key];
+    const { min, max } = rowRange(a);
     if (rowType(a) === "date") {
-      if (!isDate(v) || v === a.typical) continue;
-      out[key] = String(v);
+      if (!isDate(v)) continue;
+      const d = v < min ? min : v > max ? max : String(v);
+      if (d !== v) report?.push({ key, from: v, to: d });
+      if (d === a.typical) continue;
+      out[key] = d;
       continue;
     }
-    const n = Number(v);
-    if (!Number.isFinite(n) || n < 0) continue;
-    if (n === a.typical) continue;
-    out[key] = n;
+    const n = parseStrict(v);
+    if (n == null) continue;
+    const c = Math.min(max, Math.max(min, n));
+    if (c !== n) report?.push({ key, from: n, to: c });
+    if (c === a.typical) continue;
+    out[key] = c;
   }
   return out;
 }
@@ -1315,8 +1338,9 @@ function project(inputs, v, today2, base = evaluate(inputs, v)) {
 function calculate(rawInputs, data, rawOverrides = {}, { today: today2 } = {}) {
   if (!isDate(today2)) throw new Error("calculate: today must be an ISO date (YYYY-MM-DD)");
   const inputs = normalizeInputs(rawInputs);
-  const overrides = cleanOverrides(data, rawOverrides);
-  const out = { version: data.version, today: today2, inputs, overrides };
+  const clamped = [];
+  const overrides = cleanOverrides(data, rawOverrides, clamped);
+  const out = { version: data.version, today: today2, inputs, overrides, clamped };
   for (const s of SCENARIOS) {
     const resolved = resolveAssumptions(data, s, overrides);
     const { values: v, set } = applyKind(resolved, inputs.kind, overrides);
@@ -1705,8 +1729,9 @@ function wireCharts() {
 var VERSION_KEY = "v";
 var OVERRIDE_PREFIX = "a.";
 var TEST_KEY = "test";
+var DATE_KEY = "t";
 var RENAMED = { rev: "p2p_volume" };
-function encode2(inputs, overrides = {}, version = 1) {
+function encode2(inputs, overrides = {}, version = 1, today2 = null) {
   const p = new URLSearchParams();
   for (const [key, spec] of Object.entries(INPUTS)) {
     const v = inputs[key];
@@ -1720,6 +1745,7 @@ function encode2(inputs, overrides = {}, version = 1) {
   }
   for (const [key, v] of Object.entries(overrides)) p.set(OVERRIDE_PREFIX + key, String(v));
   p.set(VERSION_KEY, String(version));
+  if (isDate(today2)) p.set(DATE_KEY, today2);
   return p.toString();
 }
 function decode(search) {
@@ -1738,7 +1764,8 @@ function decode(search) {
   }
   const version = p.has(VERSION_KEY) ? Number(p.get(VERSION_KEY)) : null;
   const test2 = p.get(TEST_KEY);
-  return { inputs, overrides, version, present, test: test2 };
+  const today2 = isDate(p.get(DATE_KEY)) ? p.get(DATE_KEY) : null;
+  return { inputs, overrides, version, present, test: test2, today: today2 };
 }
 
 // assets/js/calculator/src/form.js
@@ -2764,6 +2791,7 @@ function renderResults(result, { own = false, data = null } = {}) {
   const { typical, low, high, inputs } = result;
   const T = typical.totals;
   renderWhose(result, own);
+  renderCustom(result);
   const link = $("#r-whose-link");
   if (link) link.textContent = t("whose.link");
   text("#r-permau-c", perMau(T.estimated_custodial / T.estimated_users));
@@ -2804,6 +2832,15 @@ function renderResults(result, { own = false, data = null } = {}) {
     text(`.lt-row[data-line="${name}"] .share__pct`, line.none ? "" : percent(share));
     renderParts(name, line, inputs);
   }
+}
+function renderCustom(result) {
+  const banner = $("#r-custom");
+  if (!banner) return;
+  const keys = Object.keys(result.overrides || {});
+  const clamped = result.clamped || [];
+  show(banner, keys.length > 0 || clamped.length > 0);
+  const detail = $("#r-custom-detail");
+  if (detail) detail.textContent = clamped.length ? fmt(t("custom.clamped"), { list: clamped.map((c) => `${c.key} ${c.from} \u2192 ${c.to}`).join(", ") }) : "";
 }
 function span(months, kind) {
   const whole = months > 0 && months % 12 === 0 ? months / 12 : null;
@@ -3143,6 +3180,7 @@ function localDate() {
 }
 var dirty = false;
 var test = null;
+var nevent = null;
 var openedAt = Date.now();
 var sends = [];
 var lastLead = "";
@@ -3174,6 +3212,7 @@ function run(raw, overrides, { focus = true, show: show2 = true, scroll = true }
   setError2(null);
   current = result;
   dirty = false;
+  writeOverrides(result.overrides);
   const own = !sameAsDefaults(result.inputs);
   renderResults(result, { own, data: assumptions });
   $("#tabbar")?.classList.toggle("is-illustrative", !own);
@@ -3183,9 +3222,9 @@ function run(raw, overrides, { focus = true, show: show2 = true, scroll = true }
     share.classList.toggle("btn--secondary", !own);
   }
   suggest($("#calc-form"), result.typical.effective, result.typical.derived);
-  const query2 = encode2(result.inputs, result.overrides, result.version);
+  const query2 = encode2(result.inputs, result.overrides, result.version, today);
   result.link = `${location.origin}${location.pathname}?${query2}`;
-  history.replaceState(null, "", `?${query2}${test ? `&test=${encodeURIComponent(test)}` : ""}`);
+  replaceQuery(query2);
   if (show2) showResults(true, { focus, scroll });
   return result;
 }
@@ -3220,17 +3259,26 @@ var previewTimer = null;
 function currentQuery() {
   try {
     const inputs = normalizeInputs(readInputs($("#calc-form")));
-    return encode2(inputs, cleanOverrides(assumptions, readOverrides()), assumptions.version) + (test ? `&test=${encodeURIComponent(test)}` : "");
+    return encode2(inputs, cleanOverrides(assumptions, readOverrides()), assumptions.version, today);
   } catch {
     return null;
   }
+}
+function replaceQuery(query2) {
+  const extra = `${test ? `&test=${encodeURIComponent(test)}` : ""}${nevent ? `&nevent=${encodeURIComponent(nevent)}` : ""}`;
+  history.replaceState(null, "", `${query2 ? `?${query2}${extra}` : location.pathname}${location.hash}`);
 }
 function syncUrl() {
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
     const query2 = currentQuery();
-    if (query2) history.replaceState(null, "", `?${query2}`);
+    if (query2) replaceQuery(query2);
   }, 120);
+}
+function onResetOverrides() {
+  writeOverrides({});
+  markChanged();
+  run(readInputs($("#calc-form")), {}, { focus: false });
 }
 var modal = () => $("#save-modal");
 function requiredKeys() {
@@ -3404,8 +3452,8 @@ async function save(signer) {
     setStatus2(status.textContent);
     if (ok) {
       const hint = relays.find((r) => r.ok)?.url;
-      const nevent = neventEncode({ id: event.id, relays: hint ? [hint] : [], author: event.pubkey });
-      await tell(signer, result, contact, `${location.origin}${location.pathname}?nevent=${nevent}`);
+      const nevent2 = neventEncode({ id: event.id, relays: hint ? [hint] : [], author: event.pubkey });
+      await tell(signer, result, contact, `${location.origin}${location.pathname}?nevent=${nevent2}`);
     }
   } catch (err) {
     console.warn("calculator: could not save", err);
@@ -3521,8 +3569,9 @@ function onResetForm() {
   const formEl = $("#calc-form");
   resetForm(formEl);
   setError2(null);
+  today = localDate();
   const result = run(readInputs(formEl), readOverrides(), { focus: false, show: false });
-  if (result) history.replaceState(null, "", location.pathname);
+  if (result) replaceQuery("");
   formEl.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 function wire() {
@@ -3532,6 +3581,7 @@ function wire() {
   $("#r-whose-link")?.addEventListener("click", onEdit);
   wireCharts();
   $("#a-reset")?.addEventListener("click", onReset);
+  $("#r-custom-reset")?.addEventListener("click", onResetOverrides);
   $("#a-recalc")?.addEventListener("click", onRecalculate);
   for (const input of $$(".assume-input")) {
     input.addEventListener("change", markChanged);
@@ -3593,10 +3643,12 @@ async function boot() {
   const anchor = TAB_ANCHORS[location.hash.slice(1)] || null;
   const opened = decode(location.search);
   test = opened.test;
+  if (opened.present && opened.today) today = opened.today;
   if (test && $("#f-test")) $("#f-test").checked = true;
   const older = opened.present && opened.version != null && opened.version < assumptions.version ? opened.version : null;
   if (older && older < 2 && opened.inputs.team == null) opened.inputs.team = "ten";
-  const pointer = decodePointer(new URLSearchParams(location.search).get("nevent"));
+  nevent = new URLSearchParams(location.search).get("nevent") || null;
+  const pointer = decodePointer(nevent);
   if (pointer) {
     if (opened.present) {
       writeInputs(formEl, opened.inputs);
@@ -3613,7 +3665,7 @@ async function boot() {
     else activateTab("app", { scroll: false });
   } else {
     const result = run(readInputs(formEl), readOverrides(), { focus: false, scroll: false });
-    if (result) history.replaceState(null, "", location.pathname);
+    if (result) replaceQuery("");
   }
   if (anchor) activateTab(anchor, { scroll: true, behavior: "auto" });
   window.addEventListener("hashchange", () => {

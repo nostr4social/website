@@ -9,14 +9,17 @@
 // "not given", are omitted. Decoding ignores anything it does not recognise.
 
 import { INPUTS } from './inputs.js'
+import { isDate } from './model.js'
 
 export const VERSION_KEY = 'v'
 export const OVERRIDE_PREFIX = 'a.'
 export const TEST_KEY = 'test'
+// The date the calculation is as of, so a link opened later shows what the person saw.
+export const DATE_KEY = 't'
 // Keys an earlier version used, read as the current one: a version-3 link's `rev` is the payment volume.
 const RENAMED = { rev: 'p2p_volume' }
 
-export function encode(inputs, overrides = {}, version = 1) {
+export function encode(inputs, overrides = {}, version = 1, today = null) {
   const p = new URLSearchParams()
   for (const [key, spec] of Object.entries(INPUTS)) {
     const v = inputs[key]
@@ -30,10 +33,11 @@ export function encode(inputs, overrides = {}, version = 1) {
   }
   for (const [key, v] of Object.entries(overrides)) p.set(OVERRIDE_PREFIX + key, String(v))
   p.set(VERSION_KEY, String(version))
+  if (isDate(today)) p.set(DATE_KEY, today)
   return p.toString()
 }
 
-/** Raw inputs, overrides, version and the test marker from a query string. */
+/** Raw inputs, overrides, version, date and the test marker from a query string. A malformed date is no date. */
 export function decode(search) {
   const p = new URLSearchParams(search)
   const inputs = {}
@@ -50,5 +54,6 @@ export function decode(search) {
   }
   const version = p.has(VERSION_KEY) ? Number(p.get(VERSION_KEY)) : null
   const test = p.get(TEST_KEY)
-  return { inputs, overrides, version, present, test }
+  const today = isDate(p.get(DATE_KEY)) ? p.get(DATE_KEY) : null
+  return { inputs, overrides, version, present, test, today }
 }

@@ -225,6 +225,8 @@ simply stack.
     <div class="results__head">
       <h2 class="results__title" id="results-title" tabindex="-1">{{ r.title }}</h2>
       <p class="whose" id="r-whose"><span id="r-whose-text"></span> <button type="button" class="linkbutton whose__link" id="r-whose-link"></button></p>
+      {%- comment -%} Above the results whenever an assumption was overridden (a results link, or the panel): not Nostr4's defaults. {%- endcomment -%}
+      <p class="notice notice--inline results__custom" id="r-custom" hidden role="status">{{ r.custom.text }} <span id="r-custom-detail"></span> <button type="button" class="linkbutton results__custom-reset" id="r-custom-reset">{{ r.custom.reset }}</button></p>
     </div>
 
     {%- comment -%}
