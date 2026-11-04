@@ -399,7 +399,7 @@ await test('access requests come from EU and UK users always, from US users only
   assert.equal(usSmall.noncustodial, 0)
   const usLarge = dsar(min({ mau: 1000000 }))
   assert.ok(Math.abs(usLarge.custodial - 1000000 * v.dsar_rate_per_mau_year * v.dsar_cost) < 1e-6, 'the volume stays per monthly user')
-  assert.ok(Math.abs(usLarge.noncustodial - usLarge.custodial * v.retained_data_share) < 1e-6, 'at scale the requests fall with the data retained, not to zero')
+  assert.ok(Math.abs(usLarge.noncustodial - usLarge.custodial * v.retained_data_share) < 1e-6, 'once the network is mature the requests fall with the data retained, not to zero')
   const eu = dsar(min({ mau: 50000, jur: ['eu'] }))
   assert.ok(Math.abs(eu.custodial - 50000 * v.dsar_rate_per_mau_year * v.dsar_cost) < 1e-6, 'every EU user is under the GDPR')
   const mixed = dsar(min({ mau: 50000, jur: ['eu', 'us'] }))

@@ -13,7 +13,7 @@
 meta:
   title: Non-Custodial Savings Calculator
   description: >-
-    This calculator estimates the often overlooked cost of holding custody of user accounts and data in a social app, and the savings our model projects when  non-custody becomes a business model.
+    This calculator estimates the often overlooked cost of holding custody of user accounts and data in a social app, and the savings our model projects when non-custody becomes a business model.
 
 sections:
   - type: hero
@@ -190,12 +190,10 @@ sections:
     # ── the results ──────────────────────────────────────────────────────────
     results:
       title: Estimated Savings
-      # The pictures, in order, full width. The ids are the chart module's;
-      # it also draws chart-cumulative-savings (cumulative saving by year
-      # with the low case beneath it) if listed here.
+      # The picture, full width. The id is the chart module's.
       charts:
         - id: chart-custodial-cost-vs-nostr
-          title: "Your app's yearly cost: as it runs today, and if it ran on Nostr"
+          title: "Projected cost of a custodial app vs the same app on Nostr:"
           legend:
             custodial: Cost of Custody
             nostr: Cost of Nostr
@@ -219,7 +217,7 @@ sections:
       # The button at the end of the chart's caption: the breach dialog, the
       # arithmetic and the cyber-policy cross-check side by side.
       headline:
-        how: "Here's how we estimate this →"
+        how: "How breach risk is estimated →"
       # Above the results whenever an assumption was overridden.
       custom:
         text: This result uses custom assumptions, not Nostr4's defaults.
@@ -727,17 +725,18 @@ sections:
     # The two doors stack, so the lede keeps its width.
     stack: true
     head:
-      title: Network Mature
+      title: Non-Custody is how Nostr scales.
       # {mature_year} is the year of network_mature_end in the current
       # assumptions, filled at build time (lib/text.html): never typed here.
       lede: >-
         Nostr4 exists to grow the network of independent social apps. We are
         actively developing the infrastructure and standards, and the
-        onboarding services, that let an app release custody without losing
-        its users. We expect non-custody to be fully supported on Nostr by
-        {mature_year}. That is the tipping point from which Nostr scales.
+        onboarding services, for apps to release custody of users and their content while simultaneously expanding their own user base and reducing costs. We expect non-custody to be fully supported on Nostr by
+        {mature_year}, at which time every integrated app will be able to realize the full benefits of being on this network.
     actions:
-      - label: See Services
+      - label: Learn About Nostr
+        href: /nostr/
+      - label: See Our Services
         href: /services/
       - label: Book a Free Consult
         href: /contact/?subject=Free+consult

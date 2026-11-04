@@ -93,9 +93,8 @@ fields:
   test:
     id: XU5x6e
     options: { "yes": d5fQLL }
-  # One more the page fills: the fees saved a year at scale. The form still
-  # carries "Payback month" and "Integration weeks (typical)", unmapped: the
-  # page estimates neither, and they are to be removed from the builder.
+  # One more the page fills: the fees saved a year at the instant the
+  # headline is read.
   fees_saved: { id: qoG7lg }
 
   # ── Send & Share (the contact details) ────────────────────────────────────
