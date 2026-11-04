@@ -706,6 +706,21 @@
   line-height: var(--lh-card);
 }
 
+// The breach figure in the caption, and the way to its dialog.
+.chart__caption b {
+  color: var(--ink-1);
+}
+
+.chart__how {
+  color: var(--gold);
+  font-size: inherit;
+}
+
+.chart__how:hover {
+  color: var(--gold);
+  text-decoration: underline;
+}
+
 // Recessive grid and axis; the data carries the colour.
 .chart__grid line {
   stroke: var(--line);

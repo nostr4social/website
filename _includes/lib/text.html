@@ -12,6 +12,17 @@ The conventions, all of which are plain text in the YAML:
 {%- endcomment -%}
 {%- assign tag = include.tag | default: "div" -%}
 {%- assign body = include.text | markdownify -%}
+{%- comment -%}
+  One derived token: {mature_year} is the year the current assumptions say
+  the network is mature (network_mature_end in the latest
+  _data/assumptions/v<N>.json), so no page types a year.
+{%- endcomment -%}
+{%- if body contains "{mature_year}" -%}
+  {%- assign latest = nil -%}
+  {%- for entry in site.data.assumptions -%}{%- if latest == nil or entry[1].version > latest.version -%}{%- assign latest = entry[1] -%}{%- endif -%}{%- endfor -%}
+  {%- assign mature_year = latest.assumptions.network_mature_end.typical | slice: 0, 4 -%}
+  {%- assign body = body | replace: "{mature_year}", mature_year -%}
+{%- endif -%}
 {%- assign body = body | replace: "<strong>—</strong>", '<b class="punch">—</b>' -%}
 {%- assign body = body | replace: "<strong>&mdash;</strong>", '<b class="punch">—</b>' -%}
 <{{ tag }} class="rich{% if include.class %} {{ include.class }}{% endif %}">{{ body }}</{{ tag }}>

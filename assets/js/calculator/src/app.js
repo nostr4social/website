@@ -543,6 +543,10 @@ function wire() {
     const button = e.target.closest('button.part')
     if (button && current) openHow(button.dataset.line, button.dataset.part, current, assumptions)
   })
+  // "How we estimate this" under the headline: the breach part's dialog, the arithmetic and the cross-check side by side.
+  $('#r-breach-how')?.addEventListener('click', () => {
+    if (current) openHow('compliance', 'breach', current, assumptions)
+  })
   $('#save-sign-open')?.addEventListener('click', openSign)
   $('#how-close')?.addEventListener('click', closeHow)
   $('#how-adjust')?.addEventListener('click', () => {

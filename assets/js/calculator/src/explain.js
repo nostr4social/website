@@ -4,7 +4,7 @@
 // the result, the inputs and the assumption values in use. Pure: no DOM.
 
 import { t } from '../../shared/src/config.js'
-import { compact, date, money, number, percent, perMau } from './format.js'
+import { approx, compact, date, money, number, percent, perMau } from './format.js'
 import { PART_ASSUMPTIONS, RETENTION_MONTHS, TEAMS, WEEKS_PER_YEAR, derivedAssumptions } from './model.js'
 
 /** Fill {a.key}, {i.key}, {p.key} and {d.key} from a flat map; anything unknown stays visible. */
@@ -138,6 +138,7 @@ export function explain(line, part, { inputs, values, overrides = {}, data, esti
     'd.estimated_months': estimated.months != null ? number(estimated.months) : '',
     'd.estimated_users': estimated.users != null ? number(Math.round(estimated.users)) : '',
     'd.estimated_date': estimated.date ? date(estimated.date) : '',
+    'd.breach_reduction': estimated.breach != null ? approx(estimated.breach) : '',
     'p.users': part.users != null ? number(Math.round(part.users)) : '',
     'd.tier': part.tier ? t(`details.tier_${part.tier}`) : '',
     'd.team': part.team ? t(`whose.team.${part.team}`) : '',
@@ -154,7 +155,7 @@ export function explain(line, part, { inputs, values, overrides = {}, data, esti
     today: fill(f.today || '', vars),
     nostr: fill(f.nostr || '', vars),
     // What the savings list shows: the same part at the instant the headline is read, at that instant's users.
-    estimated: part.estimated_custodial != null ? fill(t('how.estimated'), { ...vars, 'p.custodial': money(part.estimated_custodial), 'p.noncustodial': money(part.estimated_noncustodial) }) : '',
+    estimated: part.estimated_custodial != null ? fill(t(part.kind === 'risk' ? 'how.estimated_risk' : 'how.estimated'), { ...vars, 'p.custodial': money(part.estimated_custodial), 'p.noncustodial': money(part.estimated_noncustodial) }) : '',
     assumptions: describe(relevantKeys(line, part, inputs), { values, overrides, data }),
   }
 }

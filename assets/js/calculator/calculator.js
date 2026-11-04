@@ -675,8 +675,8 @@ var INPUTS = {
   // NIP standards published publicly (read, not priced)
   // Users: the opener, then growth
   mau: { type: "integer", required: true, default: 5e4, min: 1, max: 2e9 },
-  growth: { ...band(GROWTH), start: "0.25" },
-  // users a year from now, as a share of today's; blank means the assumptions' default (flat); the form starts on Steady
+  growth: { ...band(GROWTH), start: "0.5" },
+  // users a year from now, as a share of today's; blank means the assumptions' default (flat); the form starts on Fast
   // Content: the opener (the form starts on Messaging, so the illustrative app is a messaging app; a link that says nothing means "an app"), then the two per-user numbers (blank means derived from the kind of app)
   kind: { ...band(KIND), start: "messaging" },
   posts_per_user: { type: "number", required: false, default: null, min: 0, max: 1e6 },
@@ -700,8 +700,8 @@ var INPUTS = {
   rev: { type: "number", required: false, default: 0, min: 0, max: 1e12, start: 5e3 },
   rails: { type: "multi", required: false, default: [], options: ["p2p", "apple", "google", "processor", "reseller"] },
   balances: { type: "multi", required: false, default: [], options: ["yes"] },
-  // Reach: the opener (the form starts on the EU and the US), then distribution
-  jur: { type: "multi", required: true, default: ["eu", "us"], options: ["eu", "uk", "us", "other"] },
+  // Reach: the opener (the form starts on the US), then distribution
+  jur: { type: "multi", required: true, default: ["us"], options: ["eu", "uk", "us", "other"] },
   distribution: { type: "multi", required: false, default: [], options: ["apple", "google", "web"] }
 };
 var GRIDS = {
@@ -2699,6 +2699,7 @@ function explain(line, part2, { inputs, values, overrides = {}, data, estimated 
     "d.estimated_months": estimated.months != null ? number(estimated.months) : "",
     "d.estimated_users": estimated.users != null ? number(Math.round(estimated.users)) : "",
     "d.estimated_date": estimated.date ? date(estimated.date) : "",
+    "d.breach_reduction": estimated.breach != null ? approx(estimated.breach) : "",
     "p.users": part2.users != null ? number(Math.round(part2.users)) : "",
     "d.tier": part2.tier ? t(`details.tier_${part2.tier}`) : "",
     "d.team": part2.team ? t(`whose.team.${part2.team}`) : "",
@@ -2713,7 +2714,7 @@ function explain(line, part2, { inputs, values, overrides = {}, data, estimated 
     today: fill(f.today || "", vars),
     nostr: fill(f.nostr || "", vars),
     // What the savings list shows: the same part at the instant the headline is read, at that instant's users.
-    estimated: part2.estimated_custodial != null ? fill(t("how.estimated"), { ...vars, "p.custodial": money(part2.estimated_custodial), "p.noncustodial": money(part2.estimated_noncustodial) }) : "",
+    estimated: part2.estimated_custodial != null ? fill(t(part2.kind === "risk" ? "how.estimated_risk" : "how.estimated"), { ...vars, "p.custodial": money(part2.estimated_custodial), "p.noncustodial": money(part2.estimated_noncustodial) }) : "",
     assumptions: describe(relevantKeys(line, part2, inputs), { values, overrides, data })
   };
 }
@@ -2781,15 +2782,36 @@ function renderResults(result, { own = false } = {}) {
     renderParts(name, line, inputs);
   }
 }
+function span(months, kind) {
+  const whole = months > 0 && months % 12 === 0 ? months / 12 : null;
+  const words = t("chart.spans.words") || [];
+  if (whole != null && words[whole]) {
+    if (kind === "after") return fmt(t(whole === 1 ? "chart.spans.after_years" : "chart.spans.after_years_plural"), { n: words[whole] });
+    return fmt(t(`chart.spans.${kind}_years`), { n: words[whole] });
+  }
+  return fmt(t(`chart.spans.${kind}_months`), { n: number(months) });
+}
+function renderNote(reduction) {
+  const host = $("#r-note-text");
+  const how = $("#r-breach-how");
+  if (!host) return;
+  clear(host);
+  const amount = approx(reduction);
+  if (!(reduction >= 0.5) || amount === "$0") {
+    show(how, false);
+    return;
+  }
+  for (const token of t("headline.note").split(/(\{breach\})/)) host.append(token === "{breach}" ? el("b", { text: amount }) : document.createTextNode(token));
+  show(how, true);
+}
 function renderChart(result) {
   const { typical } = result;
   const T = typical.totals;
   const M = typical.markers;
-  const months = T.estimated_after_payback;
-  const matureVars = { date: date(M.mature.date) };
-  const mature = M.mature.since ? fmt(t("chart.caption_mature_since"), matureVars) : M.mature.months > YEARS * 12 ? fmt(t("chart.caption_mature_beyond"), matureVars) : fmt(t("chart.caption_mature"), matureVars);
-  const caption = $(`#caption-${"chart-custodial-cost-vs-nostr"}`);
-  if (caption) caption.textContent = [caption.dataset.template, t("chart.caption_window"), fmt(t("chart.caption_estimated"), { months: number(months) }), mature].filter(Boolean).join(" ");
+  const spans = { window: span(M.payback.months, "window"), at: span(T.estimated_months, "at"), after: span(T.estimated_after_payback, "after") };
+  const caption = $(`#caption-text-${"chart-custodial-cost-vs-nostr"}`);
+  if (caption) caption.textContent = [caption.dataset.template, fmt(t("chart.caption_window"), spans), fmt(t("chart.caption_estimated"), spans)].filter(Boolean).join(" ");
+  renderNote(T.breach_reduction);
   const first = typical.projection[0];
   const end = typical.projection[YEARS];
   const title = fmt(t("chart.versus.aria"), {
@@ -2798,8 +2820,7 @@ function renderChart(result) {
     end_custodial: approx(end.custodial),
     end_nostr: approx(end.nostr),
     saving: approx(T.estimated),
-    months: number(months),
-    mature
+    ...spans
   });
   drawCharts({ projection: typical.projection, markers: M, headline: { text: approx(T.estimated), sub: t("chart.versus.band_sub") }, title });
 }
@@ -2814,6 +2835,8 @@ function renderWhose(result, own) {
     lead: document.createTextNode(t(own ? "whose.yours" : "whose.illustrative")),
     kind: piece(t(`whose.kind.${inputs.kind || "none"}`), inputs.kind != null),
     mau: piece(number(inputs.mau), true),
+    // The growth bands are "0", "0.25", "0.5" and "1": looked up on the block, not by path.
+    growth: piece(t("whose.growth")?.[eff.growth] ?? "", inputs.growth != null),
     team: piece(t(`whose.team.${eff.team}`), inputs.team != null),
     moderation: piece(t(`whose.moderation.${inputs.mod_who || "benchmark"}`), inputs.mod_who != null),
     payments: piece(inputs.rev > 0 ? fmt(t("whose.payments.some"), { rev: compact(inputs.rev) }) : t("whose.payments.none"), inputs.rev > 0),
@@ -2880,7 +2903,7 @@ function openHow(line, partId, result, data) {
   const part2 = result.typical.lines[line]?.parts.find((p) => p.id === partId);
   if (!part2) return;
   const T = result.typical.totals;
-  const info = explain(line, part2, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, estimated: { months: T.estimated_months, users: T.estimated_users, date: T.estimated_date } });
+  const info = explain(line, part2, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, estimated: { months: T.estimated_months, users: T.estimated_users, date: T.estimated_date, breach: T.breach_reduction } });
   fillHow({
     label: info.label,
     line: $(`.lt-row[data-line="${line}"] .lt-title`)?.textContent.trim() || line,
@@ -3509,6 +3532,9 @@ function wire() {
   $("#r-table")?.addEventListener("click", (e) => {
     const button = e.target.closest("button.part");
     if (button && current) openHow(button.dataset.line, button.dataset.part, current, assumptions);
+  });
+  $("#r-breach-how")?.addEventListener("click", () => {
+    if (current) openHow("compliance", "breach", current, assumptions);
   });
   $("#save-sign-open")?.addEventListener("click", openSign);
   $("#how-close")?.addEventListener("click", closeHow);

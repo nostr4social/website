@@ -84,20 +84,54 @@ export function renderResults(result, { own = false } = {}) {
 }
 
 /**
+ * A span of months in the caption's words: whole years as words ("two-year",
+ * "year three", "one year"), anything else as months, so an overridden
+ * assumption still reads right.
+ */
+function span(months, kind) {
+  const whole = months > 0 && months % 12 === 0 ? months / 12 : null
+  const words = t('chart.spans.words') || []
+  if (whole != null && words[whole]) {
+    if (kind === 'after') return fmt(t(whole === 1 ? 'chart.spans.after_years' : 'chart.spans.after_years_plural'), { n: words[whole] })
+    return fmt(t(`chart.spans.${kind}_years`), { n: words[whole] })
+  }
+  return fmt(t(`chart.spans.${kind}_months`), { n: number(months) })
+}
+
+/**
+ * The end of the chart's caption: the breach exposure, calculated apart
+ * from the saving, in bold, with the button to its dialog. A zero
+ * reduction (an app already on Nostr for keys and storage) leaves the
+ * sentence out; "$0 of exposure" is never said.
+ */
+function renderNote(reduction) {
+  const host = $('#r-note-text')
+  const how = $('#r-breach-how')
+  if (!host) return
+  clear(host)
+  const amount = approx(reduction)
+  if (!(reduction >= 0.5) || amount === '$0') {
+    show(how, false)
+    return
+  }
+  for (const token of t('headline.note').split(/(\{breach\})/)) host.append(token === '{breach}' ? el('b', { text: amount }) : document.createTextNode(token))
+  show(how, true)
+}
+
+/**
  * The picture and its caption. The chart gets the typical scenario's six
- * points and three markers; the gold figure is the headline, rounded as it
- * is everywhere. The caption names the window, the months and the network's
- * date: "since" when it is already behind us, "by" when it is beyond the years shown.
+ * points and two markers; the gold figure is the headline, rounded as it
+ * is everywhere. The caption names the window and the instant the headline
+ * is read, in derived words, then the breach line.
  */
 function renderChart(result) {
   const { typical } = result
   const T = typical.totals
   const M = typical.markers
-  const months = T.estimated_after_payback
-  const matureVars = { date: date(M.mature.date) }
-  const mature = M.mature.since ? fmt(t('chart.caption_mature_since'), matureVars) : M.mature.months > YEARS * 12 ? fmt(t('chart.caption_mature_beyond'), matureVars) : fmt(t('chart.caption_mature'), matureVars)
-  const caption = $(`#caption-${'chart-custodial-cost-vs-nostr'}`)
-  if (caption) caption.textContent = [caption.dataset.template, t('chart.caption_window'), fmt(t('chart.caption_estimated'), { months: number(months) }), mature].filter(Boolean).join(' ')
+  const spans = { window: span(M.payback.months, 'window'), at: span(T.estimated_months, 'at'), after: span(T.estimated_after_payback, 'after') }
+  const caption = $(`#caption-text-${'chart-custodial-cost-vs-nostr'}`)
+  if (caption) caption.textContent = [caption.dataset.template, fmt(t('chart.caption_window'), spans), fmt(t('chart.caption_estimated'), spans)].filter(Boolean).join(' ')
+  renderNote(T.breach_reduction)
   const first = typical.projection[0]
   const end = typical.projection[YEARS]
   const title = fmt(t('chart.versus.aria'), {
@@ -106,8 +140,7 @@ function renderChart(result) {
     end_custodial: approx(end.custodial),
     end_nostr: approx(end.nostr),
     saving: approx(T.estimated),
-    months: number(months),
-    mature,
+    ...spans,
   })
   drawCharts({ projection: typical.projection, markers: M, headline: { text: approx(T.estimated), sub: t('chart.versus.band_sub') }, title })
 }
@@ -128,6 +161,8 @@ function renderWhose(result, own) {
     lead: document.createTextNode(t(own ? 'whose.yours' : 'whose.illustrative')),
     kind: piece(t(`whose.kind.${inputs.kind || 'none'}`), inputs.kind != null),
     mau: piece(number(inputs.mau), true),
+    // The growth bands are "0", "0.25", "0.5" and "1": looked up on the block, not by path.
+    growth: piece(t('whose.growth')?.[eff.growth] ?? '', inputs.growth != null),
     team: piece(t(`whose.team.${eff.team}`), inputs.team != null),
     moderation: piece(t(`whose.moderation.${inputs.mod_who || 'benchmark'}`), inputs.mod_who != null),
     payments: piece(inputs.rev > 0 ? fmt(t('whose.payments.some'), { rev: compact(inputs.rev) }) : t('whose.payments.none'), inputs.rev > 0),
@@ -210,7 +245,7 @@ export function openHow(line, partId, result, data) {
   const part = result.typical.lines[line]?.parts.find((p) => p.id === partId)
   if (!part) return
   const T = result.typical.totals
-  const info = explain(line, part, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, estimated: { months: T.estimated_months, users: T.estimated_users, date: T.estimated_date } })
+  const info = explain(line, part, { inputs: result.typical.effective, values: result.typical.values, overrides: result.overrides, data, estimated: { months: T.estimated_months, users: T.estimated_users, date: T.estimated_date, breach: T.breach_reduction } })
   fillHow({
     label: info.label,
     line: $(`.lt-row[data-line="${line}"] .lt-title`)?.textContent.trim() || line,

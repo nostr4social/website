@@ -31,7 +31,7 @@ const test = async (name, fn) => {
 const base = { mau: 50000, posts_per_user: 20, team: 'ten', eng_accounts: '5', eng_content: '25', eng_infra: '25', mod_who: 'team', mod_heads: '3', rails: ['apple', 'google', 'processor'], rev: 20000, jur: ['eu', 'uk', 'us'] }
 const min = (extra = {}) => ({ mau: 50000, jur: ['us'], team: 'ten', ...extra })
 // The illustrative app the page opens on: the form's starting answers.
-const illustrative = { mau: 50000, jur: ['eu', 'us'], team: 'ten', growth: '0.25', kind: 'messaging', rev: 5000 }
+const illustrative = { mau: 50000, jur: ['us'], team: 'ten', growth: '0.5', kind: 'messaging', rev: 5000 }
 const finite = (r) => {
   for (const s of SCENARIOS) {
     for (const l of LINES) {
@@ -823,11 +823,13 @@ await test('the part → assumptions map says exactly which assumptions each lin
 await test('growth is a band, starts on Steady on the form, and an unknown band is refused', () => {
   assert.equal(normalizeInputs({ ...base, growth: '0.25' }).growth, '0.25')
   assert.equal(normalizeInputs(base).growth, null, 'blank until answered: the model holds an unanswered app flat')
-  assert.equal(INPUTS.growth.start, '0.25', "the form's starting answer is Steady")
+  assert.equal(INPUTS.growth.start, '0.5', "the form's starting answer is Fast")
   assert.equal(INPUTS.rev.start, 5000, "the form's starting payment volume is 5,000 a month, so the illustrative app shows the line")
   assert.equal(INPUTS.kind.start, 'messaging', 'the illustrative app is a messaging app')
   assert.equal(INPUTS.kind.default, null, 'but a link that says nothing means an app')
-  assert.deepEqual(INPUTS.jur.default, ['eu', 'us'], 'in the EU and the US')
+  assert.deepEqual(INPUTS.jur.default, ['us'], 'in the US')
+  // For the bitcoiners: the illustrative app's headline prints $210k.
+  assert.equal(approx(calculate(illustrative).typical.totals.estimated), '$210k', String(calculate(illustrative).typical.totals.estimated))
   assert.equal(normalizeInputs(min({ kind: null })).kind, null)
   assert.equal(INPUTS.rev.default, 0, 'but a link that says nothing means no payments')
   assert.equal(normalizeInputs(min()).rev, 0)

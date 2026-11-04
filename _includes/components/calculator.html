@@ -246,8 +246,13 @@ simply stack.
         <svg class="chart__svg" id="{{ chart.id }}" viewBox="0 0 640 300" role="img" aria-labelledby="{{ chart.id }}-title" tabindex="0"><title id="{{ chart.id }}-title"></title></svg>
         <div class="chart__tip" id="tip-{{ chart.id }}" role="status" hidden></div>
       </div>
-      {%- comment -%} The page's sentence; the script adds the window, the months and the network's date after it. {%- endcomment -%}
-      <figcaption class="chart__caption" id="caption-{{ chart.id }}" data-template="{{ chart.caption }}">{{ chart.caption }}</figcaption>
+      {%- comment -%}
+        The caption: the page's sentence, then the script adds the window,
+        the months and the network's date; then the one line on the page
+        that says what the figure leaves out (integration cost, the breach
+        exposure in bold) with the button to the breach dialog.
+      {%- endcomment -%}
+      <figcaption class="chart__caption" id="caption-{{ chart.id }}"><span id="caption-text-{{ chart.id }}" data-template="{{ chart.caption }}">{{ chart.caption }}</span> <span id="r-note-text"></span> <button type="button" class="linkbutton chart__how" id="r-breach-how" aria-haspopup="dialog">{{ r.headline.how }}</button></figcaption>
     </figure>
     {%- endfor -%}
 

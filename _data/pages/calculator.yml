@@ -191,10 +191,11 @@ sections:
           legend:
             custodial: Cost of Custody
             nostr: Cost of Nostr
-          # The first sentence of the caption; the script adds the window,
-          # the months and the network's date (strings.chart.caption_*).
+          # The caption's opening; the script adds the window, the headline's
+          # instant and the breach line (strings.chart.caption_*,
+          # strings.headline.note).
           caption: >-
-            In this model, the cost of running an app on Nostr is lower than custody today, and it falls further as the network's standards and infrastructure mature.
+            This chart shows the cost of custody for your app today, and the same app running on Nostr. The gap between the lines is the saving.
       # The three facts beside the chart, all at the instant the headline is
       # read, like the figure in the chart and the savings list: the two
       # costs per user then, and the Nostr cost a year then. The custodial
@@ -207,6 +208,10 @@ sections:
           label: Nostr cost per user
         nostr_at_scale:
           label: Cost of Nostr app, a year
+      # The button at the end of the chart's caption: the breach dialog, the
+      # arithmetic and the cyber-policy cross-check side by side.
+      headline:
+        how: "Here's how we estimate this →"
       # Measures down, years across from today; the script fills the year
       # heads and the cells. Every cell is the run-rate at that instant;
       # nothing is cumulative.
@@ -334,6 +339,11 @@ sections:
     strings:
       range: "Range {low} to {high}"
       range_short: "{low} to {high}"
+      # The end of the chart's caption, filled by the script: the breach
+      # exposure, calculated apart from the saving. {breach} is set in bold;
+      # when the reduction is zero the sentence and its button are left out.
+      headline:
+        note: "Calculated separately: about {breach} a year of breach exposure that Nostr also reduces, with no passwords and little private data to lose."
       per_mau_pair: "{custodial} today, {noncustodial} on Nostr"
       # The moderation line when the form says nobody moderates: the benchmark it would have billed.
       moderation_nobody: "No moderation today. Benchmarks put it at about {people} people, {cost} a year. On Nostr that work moves to the network; nothing is saved because nothing is spent."
@@ -346,8 +356,9 @@ sections:
         adjust: Adjust Assumptions
         changed: changed
         meta: "{low} to {high} · {confidence}"
-        # The foot of the dialog: the same part at the instant the headline is read.
+        # The foot of the dialog: the same part at the instant the headline is read; the breach, an exposure, says it is not in the headline.
         estimated: "{d.estimated_months} months from today ({d.estimated_users} users): {p.custodial} of custody becomes {p.noncustodial} on Nostr. That is the figure in the savings list."
+        estimated_risk: "{d.estimated_months} months from today: {p.custodial} a year of exposure becomes {p.noncustodial}, about {d.breach_reduction} a year less. An exposure, not a saving: it is noted under the headline and counted in nothing."
         showing: "Showing the {n} assumptions behind {part}."
         show_all: Show all
         # A unit's word beside a value in the dialog, singular and plural.
@@ -422,13 +433,13 @@ sections:
             nostr: "{a.privacy_remains_share} remains once the network is mature, for whatever you still retain: {p.noncustodial}"
           dsar:
             today: "{p.users} users under a privacy law (the EU and the UK always, the US once the CCPA applies, counted as consumers a year) × {a.dsar_rate_per_mau_year} access requests a year × {a.dsar_cost} each, automated = {p.custodial}"
-            nostr: "The same rate on the {a.retained_data_share} of personal data still held at scale: {p.noncustodial}"
+            nostr: "The same rate on the {a.retained_data_share} of personal data still held once the network is mature: {p.noncustodial}"
           insurance:
             today: "A small company's cyber policy: {a.cyber_insurance_year} a year."
             nostr: "{a.insurance_remains_share} remains once the network is mature: {p.noncustodial}"
           breach:
-            today: "An expected loss, not a bill: {a.breach_prob_year} chance a year × the lesser of {a.breach_cost_cap} and {i.mau} users × {a.breach_cost_per_user} = {p.custodial}"
-            nostr: "The same chance, on the {a.retained_data_share} of personal data still held at scale: {p.noncustodial}"
+            today: "An expected loss, not a bill: {a.breach_prob_year} chance of a breach in a year × {p.loss}, the median loss for a firm with {d.team} (IRIS 2025) = {p.custodial}. Cross-check from the insurance side: a small-business cyber policy costs {a.cyber_insurance_year} a year, and insurers expect to pay out only a fraction of that per policy; the policy covers part of a loss, this figure counts all of it, so the two are not in conflict."
+            nostr: "The same chance, on the {a.retained_data_share} of personal data still held once the network is mature, with no passwords to lose: {p.noncustodial}"
           labour_implied:
             today: "No reviewers were given, so {a.mods_per_million_mau} per million users gives {p.people} people × {p.loaded} a year, fully loaded = {p.custodial}"
             nostr: "{a.moderation_remains_share} remains once the network is mature, for whatever you host yourself: {p.noncustodial}"
@@ -478,7 +489,7 @@ sections:
       whose:
         illustrative: Estimated
         yours: Your estimate
-        frame: "{lead} for {kind} app {reach} that is {nostr} and has {mau} active users, with {team}, {moderation}, and facilitates {payments} a month in in-app payments."
+        frame: "{lead} for {kind} app {reach} that is {nostr}, has {mau} active users {growth}, with {team}, {moderation}, and facilitates {payments} a month in in-app payments."
         kind:
           none: any
           messaging: a messaging
@@ -509,6 +520,12 @@ sections:
           "0": not on Nostr
           "0.5": partially Nostr integrated
           "1": fully Nostr integrated
+        # The growth band, after the user count; the form's own bands.
+        growth:
+          "0": holding flat
+          "0.25": growing about 25% a year
+          "0.5": growing about 50% a year
+          "1": doubling each year
         link: Customize App Details
       # The years along the chart are the app's: today, then today plus one
       # to five years. Only the network's dates are absolute; the caption
@@ -518,12 +535,22 @@ sections:
         year: "Year {n}"
         # Along the dotted edge, inside the hatched area, in the Nostr line's colour.
         wedge: integration window
-        # The caption's tail, after the page's own sentence.
-        caption_window: Integration and payback occupy this window. Integration cost is settled in a consult.
-        caption_estimated: "Annual savings estimated at {months} months after integration payback."
-        caption_mature: "The network is mature on {date}."
-        caption_mature_since: "Network mature since {date}."
-        caption_mature_beyond: "The network is mature by {date}, beyond the years shown."
+        # The caption's tail, after the page's own sentences. {window}, {at}
+        # and {after} are spans derived from the two timeline assumptions:
+        # "two-year", "year three", "one year" when they are whole years,
+        # "24-month", "month 36", "12 months" otherwise (strings.chart.spans).
+        caption_window: "Integration cost is not estimated here, but payback should land within the {window} integration window."
+        caption_estimated: "The gold rule marks the estimated savings in {at}, {after} after the window."
+        spans:
+          # Whole years, as words; a span that is not whole years falls back to months.
+          words: [zero, one, two, three, four, five, six, seven, eight, nine, ten]
+          window_years: "{n}-year"
+          window_months: "{n}-month"
+          at_years: "year {n}"
+          at_months: "month {n}"
+          after_years: "{n} year"
+          after_years_plural: "{n} years"
+          after_months: "{n} months"
         tip:
           users: "{n} active users"
         versus:
@@ -533,7 +560,7 @@ sections:
           tip_nostr: "Cost of Nostr: {amount}"
           tip_nostr_today: "If integrated today: {amount}"
           tip_saving: "Estimated saving: {amount}"
-          aria: "Today custody costs {custodial} a year against {nostr} if integrated today; in year five, {end_custodial} against {end_nostr}. The gold rule marks the estimated savings of {saving} a year, read {months} months after integration payback. {mature}"
+          aria: "Today custody costs {custodial} a year against {nostr} if integrated today; in year five, {end_custodial} against {end_nostr}. The hatched wedge is the {window} integration window. The gold rule marks the estimated savings of {saving} a year in {at}, {after} after the window."
       version: "Assumptions version {version} · calculated as of {date}"
       # Beside the version, at the foot of the tab: what the figures are and are not.
       disclaimer: Estimates from public benchmarks and Nostr4's assumptions; not legal, tax or financial advice.
@@ -667,13 +694,15 @@ sections:
     # The two doors stack, so the lede keeps its width.
     stack: true
     head:
-      title: Nostr at Scale
+      title: Network Mature
+      # {mature_year} is the year of network_mature_end in the current
+      # assumptions, filled at build time (lib/text.html): never typed here.
       lede: >-
         Nostr4 exists to grow the network of independent social apps. We are
         actively developing the infrastructure and standards, and the
         onboarding services, that let an app release custody without losing
-        its users. We expect non-custody to be fully supported on Nostr within
-        three years. That is the tipping point from which Nostr scales.
+        its users. We expect non-custody to be fully supported on Nostr by
+        {mature_year}. That is the tipping point from which Nostr scales.
     actions:
       - label: See Services
         href: /services/
