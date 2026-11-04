@@ -655,62 +655,110 @@ required after any change — an unbuilt edit simply fails to load.
 
 ## The calculator
 
-`/calculator/` is the second page that runs JavaScript. Its words are in
-`_data/pages/calculator.yml`; its numbers are in `_data/assumptions/v<N>.json`
-(version 3 at the time of writing), served unchanged at
-`/calculator/assumptions.v<N>.json` and explained in
-`calculator/assumptions.v<N>.md`, written from the same file by
-`npm run build:assumptions` (`check:assumptions` fails CI when the latest is
-stale). Every assumption has a typical, low and high value, a source and a
-confidence grade; the page shows typical and the band, and lets the reader
-change any value. Only the assumptions marked `scenario_varies` (Nostr4's
-thesis: where the network is today, the time to scale, what remains at scale
-and the Nostr-native fees) move the band; the
-custodial side is held at typical in every case. Changing a number means a
-new version: a new JSON, a new explainer, and the template, tests and e2e
-pointed at it. Old versions stay published, and a results link made with one
-is recomputed under the current version with a note saying so (an override of
-a key the current version no longer has is dropped).
+`/calculator/` is the second page that runs JavaScript: the Non-Custodial
+Savings Calculator. Its words are in `_data/pages/calculator.yml`; its
+numbers are in `_data/assumptions/v<N>.json` (version 4 at the time of
+writing), served unchanged at `/calculator/assumptions.v<N>.json` and
+explained in `calculator/assumptions.v<N>.md`, written from the same file
+by `npm run build:assumptions` (`check:assumptions` fails CI when the
+latest is stale). Every assumption has a typical, low and high value, a
+source and a confidence grade; the page shows typical and the band, and
+lets the reader change any value. Only the assumptions marked
+`scenario_varies` (Nostr4's thesis: what remains once the network is
+mature and the Nostr-native fees) move the band; the custodial side is
+held at typical in every case. Changing a number means a new version: a
+new JSON, a new explainer, and the template, tests and e2e pointed at it.
+Old versions stay published, and a results link made with one is
+recomputed under the current version with a note saying so (an override
+of a key the current version no longer has is dropped). Date rows
+(`unit: date`) hold ISO dates; everything else is a number.
 
-Version 3's ramp starts at `scale_progress_today`, the share of the at-scale
-saving the network already delivers, and month 1 is January of `start_year`,
-so the Cost of Nostr line starts below custody today. An app's own
-integration, its time and its cost, is never estimated on the page: it is
-settled case by case, in a consult. The page lists what integration
-involves and nothing more.
-The payments line measures the fee stack custody puts on in-app payments:
-`rev` is the gross monthly volume the app facilitates (purchases,
-subscriptions, tips and sales between users), not the app's own revenue; on
-Nostr the app is not a party to the payment, and the store's commission
-reaches it only as far as `p2p_store_fee_remains_share` leaves.
-Moderation has three states: unanswered bills the benchmark (so many
-reviewers per million users), a team or a vendor is priced by head, and an
-explicit Nobody bills nothing on either side and claims no saving, showing
-the benchmark instead. The model is one pure module,
-`assets/js/calculator/src/model.js`, tested by `npm run test:model`; research
-notes, dated, sit under `tools/calculator/`.
+**Time, in version 4.** The model is one pure module,
+`assets/js/calculator/src/model.js`, tested by `npm run test:model`, and
+it never reads the clock: `calculate(inputs, assumptions, overrides,
+{ today })` takes the calculation date, the app passes it, and a results
+link carries it as `t=YYYY-MM-DD`, so a link opened later recalculates
+as of that date and says so. The app's timeline is relative (today, then
+today plus one to five years, each dot the annualized run-rate at that
+instant); the network's is absolute: its progress runs from
+`network_mature_start` to `network_mature_end`, front-loaded, and only
+the cost-of-Nostr line reads the calendar. The headline is the gap
+between the two lines `integration_payback_months` plus
+`estimated_savings_months` after today, cash and fees only, rounded to
+two significant figures by the one formatter every figure shares.
+Nothing is cumulative. An app's own integration cost is never estimated:
+the chart's hatched wedge marks the window and the caption says it is
+settled in a consult. The expected breach loss is sized by firm
+(`breach_prob_year` × the median loss for the team's tier) and is an
+exposure beside the headline, never in it; its dialog shows the
+arithmetic and the cyber-policy cross-check side by side.
 
-Results are a link: the inputs and any changed assumptions as query
-parameters, never anything about the person. A calculation is also saved as
-a Nostr form response (NIP-101 as formstr.app implements it): a kind 1069
-event, encrypted to the form's key, signed by a one-time key with proof of
-work, published to the relays the form names. A submission with contact
-details also sends `hello` a NIP-17 message.
+**Overrides** are read strictly (an empty value, hex, an exponent or a
+word is ignored, never read as 0) and clamped by row type: shares to
+0..1, dates to 2015..2050, everything else to ten times the row's largest
+stated value. Whenever one applies, a banner says the result uses custom
+assumptions and offers a reset that keeps the inputs.
+
+**The payments line** reads `p2p_volume`, the gross monthly volume of
+payments between the app's users (tips, creator payments, sales between
+users); the app's own sales are not a custody cost and are not counted.
+Links and responses made before version 4 called it `rev` and still
+open. Once the network is mature the share in `p2p_conversion_share`
+settles on the user's own rail; a store rail keeps the commission
+`p2p_store_fee_remains_share` leaves. Compliance programmes scale by team
+size through `compliance_tier_factor_*`. Moderation has three states:
+unanswered bills the benchmark, a team or a vendor is priced by head, and
+an explicit Nobody bills nothing on either side. Research notes, dated,
+sit under `tools/calculator/`.
+
+Results are a link: the inputs, any changed assumptions and the date as
+query parameters, never anything about the person. A calculation is also
+saved as a Nostr form response (NIP-101 as formstr.app implements it): a
+kind 1069 event, encrypted to the form's key, signed by a one-time key
+kept in `sessionStorage` for the tab (or the visitor's own key, if they
+signed in), carrying a NIP-13 nonce, published to the site's relays
+(`relays.site` in `_data/blocks/nostr_config.yml`, the one list every
+page and tool reads; `npm run check:relays` fails on a dead one). Consent
+to email travels inside the encrypted list as the consent text's version
+and the time. A submission with contact details also sends `hello` a
+NIP-17 message; an anonymous save sends nothing and is counted from the
+responses on the relays.
+
+**Test mode.** `calculator_mode: test | live` in
+`_data/blocks/nostr_config.yml` is the one switch: while it is `test`
+the "test" box beside Send is ticked, so a send is recorded as a test
+unless the box is cleared, and the lead message's subject starts with
+`[TEST]`. Going live is that one change.
+
+**The responses page.** `/calculator/responses/` (noindex, out of the
+sitemap, reached by the quiet link under the savings table) reads the
+saved responses in the browser: it is empty until the form's key signs
+in (an extension or a remote signer, or hello's key, which reaches the
+form's secret through the formstr My Forms list), then it pulls every
+response tagged with the form's address from the site's relays, applies
+the reader policy (`assets/js/shared/src/policy.js`, shared with the
+tools: the form's `a` tag, the signature, signed-in or unverified by
+whether the key has a profile, `pow.response` bits for the unverified
+while the toggle is on, duplicates collapsed, the test flag), decrypts in
+memory, and shows one row per response with the headline recomputed
+through the model from the saved answers, version and date. Filters by
+version (v4 and up by default), live or test, signer and contact; sorts;
+a CSV made in the browser. Nothing leaves the browser.
 
 The form is built by hand in formstr.app to `_data/forms/recipe.yml`. Then:
 
 ```sh
 npm run snapshot:form -- naddr1...   # writes _data/forms/calculator.yml from the live template
 npm run check:form                   # fails when the live template no longer matches the snapshot
-FORM_SECRET=nsec1... npm run responses -- --since 7d   # read responses back, verified and decrypted
+FORM_SECRET=nsec1... npm run responses -- --since 7d   # read responses back, screened and decrypted
+npm run check:relays                 # every relay in the site's list answers
 npm run e2e:form                     # the pipeline offline, against `nak serve`
-npm run e2e:calculator               # the page in headless Chrome; saves through a fixture form when no snapshot exists
+npm run e2e:calculator               # the page in headless Chrome; saves through a fixture form
+npm run e2e:results                  # the responses page, signed in through an injected NIP-07 signer
 ```
 
 Until a snapshot is committed the page submits nothing and says nothing
-about it. A small "test" checkbox beside Send in the Save & Share modal marks
-a submission as a test, with the form's own option, so it can be filtered
-out; it is on by default for now. A `?test=…` on the page presets it.
+about it.
 
 ## Building and checking
 
@@ -741,10 +789,12 @@ npm run audit:responsive    # every page × 1440/1200/900/600/479/390/360: no ho
 npm run audit:a11y          # alt text, one h1, no skipped levels, labelled fields, named controls
 npm run e2e:ui              # the contact form end to end, against an unreachable relay
 npm run e2e:calculator      # the calculator end to end, through a fixture form on a local relay
+npm run e2e:results         # the responses page end to end, signed in through an injected NIP-07 signer
 npm run e2e:contact         # the NIP-17 pipeline offline; add a wss:// URL to publish for real
 npm run e2e:form            # the form-response pipeline offline, against `nak serve`
 npm run test:model          # the cost model and the results-link codec
-npm run check:inboxes       # read-only: does each name in nostr.json publish a kind 10050 inbox list?
+npm run check:inboxes       # read-only: does each name in nostr.json publish a kind 10050 inbox list? (--wraps screens the inbox)
+npm run check:relays        # every relay in the site's list (nostr_config.yml) answers; fails on a dead one
 npm run fetch:profiles      # snapshot each name's kind 0 into _data/profiles.yml + assets/images/people/
 ```
 
